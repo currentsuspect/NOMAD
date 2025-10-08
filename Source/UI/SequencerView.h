@@ -1,0 +1,127 @@
+#pragma once
+
+#include <JuceHeader.h>
+#include "../Models/Pattern.h"
+#include "../Models/PatternManager.h"
+#include "../Audio/TransportController.h"
+
+/**
+ * SequencerView is a grid-based step sequencer UI component.
+ * It displays a pattern as a grid where users can add/remove notes by clicking.
+ */
+class SequencerView : public juce::Component,
+                      public juce::Timer,
+                      public TransportController::Listener,
+                      public juce::ScrollBar::Listener
+{
+public:
+    SequencerView(PatternManager& patternManager, TransportController& transport);
+    ~SequencerView() override;
+    
+    // Set the sequencer engine to sync active pattern
+    void setSequencerEngine(class SequencerEngine* engine);
+    
+    // Component overrides
+    void paint(juce::Graphics& g) override;
+    void resized() override;
+    void mouseDown(const juce::MouseEvent& event) override;
+    void mouseUp(const juce::MouseEvent& event) override;
+    void mouseDrag(const juce::MouseEvent& event) override;
+    void mouseWheelMove(const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel) override;
+    
+    // Context menu and keyboard
+    bool keyPressed(const juce::KeyPress& key) override;
+    void showContextMenu(const juce::Point<int>& position);
+    
+    // Timer callback for playback animation
+    void timerCallback() override;
+    
+    // TransportController::Listener
+    void transportStateChanged(TransportController::State newState) override;
+    void transportPositionChanged(double positionInBeats) override;
+    
+    // ScrollBar::Listener
+    void scrollBarMoved(juce::ScrollBar* scrollBarThatHasMoved, double newRangeStart) override;
+    
+    // Pattern management
+    void setActivePattern(PatternManager::PatternID id);
+    PatternManager::PatternID getActivePattern() const;
+    
+    // Pattern controls
+    void setPatternLength(int steps);
+    void setStepsPerBeat(int steps);
+    
+private:
+    PatternManager& patternManager;
+    TransportController& transportController;
+    class SequencerEngine* sequencerEngine = nullptr;
+    
+    PatternManager::PatternID activePatternID = -1;
+    
+    // Grid dimensions (FL Studio style - more compact)
+    int cellWidth = 24;
+    int cellHeight = 24;
+    int numTracks = 8;
+    int headerHeight = 80; // More space for controls and step numbers
+    int trackLabelWidth = 120; // Wider for instrument names
+    int stepNumberHeight = 16; // Height for step numbers row
+    
+    // Playback visualization
+    int currentPlaybackStep = -1;
+    double playbackPosition = 0.0;
+    
+    // Track properties
+    std::vector<juce::String> trackNames;
+    std::vector<bool> trackMuteStates;
+    std::vector<bool> trackSoloStates;
+    std::vector<float> trackVolumes;
+    std::vector<std::unique_ptr<juce::Slider>> trackVolumeSliders;
+    
+    // Scrolling
+    double horizontalScrollOffset = 0.0;
+    int scrollbarHeight = 12;
+    
+    // Horizontal scrolling
+    juce::ScrollBar horizontalScrollbar{false};
+    double scrollOffsetX = 0.0;
+    int scrollOffset = 0;
+    int maxVisibleSteps = 16;
+    
+    // UI controls
+    juce::Label patternNameLabel;
+    juce::ComboBox patternSelector;
+    juce::Label patternLengthLabel;
+    juce::Slider patternLengthSlider;
+    juce::Label stepsPerBeatLabel;
+    juce::Slider stepsPerBeatSlider;
+    juce::Label swingLabel;
+    juce::Slider swingSlider;
+    juce::TextButton newPatternButton;
+    juce::TextButton deletePatternButton;
+    
+    // Helper methods
+    void drawGrid(juce::Graphics& g);
+    void drawStepNumbers(juce::Graphics& g);
+    void drawNotes(juce::Graphics& g);
+    void drawPlaybackIndicator(juce::Graphics& g);
+    void drawTrackLabels(juce::Graphics& g);
+    void handleMuteButtonClick(int track);
+    void handleSoloButtonClick(int track);
+    
+    int getStepAtX(int x) const;
+    int getTrackAtY(int y) const;
+    bool isInGrid(int x, int y) const;
+    
+    void toggleNoteAtPosition(int step, int track);
+    void updatePatternSelector();
+    void createNewPattern();
+    void deleteCurrentPattern();
+    
+    // Context menu actions
+    void handleContextMenuResult(int result);
+    void randomizePattern();
+    void shiftPatternLeft();
+    void shiftPatternRight();
+    
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SequencerView)
+};
