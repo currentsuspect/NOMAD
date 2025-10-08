@@ -2,14 +2,27 @@
 
 A modern, GPU-accelerated Digital Audio Workstation built from the ground up for performance and workflow efficiency.
 
-## Project Structure
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Commercial](https://img.shields.io/badge/License-Commercial-blue.svg)](LICENSE-COMMERCIAL)
+
+## 🎵 Features
+
+- **GPU-Accelerated UI** - Smooth, responsive interface powered by OpenGL
+- **Pattern-Based Workflow** - Inspired by FL Studio's intuitive sequencer
+- **Real-Time Audio Engine** - Low-latency audio processing
+- **Modern Architecture** - Built with C++17, component-based design
+- **Cross-Platform** - Windows support (Linux/macOS planned)
+
+## 📁 Project Structure
 
 ```
 /NOMAD
 ├── NomadUI/          # Custom UI framework (GPU-accelerated, OpenGL-based)
 ├── Source/           # Core DAW logic (audio engine, sequencer, models)
-├── docs/             # Documentation and design philosophy
-└── tests/            # Test suites
+├── Assets/           # Resources and assets
+├── docs/             # Documentation (features, planning, archive)
+├── scripts/          # Build and utility scripts
+└── LICENSE*          # Dual licensing (MIT + Commercial)
 ```
 
 ## Components
