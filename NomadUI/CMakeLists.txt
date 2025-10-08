@@ -194,18 +194,34 @@ if(NOMADUI_BUILD_EXAMPLES)
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     )
     
-    # Simple Demo (requires OpenGL + Platform)
-    # add_executable(NomadUI_SimpleDemo
-    #     Examples/SimpleDemo.cpp
-    # )
-    # 
-    # target_link_libraries(NomadUI_SimpleDemo PRIVATE
-    #     NomadUI
-    # )
-    # 
-    # set_target_properties(NomadUI_SimpleDemo PROPERTIES
-    #     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-    # )
+    # Window Demo (Windows only, requires OpenGL + Win32)
+    if(WIN32 AND NOMADUI_BUILD_OPENGL)
+        add_executable(NomadUI_WindowDemo
+            Examples/WindowDemo.cpp
+            Platform/Windows/NUIWindowWin32.cpp
+            Core/NUIComponent.cpp
+            Core/NUITheme.cpp
+            Graphics/NUIRenderer.cpp
+            Graphics/OpenGL/NUIRendererGL.cpp
+        )
+        
+        # Add glad.c as a separate C file
+        target_sources(NomadUI_WindowDemo PRIVATE External/glad/src/glad.c)
+        set_source_files_properties(External/glad/src/glad.c PROPERTIES LANGUAGE C)
+
+        target_include_directories(NomadUI_WindowDemo PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/External/glad/include
+        )
+
+        target_link_libraries(NomadUI_WindowDemo PRIVATE 
+            opengl32
+        )
+
+        set_target_properties(NomadUI_WindowDemo PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
+    endif()
 endif()
 
 # ============================================================================
