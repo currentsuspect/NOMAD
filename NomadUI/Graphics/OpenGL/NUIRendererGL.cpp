@@ -480,7 +480,7 @@ void NUIRendererGL::flush() {
     // Use shader
     glUseProgram(primitiveShader_.id);
     glUniformMatrix4fv(primitiveShader_.projectionLoc, 1, GL_FALSE, projectionMatrix_);
-    glUniform1f(primitiveShader_.opacityLoc, globalOpacity_);
+    // Note: opacity is already in vertex colors
     glUniform1i(primitiveShader_.primitiveTypeLoc, 0); // Simple rect
     
     // Draw
@@ -525,7 +525,7 @@ bool NUIRendererGL::loadShaders() {
     
     // Get uniform locations
     primitiveShader_.projectionLoc = glGetUniformLocation(primitiveShader_.id, "uProjection");
-    primitiveShader_.opacityLoc = glGetUniformLocation(primitiveShader_.id, "uOpacity");
+    // Note: opacity is baked into vertex colors, no uniform needed
     primitiveShader_.primitiveTypeLoc = glGetUniformLocation(primitiveShader_.id, "uPrimitiveType");
     primitiveShader_.radiusLoc = glGetUniformLocation(primitiveShader_.id, "uRadius");
     primitiveShader_.sizeLoc = glGetUniformLocation(primitiveShader_.id, "uSize");
