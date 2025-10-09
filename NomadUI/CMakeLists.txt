@@ -39,11 +39,27 @@ set(NOMADUI_TEXT_SOURCES
     Graphics/NUITextRenderer.cpp
 )
 
+set(NOMADUI_WIDGET_SOURCES
+    Widgets/NUIButton.h
+    Widgets/NUIButton.cpp
+    Widgets/NUILabel.h
+    Widgets/NUILabel.cpp
+    Widgets/NUISlider.h
+    Widgets/NUISlider.cpp
+    Widgets/NUICheckbox.h
+    Widgets/NUICheckbox.cpp
+    Widgets/NUITextInput.h
+    Widgets/NUITextInput.cpp
+    Widgets/NUIPanel.h
+    Widgets/NUIPanel.cpp
+)
+
 # Create core library
 add_library(NomadUI_Core STATIC
     ${NOMADUI_CORE_SOURCES}
     ${NOMADUI_GRAPHICS_SOURCES}
     ${NOMADUI_TEXT_SOURCES}
+    ${NOMADUI_WIDGET_SOURCES}
 )
 
 target_include_directories(NomadUI_Core PUBLIC
@@ -259,6 +275,43 @@ if(NOMADUI_BUILD_EXAMPLES)
         set_target_properties(NomadUI_WindowDemo PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
         )
+        
+        # Widgets Demo (Windows only, requires OpenGL + Win32)
+        add_executable(NomadUI_WidgetsDemo
+            Examples/WidgetsDemo.cpp
+            Platform/Windows/NUIWindowWin32.cpp
+            Core/NUIApp.cpp
+            Core/NUIComponent.cpp
+            Core/NUITheme.cpp
+            Graphics/NUIRenderer.cpp
+            Graphics/NUIFont.cpp
+            Graphics/NUITextRenderer.cpp
+            Graphics/OpenGL/NUIRendererGL.cpp
+            Widgets/NUIButton.cpp
+            Widgets/NUILabel.cpp
+            Widgets/NUISlider.cpp
+            Widgets/NUICheckbox.cpp
+            Widgets/NUITextInput.cpp
+            Widgets/NUIPanel.cpp
+        )
+        
+        # Add glad.c as a separate C file
+        target_sources(NomadUI_WidgetsDemo PRIVATE External/glad/src/glad.c)
+        set_source_files_properties(External/glad/src/glad.c PROPERTIES LANGUAGE C)
+
+        target_include_directories(NomadUI_WidgetsDemo PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/External/glad/include
+        )
+
+        target_link_libraries(NomadUI_WidgetsDemo PRIVATE 
+            opengl32
+            freetype
+        )
+
+        set_target_properties(NomadUI_WidgetsDemo PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
     endif()
 endif()
 
@@ -271,7 +324,7 @@ install(TARGETS NomadUI_Core NomadUI_Platform
     LIBRARY DESTINATION lib
 )
 
-install(DIRECTORY Core/ Graphics/ Platform/
+install(DIRECTORY Core/ Graphics/ Platform/ Widgets/
     DESTINATION include/NomadUI
     FILES_MATCHING PATTERN "*.h"
 )
