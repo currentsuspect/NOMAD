@@ -32,14 +32,26 @@ set(NOMADUI_GRAPHICS_SOURCES
     Graphics/NUIRenderer.cpp
 )
 
+set(NOMADUI_TEXT_SOURCES
+    Graphics/NUIFont.h
+    Graphics/NUIFont.cpp
+    Graphics/NUITextRenderer.h
+    Graphics/NUITextRenderer.cpp
+)
+
 # Create core library
 add_library(NomadUI_Core STATIC
     ${NOMADUI_CORE_SOURCES}
     ${NOMADUI_GRAPHICS_SOURCES}
+    ${NOMADUI_TEXT_SOURCES}
 )
 
 target_include_directories(NomadUI_Core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(NomadUI_Core PUBLIC
+    freetype
 )
 
 # ============================================================================
@@ -54,6 +66,32 @@ set(GLAD_SOURCES
 add_library(glad STATIC ${GLAD_SOURCES})
 set_target_properties(glad PROPERTIES LINKER_LANGUAGE C)
 target_include_directories(glad PUBLIC External/glad/include)
+
+# ============================================================================
+# FreeType - Text Rendering
+# ============================================================================
+
+include(FetchContent)
+
+message(STATUS "Fetching FreeType...")
+
+FetchContent_Declare(
+    freetype
+    GIT_REPOSITORY https://github.com/freetype/freetype.git
+    GIT_TAG VER-2-13-2  # Latest stable version
+    GIT_SHALLOW TRUE
+)
+
+# Disable unnecessary FreeType features
+set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_BZIP2 ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(freetype)
+
+message(STATUS "✓ FreeType loaded")
 
 # ============================================================================
 # OpenGL Renderer (Optional)

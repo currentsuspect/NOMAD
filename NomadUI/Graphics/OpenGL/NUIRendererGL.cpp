@@ -106,6 +106,14 @@ bool NUIRendererGL::initialize(int width, int height) {
 }
 
 void NUIRendererGL::shutdown() {
+    // Shutdown text renderer
+    if (textRenderer_) {
+        textRenderer_->shutdown();
+        textRenderer_.reset();
+    }
+    
+    defaultFont_.reset();
+    
     if (vao_) {
         glDeleteVertexArrays(1, &vao_);
         vao_ = 0;
@@ -353,21 +361,72 @@ void NUIRendererGL::drawShadow(const NUIRect& rect, float offsetX, float offsetY
 // ============================================================================
 
 void NUIRendererGL::drawText(const std::string& text, const NUIPoint& position, float fontSize, const NUIColor& color) {
-    // TODO: Implement with FreeType
-    // For now, draw a placeholder rect
-    NUIRect textRect(position.x, position.y, text.length() * fontSize * 0.6f, fontSize);
-    fillRect(textRect, color.withAlpha(0.3f));
+    if (!textRenderer_ || !defaultFont_) {
+        // Fallback to placeholder
+        NUIRect textRect(position.x, position.y, text.length() * fontSize * 0.6f, fontSize);
+        fillRect(textRect, color.withAlpha(0.3f));
+        return;
+    }
+    
+    // Get font at requested size
+    auto font = NUIFontManager::getInstance().getFont(defaultFont_->getFilepath(), static_cast<int>(fontSize));
+    if (!font) font = defaultFont_;
+    
+    // Begin text batch
+    textRenderer_->setOpacity(globalOpacity_);
+    textRenderer_->beginBatch(projectionMatrix_);
+    
+    // Draw text
+    textRenderer_->drawText(text, font, position, color);
+    
+    // End batch and flush
+    textRenderer_->endBatch();
 }
 
 void NUIRendererGL::drawTextCentered(const std::string& text, const NUIRect& rect, float fontSize, const NUIColor& color) {
-    float textWidth = text.length() * fontSize * 0.6f;
-    float x = rect.x + (rect.width - textWidth) * 0.5f;
-    float y = rect.y + (rect.height - fontSize) * 0.5f;
-    drawText(text, {x, y}, fontSize, color);
+    if (!textRenderer_ || !defaultFont_) {
+        // Fallback to placeholder
+        float textWidth = text.length() * fontSize * 0.6f;
+        float x = rect.x + (rect.width - textWidth) * 0.5f;
+        float y = rect.y + (rect.height - fontSize) * 0.5f;
+        NUIRect textRect(x, y, textWidth, fontSize);
+        fillRect(textRect, color.withAlpha(0.3f));
+        return;
+    }
+    
+    // Get font at requested size
+    auto font = NUIFontManager::getInstance().getFont(defaultFont_->getFilepath(), static_cast<int>(fontSize));
+    if (!font) font = defaultFont_;
+    
+    // Begin text batch
+    textRenderer_->setOpacity(globalOpacity_);
+    textRenderer_->beginBatch(projectionMatrix_);
+    
+    // Draw centered text
+    textRenderer_->drawTextAligned(
+        text, 
+        font, 
+        rect, 
+        color,
+        NUITextRenderer::Alignment::Center,
+        NUITextRenderer::VerticalAlignment::Middle
+    );
+    
+    // End batch and flush
+    textRenderer_->endBatch();
 }
 
 NUISize NUIRendererGL::measureText(const std::string& text, float fontSize) {
-    return {text.length() * fontSize * 0.6f, fontSize};
+    if (!textRenderer_ || !defaultFont_) {
+        // Fallback estimation
+        return {text.length() * fontSize * 0.6f, fontSize};
+    }
+    
+    // Get font at requested size
+    auto font = NUIFontManager::getInstance().getFont(defaultFont_->getFilepath(), static_cast<int>(fontSize));
+    if (!font) font = defaultFont_;
+    
+    return textRenderer_->measureText(text, font);
 }
 
 // ============================================================================
