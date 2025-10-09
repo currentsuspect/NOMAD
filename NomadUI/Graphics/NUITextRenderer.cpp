@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <cstring>
+#include <algorithm>
 
 namespace NomadUI {
 
