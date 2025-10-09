@@ -18,7 +18,7 @@
 #include "project/ProjectManager.h"
 #include "automation/AutomationEngine.h"
 #include "parameters/ParameterManager.h"
-#include "state/StateManager.h"
+// #include "state/StateManager.h" // Not implemented yet
 #include "utils/PerformanceProfiler.h"
 
 /**

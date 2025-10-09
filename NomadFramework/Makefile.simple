@@ -1,0 +1,18 @@
+# Simple Makefile for testing basic functionality
+
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Wextra -O2
+LIBS = -lpthread
+
+TARGET = simple_test
+
+$(TARGET): simple_test.cpp
+	$(CXX) $(CXXFLAGS) -o $(TARGET) simple_test.cpp $(LIBS)
+
+test: $(TARGET)
+	./$(TARGET)
+
+clean:
+	rm -f $(TARGET)
+
+.PHONY: test clean

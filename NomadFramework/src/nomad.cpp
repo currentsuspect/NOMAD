@@ -29,15 +29,15 @@ namespace nomad
             
         try
         {
-            // Initialize core components
-            g_audioEngine = std::make_unique<AudioEngine>(sampleRate, bufferSize);
-            g_midiEngine = std::make_unique<MidiEngine>();
-            g_transport = std::make_unique<Transport>(*g_audioEngine);
-            g_pluginHost = std::make_unique<PluginHost>();
-            g_projectManager = std::make_unique<ProjectManager>();
-            g_automationEngine = std::make_unique<AutomationEngine>(*g_audioEngine);
-            g_parameterManager = std::make_unique<ParameterManager>();
-            g_stateManager = std::make_unique<StateManager>();
+        // Initialize core components
+        g_audioEngine = std::make_unique<AudioEngine>(sampleRate, bufferSize);
+        g_midiEngine = std::make_unique<MidiEngine>();
+        g_transport = std::make_unique<Transport>(*g_audioEngine);
+        g_pluginHost = std::make_unique<PluginHost>();
+        g_projectManager = std::make_unique<ProjectManager>();
+        g_automationEngine = std::make_unique<AutomationEngine>(*g_audioEngine);
+        g_parameterManager = std::make_unique<ParameterManager>();
+        // g_stateManager = std::make_unique<StateManager>(); // Not implemented yet
             
             // Initialize subsystems
             g_audioEngine->initialize();
@@ -47,7 +47,7 @@ namespace nomad
             g_projectManager->initialize();
             g_automationEngine->initialize();
             g_parameterManager->initialize();
-            g_stateManager->initialize();
+            // g_stateManager->initialize(); // Not implemented yet
             
             g_initialized.store(true);
             return true;
@@ -65,7 +65,7 @@ namespace nomad
             return;
             
         // Shutdown in reverse order
-        g_stateManager.reset();
+        // g_stateManager.reset(); // Not implemented yet
         g_parameterManager.reset();
         g_automationEngine.reset();
         g_projectManager.reset();
