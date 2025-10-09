@@ -1,8 +1,11 @@
 #pragma once
 
 #include "../NUIRenderer.h"
+#include "../NUIFont.h"
+#include "../NUITextRenderer.h"
 #include <vector>
 #include <unordered_map>
+#include <memory>
 
 namespace NomadUI {
 
