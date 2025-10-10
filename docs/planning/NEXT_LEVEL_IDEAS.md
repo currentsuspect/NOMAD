@@ -602,4 +602,3 @@ NOMAD has a solid foundation and massive potential. By combining:
 *Document Version: 1.0*  
 *Last Updated: 2025-10-09*  
 *Author: NOMAD Development Team*
-

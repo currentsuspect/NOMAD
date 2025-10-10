@@ -30,4 +30,3 @@ Extract and place in this directory.
 
 The CMakeLists.txt will automatically download and build FreeType.
 No manual installation needed!
-
