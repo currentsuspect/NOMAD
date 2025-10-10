@@ -134,7 +134,7 @@ bool MSDFGenerator::generateWithIntegratedMSDF(const void* outlineData, const Pa
     // Generate a simple circle MSDF for testing
     double centerX = params.width * 0.5;
     double centerY = params.height * 0.5;
-    double radius = std::min(params.width, params.height) * 0.4;
+            double radius = (std::min)(params.width, params.height) * 0.4;
     
     for (int y = 0; y < params.height; ++y) {
         for (int x = 0; x < params.width; ++x) {
@@ -143,7 +143,7 @@ bool MSDFGenerator::generateWithIntegratedMSDF(const void* outlineData, const Pa
             double dist = std::sqrt(dx * dx + dy * dy) - radius;
             
             // Convert distance to MSDF value (-1 to 1 range)
-            double msdfValue = std::max(-1.0, std::min(1.0, dist / params.pxRange));
+            double msdfValue = (std::max)(-1.0, (std::min)(1.0, dist / params.pxRange));
             
             // Convert to 0-255 range
             uint8_t value = static_cast<uint8_t>((msdfValue + 1.0) * 127.5);
@@ -163,7 +163,7 @@ bool MSDFGenerator::generateSimpleMSDF(int shapeType, const Params& params, std:
     
     double centerX = params.width * 0.5;
     double centerY = params.height * 0.5;
-    double size = std::min(params.width, params.height) * 0.4;
+    double size = (std::min)(params.width, params.height) * 0.4;
     
     for (int y = 0; y < params.height; ++y) {
         for (int x = 0; x < params.width; ++x) {
@@ -176,7 +176,7 @@ bool MSDFGenerator::generateSimpleMSDF(int shapeType, const Params& params, std:
                     dist = std::sqrt(dx * dx + dy * dy) - 1.0;
                     break;
                 case 1: // Square
-                    dist = std::max(std::abs(dx), std::abs(dy)) - 1.0;
+                    dist = (std::max)(std::abs(dx), std::abs(dy)) - 1.0;
                     break;
                 case 2: // Triangle
                     {
@@ -191,13 +191,13 @@ bool MSDFGenerator::generateSimpleMSDF(int shapeType, const Params& params, std:
                         double db = std::sqrt(bx * bx + by * by) - 1.0;
                         double dc = std::sqrt(cx * cx + cy * cy) - 1.0;
                         
-                        dist = std::min({da, db, dc});
+                        dist = (std::min)({(std::min)(da, db), dc});
                     }
                     break;
             }
             
             // Convert distance to MSDF value
-            double msdfValue = std::max(-1.0, std::min(1.0, dist * params.pxRange));
+            double msdfValue = (std::max)(-1.0, (std::min)(1.0, dist * params.pxRange));
             uint8_t value = static_cast<uint8_t>((msdfValue + 1.0) * 127.5);
             
             int index = (y * params.width + x) * 3;
@@ -238,7 +238,7 @@ double MSDFGenerator::signedDistance(const Point2D& point, const std::vector<Edg
             double length = std::sqrt(dx * dx + dy * dy);
             
             if (length > 0) {
-                double t = std::max(0.0, std::min(1.0, 
+                double t = (std::max)(0.0, (std::min)(1.0, 
                     ((point.x - edge.p0.x) * dx + (point.y - edge.p0.y) * dy) / (length * length)));
                 
                 double projX = edge.p0.x + t * dx;
@@ -251,14 +251,14 @@ double MSDFGenerator::signedDistance(const Point2D& point, const std::vector<Edg
         }
         // TODO: Add quadratic and cubic edge support
         
-        minDist = std::min(minDist, dist);
+        minDist = (std::min)(minDist, dist);
     }
     
     return minDist;
 }
 
 double MSDFGenerator::median(double a, double b, double c) {
-    return std::max(std::min(a, b), std::min(std::max(a, b), c));
+    return (std::max)((std::min)(a, b), (std::min)((std::max)(a, b), c));
 }
 
 void MSDFGenerator::generateDistanceField(const std::vector<Edge>& edges, const Params& params, std::vector<uint8_t>& outData) {
@@ -270,7 +270,7 @@ void MSDFGenerator::generateDistanceField(const std::vector<Edge>& edges, const 
             double dist = signedDistance(point, edges);
             
             // Convert to MSDF value
-            double msdfValue = std::max(-1.0, std::min(1.0, dist / params.pxRange));
+            double msdfValue = (std::max)(-1.0, (std::min)(1.0, dist / params.pxRange));
             uint8_t value = static_cast<uint8_t>((msdfValue + 1.0) * 127.5);
             
             int index = (y * params.width + x) * 3;

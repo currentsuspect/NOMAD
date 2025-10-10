@@ -142,6 +142,8 @@ private:
     bool initializeGL();
     bool loadShaders();
     void createBuffers();
+    void initializeTextRendering();
+    void drawCharacter(char c, float x, float y, float width, float height, const NUIColor& color);
     
     // Shader helpers
     uint32_t compileShader(const char* source, uint32_t type);
@@ -178,8 +180,10 @@ private:
     std::unordered_map<uint32_t, uint32_t> textures_;
     uint32_t nextTextureId_ = 1;
     
-    // MSDF text rendering support
+    // Text rendering support
     std::string defaultFontPath_;
+    std::shared_ptr<NUIFont> defaultFont_;
+    std::unordered_map<std::string, std::shared_ptr<NUIFont>> fontCache_;
     
     // Projection matrix (orthographic)
     float projectionMatrix_[16];
