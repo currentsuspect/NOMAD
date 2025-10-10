@@ -166,7 +166,6 @@ private:
     
     // Shaders
     ShaderProgram primitiveShader_;
-    ShaderProgram textShader_;
     
     // Vertex batch
     std::vector<Vertex> vertices_;
@@ -179,11 +178,8 @@ private:
     std::unordered_map<uint32_t, uint32_t> textures_;
     uint32_t nextTextureId_ = 1;
     
-    // Text rendering
-    std::shared_ptr<NUITextRenderer> textRenderer_;
-    std::shared_ptr<NUIFont> defaultFont_;
-    std::shared_ptr<NUITextRendererGDI> gdiTextRenderer_;
-    std::shared_ptr<NUITextRendererModern> modernTextRenderer_;
+    // MSDF text rendering support
+    std::string defaultFontPath_;
     
     // Projection matrix (orthographic)
     float projectionMatrix_[16];
