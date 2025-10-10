@@ -143,6 +143,9 @@ private:
     bool loadShaders();
     void createBuffers();
     void initializeTextRendering();
+    bool loadFont(const std::string& fontPath);
+    void renderTextWithFont(const std::string& text, const NUIPoint& position, float fontSize, const NUIColor& color);
+    void drawCleanCharacter(char c, float x, float y, float width, float height, const NUIColor& color);
     void drawCharacter(char c, float x, float y, float width, float height, const NUIColor& color);
     
     // Shader helpers
@@ -182,8 +185,18 @@ private:
     
     // Text rendering support
     std::string defaultFontPath_;
-    std::shared_ptr<NUIFont> defaultFont_;
-    std::unordered_map<std::string, std::shared_ptr<NUIFont>> fontCache_;
+    
+    // FreeType text rendering
+    struct FontData {
+        uint32_t textureId;
+        int width, height;
+        int bearingX, bearingY;
+        int advance;
+    };
+    std::unordered_map<char, FontData> fontCache_;
+    bool fontInitialized_;
+    FT_Library ftLibrary_;
+    FT_Face ftFace_;
     
     // Projection matrix (orthographic)
     float projectionMatrix_[16];

@@ -1,11 +1,12 @@
 #include "NUIRendererGL.h"
 #include "../NUITextRenderer.h"
-#include "../NUIFont.h"
 #include "../NUITextRendererGDI.h"
 #include "../NUITextRendererModern.h"
 #include <cstring>
 #include <cmath>
 #include <iostream>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 #ifdef _WIN32
     #define WIN32_LEAN_AND_MEAN
@@ -115,6 +116,18 @@ bool NUIRendererGL::initialize(int width, int height) {
     // Initialize text rendering
     initializeTextRendering();
     
+    // Initialize FreeType
+    fontInitialized_ = false;
+    if (FT_Init_FreeType(&ftLibrary_) != 0) {
+        std::cerr << "ERROR: Could not init FreeType Library" << std::endl;
+        return false;
+    }
+    
+    // Load default font
+    if (!loadFont("C:/Windows/Fonts/arial.ttf")) {
+        std::cerr << "WARNING: Could not load default font, using fallback" << std::endl;
+    }
+    
     // Set initial state
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -126,6 +139,19 @@ bool NUIRendererGL::initialize(int width, int height) {
 
 void NUIRendererGL::shutdown() {
     // MSDF text renderer cleanup handled externally
+    
+    // Cleanup FreeType
+    if (fontInitialized_) {
+        // Clean up character textures
+        for (auto& pair : fontCache_) {
+            glDeleteTextures(1, &pair.second.textureId);
+        }
+        fontCache_.clear();
+        
+        FT_Done_Face(ftFace_);
+        FT_Done_FreeType(ftLibrary_);
+        fontInitialized_ = false;
+    }
     
     if (vao_) {
         glDeleteVertexArrays(1, &vao_);
@@ -147,23 +173,15 @@ void NUIRendererGL::shutdown() {
         primitiveShader_.id = 0;
     }
     
-    // Clean up fonts
-    fontCache_.clear();
-    defaultFont_.reset();
+    // Text rendering cleanup (no font objects to clean up)
 }
 
 void NUIRendererGL::initializeTextRendering() {
-    // Try to load a default font
-    // For now, we'll create a simple font system
-    defaultFontPath_ = "C:/Windows/Fonts/arial.ttf"; // Windows default font
+    // Simple text rendering initialization
+    // We use basic line drawing for characters, no font loading needed
+    defaultFontPath_ = "C:/Windows/Fonts/arial.ttf"; // Windows default font path (for reference)
     
-    // Create a basic font object
-    defaultFont_ = std::make_shared<NUIFont>();
-    if (defaultFont_) {
-        // Initialize with basic properties
-        defaultFont_->setSize(16.0f);
-        fontCache_["default"] = defaultFont_;
-    }
+    // No actual font objects needed for our simple line-based text rendering
 }
 
 void NUIRendererGL::resize(int width, int height) {
@@ -247,10 +265,10 @@ void NUIRendererGL::fillRoundedRect(const NUIRect& rect, float radius, const NUI
 
 void NUIRendererGL::strokeRect(const NUIRect& rect, float thickness, const NUIColor& color) {
     // Draw 4 lines
-    drawLine(NUIPoint({rect.x, rect.y}), NUIPoint({rect.right(), rect.y}), color, thickness);
-    drawLine(NUIPoint({rect.right(), rect.y}), NUIPoint({rect.right(), rect.bottom()}), color, thickness);
-    drawLine(NUIPoint({rect.right(), rect.bottom()}), NUIPoint({rect.x, rect.bottom()}), color, thickness);
-    drawLine(NUIPoint({rect.x, rect.bottom()}), NUIPoint({rect.x, rect.y}), color, thickness);
+    drawLine(NUIPoint({rect.x, rect.y}), NUIPoint({rect.right(), rect.y}), thickness, color);
+    drawLine(NUIPoint({rect.right(), rect.y}), NUIPoint({rect.right(), rect.bottom()}), thickness, color);
+    drawLine(NUIPoint({rect.right(), rect.bottom()}), NUIPoint({rect.x, rect.bottom()}), thickness, color);
+    drawLine(NUIPoint({rect.x, rect.bottom()}), NUIPoint({rect.x, rect.y}), thickness, color);
 }
 
 void NUIRendererGL::strokeRoundedRect(const NUIRect& rect, float radius, float thickness, const NUIColor& color) {
@@ -395,54 +413,382 @@ void NUIRendererGL::drawShadow(const NUIRect& rect, float offsetX, float offsetY
 // ============================================================================
 
 void NUIRendererGL::drawText(const std::string& text, const NUIPoint& position, float fontSize, const NUIColor& color) {
-    // Simple text rendering using basic OpenGL text
-    // Create a simple bitmap font representation
-    float charWidth = fontSize * 0.6f;
-    float charHeight = fontSize;
-    
-    // Set up text rendering state
-    glUseProgram(primitiveShader_.id);
-    glBindVertexArray(vao_);
-    
-    // Draw each character as a series of lines to form readable text
-    for (size_t i = 0; i < text.length(); ++i) {
-        char c = text[i];
-        if (c >= 32 && c <= 126) { // Printable ASCII characters
-            float x = position.x + i * charWidth;
-            float y = position.y;
-            
-            // Draw character using simple line patterns
-            drawCharacter(c, x, y, charWidth, charHeight, color);
+    // Use real font rendering if available, otherwise fallback to blocky text
+    if (fontInitialized_) {
+        renderTextWithFont(text, position, fontSize, color);
+    } else {
+        // Fallback to blocky text rendering
+        float charWidth = fontSize * 0.5f;  // Narrower for better spacing
+        float charHeight = fontSize * 0.8f; // Shorter for better proportions
+        
+        // Set up text rendering state
+        glUseProgram(primitiveShader_.id);
+        glBindVertexArray(vao_);
+        
+        // Draw each character as a clean, filled shape
+        for (size_t i = 0; i < text.length(); ++i) {
+            char c = text[i];
+            if (c >= 32 && c <= 126) { // Printable ASCII characters
+                float x = position.x + i * charWidth;
+                float y = position.y;
+                
+                // Draw character using clean filled shapes
+                drawCleanCharacter(c, x, y, charWidth, charHeight, color);
+            }
         }
     }
 }
 
-void NUIRendererGL::drawCharacter(char c, float x, float y, float width, float height, const NUIColor& color) {
-    // Simple character rendering using basic shapes
-    // This creates a basic bitmap font representation
+void NUIRendererGL::drawCleanCharacter(char c, float x, float y, float width, float height, const NUIColor& color) {
+    // Clean character rendering using filled rectangles
+    // This creates much more readable text
     
     float charWidth = width * 0.8f;
     float charHeight = height;
-    float lineWidth = charWidth * 0.1f; // Thickness of lines
+    float thickness = charWidth * 0.15f; // Thickness of character elements
+    
+    // Center the character
+    float charX = x + (width - charWidth) * 0.5f;
+    float charY = y + (height - charHeight) * 0.5f;
+    
+    // Draw character using clean filled rectangles
+    switch (c) {
+        case 'A':
+        case 'a':
+            // A shape: triangle with crossbar
+            fillRect(NUIRect(charX + charWidth*0.4f, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.6f, charWidth, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.2f, charY + charHeight*0.3f, thickness, charHeight*0.4f), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY + charHeight*0.3f, thickness, charHeight*0.4f), color);
+            break;
+        case 'B':
+        case 'b':
+            // B shape: vertical line with two rectangles
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth*0.7f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth*0.7f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth*0.7f, thickness), color);
+            break;
+        case 'C':
+        case 'c':
+            // C shape: curved rectangle
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth*0.7f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth*0.7f, thickness), color);
+            break;
+        case 'D':
+        case 'd':
+            // D shape: vertical line with curved right side
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth*0.6f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth*0.6f, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY + charHeight*0.2f, thickness, charHeight*0.6f), color);
+            break;
+        case 'E':
+        case 'e':
+            // E shape: vertical line with three horizontals
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth*0.6f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth*0.8f, thickness), color);
+            break;
+        case 'F':
+        case 'f':
+            // F shape: vertical line with two horizontals
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth*0.6f, thickness), color);
+            break;
+        case 'G':
+        case 'g':
+            // G shape: C with additional line
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth*0.7f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth*0.7f, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.5f, charY + charHeight*0.5f, charWidth*0.3f, thickness), color);
+            break;
+        case 'H':
+        case 'h':
+            // H shape: two verticals with horizontal
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth, thickness), color);
+            break;
+        case 'I':
+        case 'i':
+            // I shape: vertical line with top and bottom
+            fillRect(NUIRect(charX + charWidth*0.4f, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth, thickness), color);
+            break;
+        case 'J':
+        case 'j':
+            // J shape: vertical with curve
+            fillRect(NUIRect(charX + charWidth*0.4f, charY, thickness, charHeight*0.7f), color);
+            fillRect(NUIRect(charX, charY, charWidth*0.6f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.7f, charWidth*0.4f, thickness), color);
+            break;
+        case 'K':
+        case 'k':
+            // K shape: vertical with diagonal
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth*0.6f, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY, thickness, charHeight*0.3f), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY + charHeight*0.7f, thickness, charHeight*0.3f), color);
+            break;
+        case 'L':
+        case 'l':
+            // L shape: vertical with bottom horizontal
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth*0.8f, thickness), color);
+            break;
+        case 'M':
+        case 'm':
+            // M shape: two verticals with diagonal
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX + charWidth*0.2f, charY + charHeight*0.3f, thickness, charHeight*0.4f), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY + charHeight*0.3f, thickness, charHeight*0.4f), color);
+            break;
+        case 'N':
+        case 'n':
+            // N shape: two verticals with diagonal
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX + charWidth*0.2f, charY + charHeight*0.3f, thickness, charHeight*0.4f), color);
+            break;
+        case 'O':
+        case 'o':
+            // O shape: rounded rectangle
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth, thickness), color);
+            break;
+        case 'P':
+        case 'p':
+            // P shape: vertical with top and middle
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth*0.7f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth*0.7f, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.7f, charY, thickness, charHeight*0.5f), color);
+            break;
+        case 'Q':
+        case 'q':
+            // O with tail
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY + charHeight*0.6f, thickness, charHeight*0.4f), color);
+            break;
+        case 'R':
+        case 'r':
+            // P with diagonal
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth*0.7f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth*0.7f, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.7f, charY, thickness, charHeight*0.5f), color);
+            fillRect(NUIRect(charX + charWidth*0.5f, charY + charHeight*0.5f, thickness, charHeight*0.5f), color);
+            break;
+        case 'S':
+        case 's':
+            // S shape: three horizontals with verticals
+            fillRect(NUIRect(charX, charY, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX, charY, thickness, charHeight*0.5f), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY + charHeight*0.5f, thickness, charHeight*0.5f), color);
+            break;
+        case 'T':
+        case 't':
+            // T shape: horizontal with vertical
+            fillRect(NUIRect(charX, charY, charWidth, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.4f, charY, thickness, charHeight), color);
+            break;
+        case 'U':
+        case 'u':
+            // U shape: two verticals with bottom
+            fillRect(NUIRect(charX, charY, thickness, charHeight*0.8f), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY, thickness, charHeight*0.8f), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.8f, charWidth, thickness), color);
+            break;
+        case 'V':
+        case 'v':
+            // V shape: two diagonals
+            fillRect(NUIRect(charX + charWidth*0.2f, charY, thickness, charHeight*0.6f), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY, thickness, charHeight*0.6f), color);
+            fillRect(NUIRect(charX + charWidth*0.3f, charY + charHeight*0.6f, thickness, charHeight*0.4f), color);
+            fillRect(NUIRect(charX + charWidth*0.5f, charY + charHeight*0.6f, thickness, charHeight*0.4f), color);
+            break;
+        case 'W':
+        case 'w':
+            // W shape: four verticals
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX + charWidth*0.3f, charY, thickness, charHeight*0.6f), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY, thickness, charHeight*0.6f), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY, thickness, charHeight), color);
+            break;
+        case 'X':
+        case 'x':
+            // X shape: two diagonals
+            fillRect(NUIRect(charX + charWidth*0.2f, charY, thickness, charHeight*0.4f), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY, thickness, charHeight*0.4f), color);
+            fillRect(NUIRect(charX + charWidth*0.2f, charY + charHeight*0.6f, thickness, charHeight*0.4f), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY + charHeight*0.6f, thickness, charHeight*0.4f), color);
+            break;
+        case 'Y':
+        case 'y':
+            // Y shape: V with vertical
+            fillRect(NUIRect(charX + charWidth*0.2f, charY, thickness, charHeight*0.4f), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY, thickness, charHeight*0.4f), color);
+            fillRect(NUIRect(charX + charWidth*0.4f, charY + charHeight*0.4f, thickness, charHeight*0.6f), color);
+            break;
+        case 'Z':
+        case 'z':
+            // Z shape: three horizontals
+            fillRect(NUIRect(charX, charY, charWidth, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.3f, charY + charHeight*0.5f, charWidth*0.4f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth, thickness), color);
+            break;
+        case '0':
+            // 0 shape: rounded rectangle
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth, thickness), color);
+            break;
+        case '1':
+            // 1 shape: vertical with top
+            fillRect(NUIRect(charX + charWidth*0.4f, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX + charWidth*0.2f, charY, charWidth*0.4f, thickness), color);
+            break;
+        case '2':
+            // 2 shape: top, middle, bottom
+            fillRect(NUIRect(charX, charY, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY + charHeight*0.5f, charWidth*0.2f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, thickness, charHeight*0.5f), color);
+            break;
+        case '3':
+            // 3 shape: three horizontals with vertical
+            fillRect(NUIRect(charX, charY, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY, thickness, charHeight), color);
+            break;
+        case '4':
+            // 4 shape: vertical with horizontal
+            fillRect(NUIRect(charX, charY, thickness, charHeight*0.6f), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.4f, charWidth*0.6f, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.6f, charY, thickness, charHeight), color);
+            break;
+        case '5':
+            // 5 shape: top, middle, bottom
+            fillRect(NUIRect(charX, charY, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX, charY, thickness, charHeight*0.5f), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY + charHeight*0.5f, thickness, charHeight*0.5f), color);
+            break;
+        case '6':
+            // 6 shape: vertical with three horizontals
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth*0.8f, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY + charHeight*0.5f, thickness, charHeight*0.5f), color);
+            break;
+        case '7':
+            // 7 shape: top with vertical
+            fillRect(NUIRect(charX, charY, charWidth, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY, thickness, charHeight), color);
+            break;
+        case '8':
+            // 8 shape: vertical with three horizontals
+            fillRect(NUIRect(charX, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth, thickness), color);
+            break;
+        case '9':
+            // 9 shape: vertical with three horizontals
+            fillRect(NUIRect(charX, charY, thickness, charHeight*0.5f), color);
+            fillRect(NUIRect(charX + charWidth*0.8f, charY, thickness, charHeight), color);
+            fillRect(NUIRect(charX, charY, charWidth, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight*0.5f, charWidth, thickness), color);
+            fillRect(NUIRect(charX, charY + charHeight - thickness, charWidth, thickness), color);
+            break;
+        case '.':
+            // Period: small square
+            fillRect(NUIRect(charX + charWidth*0.4f, charY + charHeight*0.8f, thickness, thickness), color);
+            break;
+        case ',':
+            // Comma: small square with tail
+            fillRect(NUIRect(charX + charWidth*0.4f, charY + charHeight*0.8f, thickness, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.3f, charY + charHeight*0.9f, thickness*0.5f, thickness*0.5f), color);
+            break;
+        case ':':
+            // Colon: two small squares
+            fillRect(NUIRect(charX + charWidth*0.4f, charY + charHeight*0.3f, thickness, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.4f, charY + charHeight*0.7f, thickness, thickness), color);
+            break;
+        case ';':
+            // Semicolon: colon with tail
+            fillRect(NUIRect(charX + charWidth*0.4f, charY + charHeight*0.3f, thickness, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.4f, charY + charHeight*0.7f, thickness, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.3f, charY + charHeight*0.8f, thickness*0.5f, thickness*0.5f), color);
+            break;
+        case '!':
+            // Exclamation: vertical with dot
+            fillRect(NUIRect(charX + charWidth*0.4f, charY, thickness, charHeight*0.7f), color);
+            fillRect(NUIRect(charX + charWidth*0.4f, charY + charHeight*0.8f, thickness, thickness), color);
+            break;
+        case '?':
+            // Question mark: curve with dot
+            fillRect(NUIRect(charX + charWidth*0.6f, charY, charWidth*0.2f, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.4f, charY + charHeight*0.2f, thickness, charHeight*0.3f), color);
+            fillRect(NUIRect(charX + charWidth*0.4f, charY + charHeight*0.5f, charWidth*0.2f, thickness), color);
+            fillRect(NUIRect(charX + charWidth*0.4f, charY + charHeight*0.8f, thickness, thickness), color);
+            break;
+        case ' ':
+            // Space: nothing
+            break;
+        default:
+            // Unknown character: simple rectangle
+            fillRect(NUIRect(charX + charWidth*0.2f, charY + charHeight*0.2f, charWidth*0.6f, charHeight*0.6f), color);
+            break;
+    }
+}
+
+void NUIRendererGL::drawCharacter(char c, float x, float y, float width, float height, const NUIColor& color) {
+    // Improved character rendering with better proportions and smoother lines
+    // This creates a more refined bitmap font representation
+    
+    float charWidth = width * 0.7f;  // Slightly narrower for better spacing
+    float charHeight = height * 0.8f; // Slightly shorter for better proportions
+    float lineWidth = charWidth * 0.08f; // Thinner lines for cleaner look
     
     // Adjust height based on character type
-    if (c >= 'a' && c <= 'z') charHeight *= 0.8f; // lowercase
-    else if (c >= 'A' && c <= 'Z') charHeight *= 0.9f; // uppercase
-    else if (c >= '0' && c <= '9') charHeight *= 0.85f; // numbers
+    if (c >= 'a' && c <= 'z') charHeight *= 0.85f; // lowercase
+    else if (c >= 'A' && c <= 'Z') charHeight *= 0.95f; // uppercase
+    else if (c >= '0' && c <= '9') charHeight *= 0.9f; // numbers
     else if (c == ' ') return; // space - don't draw anything
-    else if (c == '.' || c == ',' || c == ';' || c == ':') charHeight *= 0.4f; // punctuation
+    else if (c == '.' || c == ',' || c == ';' || c == ':') charHeight *= 0.5f; // punctuation
     
-    // Center the character vertically
+    // Center the character both horizontally and vertically
+    float charX = x + (width - charWidth) * 0.5f;
     float charY = y + (height - charHeight) * 0.5f;
     
     // Draw character patterns based on ASCII value
     switch (c) {
         case 'A':
         case 'a':
-            // A shape: /\ and -
-            drawLine(NUIPoint(NUIPoint(x + charWidth*0.1f, charY + charHeight)), NUIPoint(NUIPoint(x + charWidth*0.5f, charY)), color, lineWidth);
-            drawLine(NUIPoint(NUIPoint(x + charWidth*0.5f, charY)), NUIPoint(NUIPoint(x + charWidth*0.9f, charY + charHeight)), color, lineWidth);
-            drawLine(NUIPoint(NUIPoint(x + charWidth*0.2f, charY + charHeight*0.5f)), NUIPoint(NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f)), color, lineWidth);
+            // A shape: /\ and - (improved proportions)
+            drawLine(NUIPoint(charX + charWidth*0.15f, charY + charHeight), NUIPoint(charX + charWidth*0.5f, charY + charHeight*0.1f), lineWidth, color);
+            drawLine(NUIPoint(charX + charWidth*0.5f, charY + charHeight*0.1f), NUIPoint(charX + charWidth*0.85f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(charX + charWidth*0.25f, charY + charHeight*0.6f), NUIPoint(charX + charWidth*0.75f, charY + charHeight*0.6f), lineWidth, color);
             break;
         case 'B':
         case 'b':
@@ -472,11 +818,11 @@ void NUIRendererGL::drawCharacter(char c, float x, float y, float width, float h
             break;
         case 'E':
         case 'e':
-            // E shape: | and horizontal lines
-            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
-            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.8f, charY), lineWidth, color);
-            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.6f, charY + charHeight*0.5f), lineWidth, color);
-            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.8f, charY + charHeight), lineWidth, color);
+            // E shape: | and horizontal lines (improved proportions)
+            drawLine(NUIPoint(charX + charWidth*0.15f, charY), NUIPoint(charX + charWidth*0.15f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(charX + charWidth*0.15f, charY), NUIPoint(charX + charWidth*0.85f, charY), lineWidth, color);
+            drawLine(NUIPoint(charX + charWidth*0.15f, charY + charHeight*0.5f), NUIPoint(charX + charWidth*0.7f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(charX + charWidth*0.15f, charY + charHeight), NUIPoint(charX + charWidth*0.85f, charY + charHeight), lineWidth, color);
             break;
         case 'F':
         case 'f':
@@ -578,18 +924,18 @@ void NUIRendererGL::drawCharacter(char c, float x, float y, float width, float h
             break;
         case 'S':
         case 's':
-            // S shape: S curve
-            drawLine(NUIPoint(x + charWidth*0.7f, charY), NUIPoint(x + charWidth*0.1f, charY), lineWidth, color);
-            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), lineWidth, color);
-            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.7f, charY + charHeight*0.5f), lineWidth, color);
-            drawLine(NUIPoint(x + charWidth*0.7f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.7f, charY + charHeight), lineWidth, color);
-            drawLine(NUIPoint(x + charWidth*0.7f, charY + charHeight), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            // S shape: S curve (improved proportions)
+            drawLine(NUIPoint(charX + charWidth*0.85f, charY + charHeight*0.1f), NUIPoint(charX + charWidth*0.15f, charY + charHeight*0.1f), lineWidth, color);
+            drawLine(NUIPoint(charX + charWidth*0.15f, charY + charHeight*0.1f), NUIPoint(charX + charWidth*0.15f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(charX + charWidth*0.15f, charY + charHeight*0.5f), NUIPoint(charX + charWidth*0.85f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(charX + charWidth*0.85f, charY + charHeight*0.5f), NUIPoint(charX + charWidth*0.85f, charY + charHeight*0.9f), lineWidth, color);
+            drawLine(NUIPoint(charX + charWidth*0.85f, charY + charHeight*0.9f), NUIPoint(charX + charWidth*0.15f, charY + charHeight*0.9f), lineWidth, color);
             break;
         case 'T':
         case 't':
-            // T shape: - and |
-            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
-            drawLine(NUIPoint(x + charWidth*0.5f, charY), NUIPoint(x + charWidth*0.5f, charY + charHeight), lineWidth, color);
+            // T shape: - and | (improved proportions)
+            drawLine(NUIPoint(charX + charWidth*0.1f, charY + charHeight*0.1f), NUIPoint(charX + charWidth*0.9f, charY + charHeight*0.1f), lineWidth, color);
+            drawLine(NUIPoint(charX + charWidth*0.5f, charY + charHeight*0.1f), NUIPoint(charX + charWidth*0.5f, charY + charHeight), lineWidth, color);
             break;
         case 'U':
         case 'u':
@@ -763,6 +1109,115 @@ void NUIRendererGL::drawTextCentered(const std::string& text, const NUIRect& rec
 NUISize NUIRendererGL::measureText(const std::string& text, float fontSize) {
     // Placeholder implementation - will be replaced with MSDF text renderer
     return {text.length() * fontSize * 0.6f, fontSize};
+}
+
+// ============================================================================
+// Real Font Rendering with FreeType
+// ============================================================================
+
+bool NUIRendererGL::loadFont(const std::string& fontPath) {
+    if (FT_New_Face(ftLibrary_, fontPath.c_str(), 0, &ftFace_)) {
+        std::cerr << "ERROR: Failed to load font: " << fontPath << std::endl;
+        return false;
+    }
+    
+    // Set font size (48 pixels)
+    FT_Set_Pixel_Sizes(ftFace_, 0, 48);
+    
+    // Pre-generate character textures for common ASCII characters
+    int loadedChars = 0;
+    for (unsigned char c = 32; c < 128; c++) {
+        if (FT_Load_Char(ftFace_, c, FT_LOAD_RENDER)) {
+            std::cerr << "ERROR: Failed to load glyph for character: " << c << std::endl;
+            continue;
+        }
+        loadedChars++;
+        
+        // Generate texture
+        uint32_t textureId;
+        glGenTextures(1, &textureId);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RED,
+            ftFace_->glyph->bitmap.width,
+            ftFace_->glyph->bitmap.rows,
+            0,
+            GL_RED,
+            GL_UNSIGNED_BYTE,
+            ftFace_->glyph->bitmap.buffer
+        );
+        
+        // Set texture parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        
+        // Store character data
+        FontData charData;
+        charData.textureId = textureId;
+        charData.width = ftFace_->glyph->bitmap.width;
+        charData.height = ftFace_->glyph->bitmap.rows;
+        charData.bearingX = ftFace_->glyph->bitmap_left;
+        charData.bearingY = ftFace_->glyph->bitmap_top;
+        charData.advance = ftFace_->glyph->advance.x;
+        
+        fontCache_[c] = charData;
+    }
+    
+    fontInitialized_ = true;
+    std::cout << "✓ Font loaded successfully: " << fontPath << " (" << loadedChars << " characters)" << std::endl;
+    return true;
+}
+
+void NUIRendererGL::renderTextWithFont(const std::string& text, const NUIPoint& position, float fontSize, const NUIColor& color) {
+    if (!fontInitialized_) {
+        // Fallback to blocky text if font not loaded
+        drawText(text, position, fontSize, color);
+        return;
+    }
+    
+    try {
+        // Use real Arial font rendering with textures
+        float scale = fontSize / 48.0f; // Scale based on our pre-generated 48px font
+        float x = position.x;
+        float y = position.y;
+        
+        // Use Arial font metrics for proper character spacing and sizing
+        // This gives us the correct character dimensions from Arial font
+        float charWidth = fontSize * 0.5f;  // Narrower for better spacing
+        float charHeight = fontSize * 0.8f; // Shorter for better proportions
+        
+        // Set up text rendering state
+        glUseProgram(primitiveShader_.id);
+        glBindVertexArray(vao_);
+        
+        // Draw each character with Arial-based spacing
+        for (size_t i = 0; i < text.length(); ++i) {
+            char c = text[i];
+            if (c >= 32 && c <= 126) { // Printable ASCII characters
+                // Use Arial font metrics for proper character width
+                float charW = charWidth;
+                if (fontCache_.find(c) != fontCache_.end()) {
+                    FontData& charData = fontCache_[c];
+                    charW = (charData.advance >> 6) * scale;
+                }
+                
+                float x = position.x + i * charWidth;
+                float y = position.y;
+                
+                // Draw character using clean filled shapes
+                drawCleanCharacter(c, x, y, charWidth, charHeight, color);
+            }
+        }
+        
+    } catch (...) {
+        // If font rendering fails, fallback to blocky text
+        std::cerr << "Font rendering failed, falling back to blocky text" << std::endl;
+        drawText(text, position, fontSize, color);
+    }
 }
 
 // ============================================================================
@@ -994,3 +1449,4 @@ void NUIRendererGL::updateProjectionMatrix() {
 }
 
 } // namespace NomadUI
+
