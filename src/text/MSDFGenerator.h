@@ -12,6 +12,16 @@
 class MSDFGenerator {
 public:
     /**
+     * Constructor
+     */
+    MSDFGenerator();
+    
+    /**
+     * Destructor
+     */
+    ~MSDFGenerator();
+    
+    /**
      * MSDF generation parameters
      */
     struct Params {

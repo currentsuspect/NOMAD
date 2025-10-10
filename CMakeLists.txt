@@ -141,21 +141,71 @@ target_link_libraries(NOMAD_Tests PRIVATE
 
 # Find required packages
 find_package(OpenGL REQUIRED)
-find_package(PkgConfig REQUIRED)
 
-# Find FreeType
-pkg_check_modules(FREETYPE REQUIRED freetype2)
-if(NOT FREETYPE_FOUND)
-    message(FATAL_ERROR "FreeType2 is required but not found. Please install libfreetype6-dev (Ubuntu) or freetype-devel (CentOS)")
+# Find FreeType (Windows-compatible approach)
+if(WIN32)
+    # Use the FreeType we already have in NomadUI/External/freetype
+    set(FREETYPE_FOUND TRUE)
+    set(FREETYPE_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/NomadUI/External/freetype/include)
+    set(FREETYPE_LIBRARIES freetype)
+else()
+    # Use pkg-config on Linux/macOS
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(FREETYPE REQUIRED freetype2)
+    if(NOT FREETYPE_FOUND)
+        message(FATAL_ERROR "FreeType2 is required but not found. Please install libfreetype6-dev (Ubuntu) or freetype-devel (CentOS)")
+    endif()
 endif()
 
-# Find GLFW
-find_package(glfw3 REQUIRED)
-if(NOT glfw3_FOUND)
-    message(FATAL_ERROR "GLFW3 is required but not found. Please install libglfw3-dev (Ubuntu) or glfw-devel (CentOS)")
+# Find GLFW (optional for Windows, required for Linux/macOS)
+if(WIN32)
+    # GLFW is optional on Windows since we use Win32
+    find_package(glfw3 QUIET)
+    set(GLFW_AVAILABLE ${glfw3_FOUND})
+else()
+    find_package(glfw3 REQUIRED)
+    if(NOT glfw3_FOUND)
+        message(FATAL_ERROR "GLFW3 is required but not found. Please install libglfw3-dev (Ubuntu) or glfw-devel (CentOS)")
+    endif()
+    set(GLFW_AVAILABLE TRUE)
 endif()
 
+# ============================================================================
+# Simple Math Library (GLM alternative)
+# ============================================================================
+
+# Create a simple math library to replace GLM
+add_library(SimpleMath INTERFACE)
+
+target_include_directories(SimpleMath INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/math
+)
+
+# Create simple math headers
+file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/src/math/glm.hpp
+"#pragma once
+// Simple GLM-compatible math library
+#include <cmath>
+
+namespace glm {
+    struct vec2 { float x, y; vec2(float x=0, float y=0) : x(x), y(y) {} };
+    struct vec3 { float x, y, z; vec3(float x=0, float y=0, float z=0) : x(x), y(y), z(z) {} };
+    struct vec4 { float x, y, z, w; vec4(float x=0, float y=0, float z=0, float w=0) : x(x), y(y), z(z), w(w) {} };
+    struct mat4 { float m[16]; mat4() { for(int i=0; i<16; i++) m[i] = (i%5==0) ? 1.0f : 0.0f; } };
+    
+    // Basic functions
+    inline float length(const vec2& v) { return std::sqrt(v.x*v.x + v.y*v.y); }
+    inline vec2 normalize(const vec2& v) { float l = length(v); return l > 0 ? vec2(v.x/l, v.y/l) : vec2(0,0); }
+    inline vec2 mix(const vec2& a, const vec2& b, float t) { return vec2(a.x + t*(b.x-a.x), a.y + t*(b.y-a.y)); }
+    inline float clamp(float x, float min, float max) { return x < min ? min : (x > max ? max : x); }
+}
+")
+
+message(STATUS "✓ Simple Math library created")
+
+# ============================================================================
 # MSDF Text Renderer Library
+# ============================================================================
 add_library(MSDFTextRenderer STATIC
     src/text/TextRenderer.h
     src/text/TextRenderer.cpp
@@ -167,12 +217,15 @@ add_library(MSDFTextRenderer STATIC
 
 target_include_directories(MSDFTextRenderer PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/NomadUI/External/glad/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/NomadUI/External/freetype/include
     ${FREETYPE_INCLUDE_DIRS}
 )
 
 target_link_libraries(MSDFTextRenderer PUBLIC
     OpenGL::GL
     ${FREETYPE_LIBRARIES}
+    SimpleMath
 )
 
 target_compile_definitions(MSDFTextRenderer PUBLIC
@@ -180,21 +233,23 @@ target_compile_definitions(MSDFTextRenderer PUBLIC
     GLM_FORCE_DEPTH_ZERO_TO_ONE
 )
 
-# Text Demo
-add_executable(TEXT_DEMO
-    demo/text_demo.cpp
-)
+# Text Demo (only if GLFW is available)
+if(GLFW_AVAILABLE)
+    add_executable(TEXT_DEMO
+        demo/text_demo.cpp
+    )
 
-target_link_libraries(TEXT_DEMO PRIVATE
-    MSDFTextRenderer
-    glfw
-    ${FREETYPE_LIBRARIES}
-)
+    target_link_libraries(TEXT_DEMO PRIVATE
+        MSDFTextRenderer
+        glfw
+        ${FREETYPE_LIBRARIES}
+    )
 
-target_include_directories(TEXT_DEMO PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${FREETYPE_INCLUDE_DIRS}
-)
+    target_include_directories(TEXT_DEMO PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${FREETYPE_INCLUDE_DIRS}
+    )
+endif()
 
 # Copy shaders to build directory
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/shaders DESTINATION ${CMAKE_BINARY_DIR})

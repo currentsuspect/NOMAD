@@ -113,44 +113,7 @@ bool NUIRendererGL::initialize(int width, int height) {
     updateProjectionMatrix();
     
     // Initialize text rendering
-    textRenderer_ = std::make_unique<NUITextRenderer>();
-    if (!textRenderer_->initialize()) {
-        std::cerr << "Failed to initialize text renderer" << std::endl;
-        return false;
-    }
-    
-    // Load default font
-    defaultFont_ = std::make_shared<NUIFont>();
-    if (!defaultFont_->loadFromFile("C:/Windows/Fonts/arial.ttf", 16)) {
-        // Fallback to system font
-        if (!defaultFont_->loadFromFile("C:/Windows/Fonts/calibri.ttf", 16)) {
-            std::cerr << "Warning: Could not load default font, text rendering will use placeholders" << std::endl;
-        }
-    }
-    
-    // Don't cache ASCII glyphs during initialization to avoid crashes
-    defaultFont_->cacheASCII();
-    
-    // Initialize modern text renderer (primary) - only if SDL2 is available
-    #ifdef NOMADUI_SDL2_AVAILABLE
-    modernTextRenderer_ = std::make_shared<NUITextRendererModern>();
-    if (!modernTextRenderer_->initialize()) {
-        std::cerr << "Warning: Modern text renderer failed to initialize" << std::endl;
-    } else {
-        // Load default font
-        if (!modernTextRenderer_->loadFont("C:/Windows/Fonts/arial.ttf", 16)) {
-            if (!modernTextRenderer_->loadFont("C:/Windows/Fonts/calibri.ttf", 16)) {
-                std::cerr << "Warning: Could not load default font for modern renderer" << std::endl;
-            }
-        }
-    }
-    #else
-    std::cout << "SDL2 not available - using GDI text rendering fallback" << std::endl;
-    #endif
-    
-    // Initialize GDI text renderer as fallback
-    gdiTextRenderer_ = std::make_shared<NUITextRendererGDI>();
-    gdiTextRenderer_->initialize();
+    initializeTextRendering();
     
     // Set initial state
     glEnable(GL_BLEND);
@@ -162,14 +125,6 @@ bool NUIRendererGL::initialize(int width, int height) {
 }
 
 void NUIRendererGL::shutdown() {
-    // Shutdown text renderer
-    if (textRenderer_) {
-        textRenderer_->shutdown();
-        textRenderer_.reset();
-    }
-    
-    defaultFont_.reset();
-    
     // MSDF text renderer cleanup handled externally
     
     if (vao_) {
@@ -191,6 +146,24 @@ void NUIRendererGL::shutdown() {
         glDeleteProgram(primitiveShader_.id);
         primitiveShader_.id = 0;
     }
+    
+    // Clean up fonts
+    fontCache_.clear();
+    defaultFont_.reset();
+}
+
+void NUIRendererGL::initializeTextRendering() {
+    // Try to load a default font
+    // For now, we'll create a simple font system
+    defaultFontPath_ = "C:/Windows/Fonts/arial.ttf"; // Windows default font
+    
+    // Create a basic font object
+    defaultFont_ = std::make_shared<NUIFont>();
+    if (defaultFont_) {
+        // Initialize with basic properties
+        defaultFont_->setSize(16.0f);
+        fontCache_["default"] = defaultFont_;
+    }
 }
 
 void NUIRendererGL::resize(int width, int height) {
@@ -198,10 +171,7 @@ void NUIRendererGL::resize(int width, int height) {
     height_ = height;
     updateProjectionMatrix();
     
-    // Update modern text renderer viewport
-    if (modernTextRenderer_) {
-        modernTextRenderer_->setViewport(width, height);
-    }
+    // MSDF text renderer viewport will be updated externally
     
     glViewport(0, 0, width, height);
 }
@@ -425,18 +395,369 @@ void NUIRendererGL::drawShadow(const NUIRect& rect, float offsetX, float offsetY
 // ============================================================================
 
 void NUIRendererGL::drawText(const std::string& text, const NUIPoint& position, float fontSize, const NUIColor& color) {
-    // Placeholder implementation - will be replaced with MSDF text renderer
-    NUIRect textRect(position.x, position.y, text.length() * fontSize * 0.6f, fontSize);
-    fillRect(textRect, color.withAlpha(0.3f));
+    // Simple text rendering using basic OpenGL text
+    // Create a simple bitmap font representation
+    float charWidth = fontSize * 0.6f;
+    float charHeight = fontSize;
+    
+    // Set up text rendering state
+    glUseProgram(primitiveShader_.id);
+    glBindVertexArray(vao_);
+    
+    // Draw each character as a series of lines to form readable text
+    for (size_t i = 0; i < text.length(); ++i) {
+        char c = text[i];
+        if (c >= 32 && c <= 126) { // Printable ASCII characters
+            float x = position.x + i * charWidth;
+            float y = position.y;
+            
+            // Draw character using simple line patterns
+            drawCharacter(c, x, y, charWidth, charHeight, color);
+        }
+    }
+}
+
+void NUIRendererGL::drawCharacter(char c, float x, float y, float width, float height, const NUIColor& color) {
+    // Simple character rendering using basic shapes
+    // This creates a basic bitmap font representation
+    
+    float charWidth = width * 0.8f;
+    float charHeight = height;
+    float lineWidth = charWidth * 0.1f; // Thickness of lines
+    
+    // Adjust height based on character type
+    if (c >= 'a' && c <= 'z') charHeight *= 0.8f; // lowercase
+    else if (c >= 'A' && c <= 'Z') charHeight *= 0.9f; // uppercase
+    else if (c >= '0' && c <= '9') charHeight *= 0.85f; // numbers
+    else if (c == ' ') return; // space - don't draw anything
+    else if (c == '.' || c == ',' || c == ';' || c == ':') charHeight *= 0.4f; // punctuation
+    
+    // Center the character vertically
+    float charY = y + (height - charHeight) * 0.5f;
+    
+    // Draw character patterns based on ASCII value
+    switch (c) {
+        case 'A':
+        case 'a':
+            // A shape: /\ and -
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.5f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.2f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f), lineWidth, color);
+            break;
+        case 'B':
+        case 'b':
+            // B shape: | and curves
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.7f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.7f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.9f, charY + charHeight*0.25f, color, lineWidth);
+            drawLine(x + charWidth*0.7f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight*0.75f, color, lineWidth);
+            break;
+        case 'C':
+        case 'c':
+            // C shape: curve
+            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.1f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
+            break;
+        case 'D':
+        case 'd':
+            // D shape: | and curve
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.6f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.6f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.6f, charY, x + charWidth*0.9f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.6f, charY + charHeight, x + charWidth*0.9f, charY + charHeight*0.5f, color, lineWidth);
+            break;
+        case 'E':
+        case 'e':
+            // E shape: | and horizontal lines
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.8f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.6f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            break;
+        case 'F':
+        case 'f':
+            // F shape: | and horizontal lines
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.8f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.6f, charY + charHeight*0.5f, color, lineWidth);
+            break;
+        case 'G':
+        case 'g':
+            // G shape: C with line
+            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.1f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.7f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight*0.5f, color, lineWidth);
+            break;
+        case 'H':
+        case 'h':
+            // H shape: | | and -
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight*0.5f, color, lineWidth);
+            break;
+        case 'I':
+        case 'i':
+            // I shape: | with top and bottom
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.5f, charY, x + charWidth*0.5f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+        case 'J':
+        case 'j':
+            // J shape: | with curve
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.5f, charY, x + charWidth*0.5f, charY + charHeight*0.8f, color, lineWidth);
+            drawLine(x + charWidth*0.5f, charY + charHeight*0.8f, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            break;
+        case 'K':
+        case 'k':
+            // K shape: | and diagonal
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.9f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+        case 'L':
+        case 'l':
+            // L shape: | and -
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            break;
+        case 'M':
+        case 'm':
+            // M shape: | \ / |
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.5f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.5f, charY + charHeight*0.5f, x + charWidth*0.9f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+        case 'N':
+        case 'n':
+            // N shape: | \ |
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+        case 'O':
+        case 'o':
+            // O shape: circle/oval
+            drawLine(x + charWidth*0.3f, charY, x + charWidth*0.7f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.2f, x + charWidth*0.1f, charY + charHeight*0.8f, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY + charHeight*0.2f, x + charWidth*0.9f, charY + charHeight*0.8f, color, lineWidth);
+            drawLine(x + charWidth*0.3f, charY + charHeight, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
+            break;
+        case 'P':
+        case 'p':
+            // P shape: | and P
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.7f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.7f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.9f, charY + charHeight*0.25f, color, lineWidth);
+            break;
+        case 'Q':
+        case 'q':
+            // Q shape: O with tail
+            drawLine(x + charWidth*0.3f, charY, x + charWidth*0.7f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.2f, x + charWidth*0.1f, charY + charHeight*0.8f, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY + charHeight*0.2f, x + charWidth*0.9f, charY + charHeight*0.8f, color, lineWidth);
+            drawLine(x + charWidth*0.3f, charY + charHeight, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.7f, charY + charHeight*0.8f, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+        case 'R':
+        case 'r':
+            // R shape: P with diagonal
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.7f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.7f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.9f, charY + charHeight*0.25f, color, lineWidth);
+            drawLine(x + charWidth*0.7f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+        case 'S':
+        case 's':
+            // S shape: S curve
+            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.1f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.7f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.7f, charY + charHeight*0.5f, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.7f, charY + charHeight, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            break;
+        case 'T':
+        case 't':
+            // T shape: - and |
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.5f, charY, x + charWidth*0.5f, charY + charHeight, color, lineWidth);
+            break;
+        case 'U':
+        case 'u':
+            // U shape: | | and -
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight*0.8f, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight*0.8f, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.8f, x + charWidth*0.9f, charY + charHeight*0.8f, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+        case 'V':
+        case 'v':
+            // V shape: \ /
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.5f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.5f, charY + charHeight, x + charWidth*0.9f, charY, color, lineWidth);
+            break;
+        case 'W':
+        case 'w':
+            // W shape: | \ / |
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.5f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.5f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+        case 'X':
+        case 'x':
+            // X shape: \ /
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            break;
+        case 'Y':
+        case 'y':
+            // Y shape: \ / and |
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.5f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.5f, charY + charHeight*0.5f, x + charWidth*0.9f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.5f, charY + charHeight*0.5f, x + charWidth*0.5f, charY + charHeight, color, lineWidth);
+            break;
+        case 'Z':
+        case 'z':
+            // Z shape: - \ -
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+        case '0':
+            // 0 shape: oval
+            drawLine(x + charWidth*0.3f, charY, x + charWidth*0.7f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.2f, x + charWidth*0.1f, charY + charHeight*0.8f, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY + charHeight*0.2f, x + charWidth*0.9f, charY + charHeight*0.8f, color, lineWidth);
+            drawLine(x + charWidth*0.3f, charY + charHeight, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
+            break;
+        case '1':
+            // 1 shape: |
+            drawLine(x + charWidth*0.5f, charY, x + charWidth*0.5f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.3f, charY, x + charWidth*0.5f, charY, color, lineWidth);
+            break;
+        case '2':
+            // 2 shape: - \ -
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.8f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.8f, charY, x + charWidth*0.1f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.8f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            break;
+        case '3':
+            // 3 shape: - | -
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.8f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.8f, charY, x + charWidth*0.8f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.8f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            break;
+        case '4':
+            // 4 shape: | \ |
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.8f, charY, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            break;
+        case '5':
+            // 5 shape: | - \ -
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.8f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.8f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            break;
+        case '6':
+            // 6 shape: | - \ -
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.8f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.8f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            break;
+        case '7':
+            // 7 shape: - |
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+        case '8':
+            // 8 shape: | - | - |
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+        case '9':
+            // 9 shape: | - | - |
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+        case '.':
+            // Period: small dot
+            fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.8f, charWidth*0.2f, charHeight*0.2f), color);
+            break;
+        case ',':
+            // Comma: small dot with tail
+            fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.8f, charWidth*0.2f, charHeight*0.2f), color);
+            drawLine(x + charWidth*0.4f, charY + charHeight*0.8f, x + charWidth*0.3f, charY + charHeight, color, lineWidth);
+            break;
+        case ':':
+            // Colon: two dots
+            fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.3f, charWidth*0.2f, charHeight*0.2f), color);
+            fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.7f, charWidth*0.2f, charHeight*0.2f), color);
+            break;
+        case ';':
+            // Semicolon: dot with tail and comma
+            fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.3f, charWidth*0.2f, charHeight*0.2f), color);
+            fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.7f, charWidth*0.2f, charHeight*0.2f), color);
+            drawLine(x + charWidth*0.4f, charY + charHeight*0.7f, x + charWidth*0.3f, charY + charHeight, color, lineWidth);
+            break;
+        case '!':
+            // Exclamation: | and dot
+            drawLine(x + charWidth*0.5f, charY, x + charWidth*0.5f, charY + charHeight*0.7f, color, lineWidth);
+            fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.8f, charWidth*0.2f, charHeight*0.2f), color);
+            break;
+        case '?':
+            // Question mark: ? shape
+            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.1f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight*0.3f, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight*0.3f, x + charWidth*0.5f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(x + charWidth*0.5f, charY + charHeight*0.5f, x + charWidth*0.5f, charY + charHeight*0.7f, color, lineWidth);
+            fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.8f, charWidth*0.2f, charHeight*0.2f), color);
+            break;
+        case ' ':
+            // Space: nothing
+            break;
+        default:
+            // Unknown character: draw a box
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            break;
+    }
 }
 
 void NUIRendererGL::drawTextCentered(const std::string& text, const NUIRect& rect, float fontSize, const NUIColor& color) {
-    // Placeholder implementation - will be replaced with MSDF text renderer
+    // Calculate text position for centering
     float textWidth = text.length() * fontSize * 0.6f;
     float x = rect.x + (rect.width - textWidth) * 0.5f;
     float y = rect.y + (rect.height - fontSize) * 0.5f;
-    NUIRect textRect(x, y, textWidth, fontSize);
-    fillRect(textRect, color.withAlpha(0.3f));
+    
+    // Use the improved text rendering
+    drawText(text, NUIPoint(x, y), fontSize, color);
 }
 
 NUISize NUIRendererGL::measureText(const std::string& text, float fontSize) {

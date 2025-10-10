@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <array>
-#include <glm/glm.hpp>
+#include "glm.hpp"
 #include <glad/glad.h>
 
 /**
