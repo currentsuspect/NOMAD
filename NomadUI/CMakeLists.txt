@@ -23,6 +23,24 @@ set(NOMADUI_CORE_SOURCES
     Core/NUIComponent.cpp
     Core/NUITheme.h
     Core/NUITheme.cpp
+    Core/NUIAnimation.h
+    Core/NUIAnimation.cpp
+    Core/NUIThemeSystem.h
+    Core/NUIThemeSystem.cpp
+    Core/NUIButton.h
+    Core/NUIButton.cpp
+    Core/NUILabel.h
+    Core/NUILabel.cpp
+    Core/NUISlider.h
+    Core/NUISlider.cpp
+    Core/NUICheckbox.h
+    Core/NUICheckbox.cpp
+    Core/NUITextInput.h
+    Core/NUITextInput.cpp
+    Core/NUIProgressBar.h
+    Core/NUIProgressBar.cpp
+    Core/NUIScrollbar.h
+    Core/NUIScrollbar.cpp
     # Core/NUIApp.h  # Requires renderer
     # Core/NUIApp.cpp
 )
@@ -32,7 +50,18 @@ set(NOMADUI_GRAPHICS_SOURCES
     Graphics/NUIRenderer.cpp
 )
 
-# Create core library
+set(NOMADUI_TEXT_SOURCES
+    Graphics/NUIFont.h
+    Graphics/NUIFont.cpp
+    Graphics/NUITextRenderer.h
+    Graphics/NUITextRenderer.cpp
+    Graphics/NUITextRendererGDI.h
+    Graphics/NUITextRendererGDI.cpp
+    Graphics/NUITextRendererModern.h
+    Graphics/NUITextRendererModern.cpp
+)
+
+# Create core library (without text rendering - that's OpenGL-specific)
 add_library(NomadUI_Core STATIC
     ${NOMADUI_CORE_SOURCES}
     ${NOMADUI_GRAPHICS_SOURCES}
@@ -56,11 +85,41 @@ set_target_properties(glad PROPERTIES LINKER_LANGUAGE C)
 target_include_directories(glad PUBLIC External/glad/include)
 
 # ============================================================================
+# FreeType - Text Rendering
+# ============================================================================
+
+include(FetchContent)
+
+message(STATUS "Fetching FreeType...")
+
+FetchContent_Declare(
+    freetype
+    GIT_REPOSITORY https://github.com/freetype/freetype.git
+    GIT_TAG VER-2-13-3  # Latest stable version with CMake 4.x support
+    GIT_SHALLOW TRUE
+)
+
+# Disable unnecessary FreeType features
+set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_BZIP2 ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(freetype)
+
+message(STATUS "✓ FreeType loaded")
+
+# ============================================================================
 # OpenGL Renderer (Optional)
 # ============================================================================
 
 if(NOMADUI_BUILD_OPENGL)
     find_package(OpenGL REQUIRED)
+    
+    # SDL2 is optional - if not found, we'll use GDI fallback
+    find_package(SDL2 QUIET)
+    find_package(SDL2_ttf QUIET)
     
     set(NOMADUI_OPENGL_SOURCES
         Graphics/OpenGL/NUIRendererGL.h
@@ -69,13 +128,26 @@ if(NOMADUI_BUILD_OPENGL)
     
     add_library(NomadUI_OpenGL STATIC
         ${NOMADUI_OPENGL_SOURCES}
+        ${NOMADUI_TEXT_SOURCES}
     )
     
     target_link_libraries(NomadUI_OpenGL PUBLIC
         NomadUI_Core
         OpenGL::GL
         glad
+        freetype
     )
+    
+    # Add SDL2 libraries if available
+    if(SDL2_FOUND AND SDL2_ttf_FOUND)
+        target_link_libraries(NomadUI_OpenGL PUBLIC
+            SDL2::SDL2
+            SDL2_ttf::SDL2_ttf
+        )
+        target_compile_definitions(NomadUI_OpenGL PUBLIC
+            NOMADUI_SDL2_AVAILABLE
+        )
+    endif()
     
     target_compile_definitions(NomadUI_OpenGL PUBLIC
         NOMADUI_OPENGL
@@ -124,6 +196,8 @@ if(WIN32)
     
     set(NOMADUI_PLATFORM_SOURCES
         Platform/Windows/NUIPlatformWindows.h
+        Platform/Windows/NUIWindowWin32.h
+        Platform/Windows/NUIWindowWin32.cpp
         # Platform/Windows/NUIPlatformWindows.cpp  # TODO: Implement
     )
     set(PLATFORM_NAME "Windows x64")
@@ -151,6 +225,11 @@ endif()
 
 add_library(NomadUI_Platform STATIC
     ${NOMADUI_PLATFORM_SOURCES}
+)
+
+target_include_directories(NomadUI_Platform PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/External/glad/include
 )
 
 target_link_libraries(NomadUI_Platform PUBLIC
@@ -194,6 +273,68 @@ if(NOMADUI_BUILD_EXAMPLES)
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     )
     
+    # Button Test App (tests button functionality without OpenGL)
+    add_executable(NomadUI_ButtonTest
+        Test/ButtonTestApp.cpp
+    )
+    
+    target_link_libraries(NomadUI_ButtonTest PRIVATE
+        NomadUI_Core
+    )
+    
+    set_target_properties(NomadUI_ButtonTest PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+    
+    # Simple Render Test (tests basic OpenGL rendering)
+    if(WIN32 AND NOMADUI_BUILD_OPENGL)
+        add_executable(NomadUI_SimpleRenderTest
+            Test/SimpleRenderTest.cpp
+        )
+        
+        # Add glad.c as a separate C file
+        target_sources(NomadUI_SimpleRenderTest PRIVATE External/glad/src/glad.c)
+        set_source_files_properties(External/glad/src/glad.c PROPERTIES LANGUAGE C)
+
+        target_include_directories(NomadUI_SimpleRenderTest PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/External/glad/include
+        )
+
+        target_link_libraries(NomadUI_SimpleRenderTest PRIVATE
+            NomadUI_Core
+            NomadUI_OpenGL
+            NomadUI_Platform
+            opengl32
+        )
+        
+        set_target_properties(NomadUI_SimpleRenderTest PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+        )
+    endif()
+    
+    # Simple Window Test (Windows only, minimal OpenGL test)
+    if(WIN32 AND NOMADUI_BUILD_OPENGL)
+        add_executable(NomadUI_SimpleWindowTest
+            Examples/SimpleWindowTest.cpp
+        )
+        
+        # Add glad.c as a separate C file
+        target_sources(NomadUI_SimpleWindowTest PRIVATE External/glad/src/glad.c)
+        set_source_files_properties(External/glad/src/glad.c PROPERTIES LANGUAGE C)
+
+        target_include_directories(NomadUI_SimpleWindowTest PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/External/glad/include
+        )
+
+        target_link_libraries(NomadUI_SimpleWindowTest PRIVATE 
+            opengl32
+        )
+
+        set_target_properties(NomadUI_SimpleWindowTest PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
+    endif()
+    
     # Window Demo (Windows only, requires OpenGL + Win32)
     if(WIN32 AND NOMADUI_BUILD_OPENGL)
         add_executable(NomadUI_WindowDemo
@@ -203,6 +344,7 @@ if(NOMADUI_BUILD_EXAMPLES)
             Core/NUITheme.cpp
             Graphics/NUIRenderer.cpp
             Graphics/OpenGL/NUIRendererGL.cpp
+            ${NOMADUI_TEXT_SOURCES}
         )
         
         # Add glad.c as a separate C file
@@ -216,9 +358,86 @@ if(NOMADUI_BUILD_EXAMPLES)
 
         target_link_libraries(NomadUI_WindowDemo PRIVATE 
             opengl32
+            freetype
         )
 
         set_target_properties(NomadUI_WindowDemo PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
+    endif()
+    
+    # Button & Label Demo (Windows only, requires OpenGL + Win32)
+    if(WIN32 AND NOMADUI_BUILD_OPENGL)
+        add_executable(NomadUI_ButtonLabelDemo
+            Examples/ButtonLabelDemo.cpp
+            Platform/Windows/NUIWindowWin32.cpp
+            Core/NUIComponent.cpp
+            Core/NUITheme.cpp
+            Core/NUIAnimation.cpp
+            Core/NUIThemeSystem.cpp
+            Core/NUIButton.cpp
+            Core/NUILabel.cpp
+            Graphics/NUIRenderer.cpp
+            Graphics/OpenGL/NUIRendererGL.cpp
+            ${NOMADUI_TEXT_SOURCES}
+        )
+        
+        # Add glad.c as a separate C file
+        target_sources(NomadUI_ButtonLabelDemo PRIVATE External/glad/src/glad.c)
+        set_source_files_properties(External/glad/src/glad.c PROPERTIES LANGUAGE C)
+
+        target_include_directories(NomadUI_ButtonLabelDemo PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/External/glad/include
+        )
+
+        target_link_libraries(NomadUI_ButtonLabelDemo PRIVATE 
+            opengl32
+            freetype
+        )
+
+        set_target_properties(NomadUI_ButtonLabelDemo PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
+    endif()
+    
+    # New Components Demo (Windows only, requires OpenGL + Win32)
+    if(WIN32 AND NOMADUI_BUILD_OPENGL)
+        add_executable(NomadUI_NewComponentsDemo
+            Examples/NewComponentsDemo.cpp
+            Platform/Windows/NUIWindowWin32.cpp
+            Core/NUIComponent.cpp
+            Core/NUITheme.cpp
+            Core/NUIAnimation.cpp
+            Core/NUIThemeSystem.cpp
+            Core/NUIButton.cpp
+            Core/NUILabel.cpp
+            Core/NUISlider.cpp
+            Core/NUICheckbox.cpp
+            Core/NUITextInput.cpp
+            Core/NUIProgressBar.cpp
+            Core/NUIScrollbar.cpp
+            Core/NUIContextMenu.cpp
+            Graphics/NUIRenderer.cpp
+            Graphics/OpenGL/NUIRendererGL.cpp
+            ${NOMADUI_TEXT_SOURCES}
+        )
+        
+        # Add glad.c as a separate C file
+        target_sources(NomadUI_NewComponentsDemo PRIVATE External/glad/src/glad.c)
+        set_source_files_properties(External/glad/src/glad.c PROPERTIES LANGUAGE C)
+
+        target_include_directories(NomadUI_NewComponentsDemo PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/External/glad/include
+        )
+
+        target_link_libraries(NomadUI_NewComponentsDemo PRIVATE 
+            opengl32
+            freetype
+        )
+
+        set_target_properties(NomadUI_NewComponentsDemo PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
         )
     endif()

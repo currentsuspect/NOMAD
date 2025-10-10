@@ -9,6 +9,7 @@ namespace NomadUI {
 
 class NUIRenderer;
 class NUITheme;
+class NUIFont;
 
 /**
  * Base class for all UI components in the Nomad UI framework.
@@ -80,6 +81,7 @@ public:
      * Called when the mouse leaves the component bounds.
      */
     virtual void onMouseLeave();
+    
     
     // ========================================================================
     // Layout & Bounds
@@ -154,6 +156,11 @@ public:
      */
     void setDirty(bool dirty = true);
     bool isDirty() const { return dirty_; }
+    
+    /**
+     * Convenience method to trigger a repaint.
+     */
+    void repaint() { setDirty(true); }
     
     /**
      * Set the opacity of this component (0.0 = transparent, 1.0 = opaque).

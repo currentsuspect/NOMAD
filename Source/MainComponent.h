@@ -9,6 +9,9 @@
 #include "UI/FileBrowserComponent.h"
 #include "UI/PlaylistComponent.h"
 #include "UI/SequencerView.h"
+#include "UI/MixerComponent.h"
+#include "UI/GPUContextManager.h"
+#include "UI/PerformanceMonitor.h"
 
 class MainComponent : public juce::Component,
                       public juce::DragAndDropContainer,
@@ -33,6 +36,9 @@ public:
     
     // KeyListener interface
     bool keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent) override;
+    
+    // Focus management for floating windows
+    void updateComponentFocus();
 
 private:
     void showAudioSettings();
@@ -55,6 +61,7 @@ private:
     FileExplorerPanel fileBrowser;
     PlaylistComponent playlistWindow;
     SequencerView sequencerView;
+    MixerComponent mixerComponent;
     
     // Window dragging and resizing
     juce::ComponentDragger windowDragger;
@@ -66,6 +73,9 @@ private:
     int fileBrowserWidth = 250;
     bool isDraggingDivider = false;
     juce::Rectangle<int> dividerArea;
+    
+    // Focus management for rendering optimization
+    juce::Component* lastFocusedWindow = nullptr;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

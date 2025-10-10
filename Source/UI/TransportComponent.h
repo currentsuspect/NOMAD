@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "../Audio/TransportController.h"
 #include "IconButton.h"
+#include "GPUContextManager.h"
 
 // Forward declaration
 class AudioEngine;

@@ -3,6 +3,9 @@
 #include <JuceHeader.h>
 #include "MinimalScrollbar.h"
 #include "../Models/AudioClip.h"
+#include "GPUContextManager.h"
+#include "DragStateManager.h"
+#include "FloatingWindow.h"
 
 /**
  * Simple button that draws window control symbols
@@ -54,7 +57,7 @@ private:
 /**
  * Dockable playlist window component
  */
-class PlaylistComponent : public juce::Component,
+class PlaylistComponent : public FloatingWindow,
                           public juce::FileDragAndDropTarget,
                           private juce::Timer
 {
@@ -83,6 +86,11 @@ public:
     void setWorkspaceBounds(juce::Rectangle<int> bounds);
     void minimize();
     void toggleMaximize();
+    void setDocked(bool shouldBeDocked); // Set whether playlist is docked or floating
+    
+    // Rendering control for performance
+    void setRenderingActive(bool shouldRender);
+    bool isRenderingActive() const { return renderingActive; }
     
     // Playback
     void setPlayheadPosition(double timeInBeats);
@@ -96,7 +104,10 @@ private:
     void checkSnapToCorner();
     void timerCallback() override;
     
-    juce::ComponentDragger dragger;
+    // Lightweight drag mode methods
+    void enterLightweightMode();
+    void exitLightweightMode();
+    
     juce::Rectangle<int> titleBarArea;
     juce::Rectangle<int> workspaceBounds;
     juce::Rectangle<int> normalBounds; // Store bounds before maximize
@@ -109,6 +120,11 @@ private:
     bool isMaximized = false;
     bool isMinimized = false;
     bool isDragging = false;
+    bool isDocked = false; // Whether playlist is docked (not floating)
+    
+    // Lightweight drag mode for performance
+    bool shadowEnabled = true;
+    bool blurEnabled = true;
     
     // Resizable track list and track heights
     int trackListWidth = 200;
@@ -137,9 +153,6 @@ private:
     double playheadPosition = 0.0; // Current playback position in beats
     double playheadVelocity = 0.0; // Velocity in beats per second for smooth movement
     juce::int64 lastFrameTime = 0; // For calculating delta time
-    
-    // GPU acceleration
-    juce::OpenGLContext openGLContext;
     
     // Async file loading (prevents UI freezes)
     juce::ThreadPool loadingThreadPool{2}; // 2 background threads for loading
@@ -185,5 +198,11 @@ private:
     double screenToWorldX(int screenX) const;
     int screenToWorldY(int screenY) const;
     
+    // Rendering control
+    bool renderingActive = true;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlaylistComponent)
+
+protected:
+    juce::Rectangle<int> getTitleBarBounds() const override { return titleBarArea; }
 };

@@ -1,16 +1,15 @@
 #include "PlaylistComponent.h"
 #include "../Audio/AudioEngine.h"
+#include "../MainComponent.h"
+#include "DragStateManager.h"
 
 PlaylistComponent::PlaylistComponent()
+    : FloatingWindow("Playlist")
 {
     setSize(300, 400);
     
     // Enable keyboard focus for delete key
     setWantsKeyboardFocus(true);
-    
-    // PERFORMANCE: Enable GPU acceleration for buttery smooth rendering
-    openGLContext.attachTo(*this);
-    openGLContext.setSwapInterval(1); // Enable VSync for smooth 60 FPS
     
     // Start timer for playhead animation (60 FPS)
     startTimer(16);
@@ -59,24 +58,46 @@ PlaylistComponent::PlaylistComponent()
 void PlaylistComponent::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds();
+    auto boundsFloat = bounds.toFloat();
     
-    // Flat dark background
-    g.setColour(juce::Colour(0xff151618));
-    g.fillRect(bounds);
+    int titleBarHeight = 0;
     
-    // Title bar
-    auto titleBar = bounds.removeFromTop(32);
-    g.setColour(juce::Colour(0xff1a1a1a));
-    g.fillRect(titleBar);
-    
-    // Title text
-    g.setFont(juce::Font("Arial", 12.0f, juce::Font::plain));
-    g.setColour(purpleGlow);
-    g.drawText("Playlist", titleBar.reduced(12, 0).removeFromLeft(200), juce::Justification::centredLeft, true);
-    
-    // Thin separator under title bar
-    g.setColour(juce::Colour(0xff000000));
-    g.drawLine(0, 32, (float)getWidth(), 32, 1.0f);
+    // Only draw drop shadow and rounded corners if not docked
+    if (!isDocked)
+    {
+        // Drop shadow (FL Studio style) - only if enabled
+        if (shadowEnabled)
+        {
+            g.setColour(juce::Colours::black.withAlpha(0.6f));
+            g.fillRoundedRectangle(boundsFloat.expanded(4).translated(2, 3), 8.0f);
+        }
+        
+        // Background with rounded corners
+        g.setColour(juce::Colour(0xff0d0a15));
+        g.fillRoundedRectangle(boundsFloat, 8.0f);
+        
+        titleBarHeight = 32;
+        auto titleBar = bounds.removeFromTop(titleBarHeight);
+        
+        // Title bar
+        g.setColour(juce::Colour(0xff1a1525));
+        g.fillRect(titleBar); // Simple rect, rounded corners handled by main background
+        
+        // Title text
+        g.setFont(juce::Font("Arial", 12.0f, juce::Font::plain));
+        g.setColour(purpleGlow);
+        g.drawText("Playlist", titleBar.reduced(12, 0).removeFromLeft(200), juce::Justification::centredLeft, true);
+        
+        // Thin separator under title bar
+        g.setColour(juce::Colour(0xff000000));
+        g.drawLine(0, (float)titleBarHeight, (float)getWidth(), (float)titleBarHeight, 1.0f);
+    }
+    else
+    {
+        // Flat dark background when docked
+        g.setColour(juce::Colour(0xff0d0a15));
+        g.fillRect(bounds);
+    }
     
     // Ruler area
     auto rulerArea = bounds.removeFromTop(rulerHeight);
@@ -171,9 +192,10 @@ void PlaylistComponent::paint(juce::Graphics& g)
         g.setColour(isMuted ? juce::Colour(0xff666666) : juce::Colour(0xff66BB6A));
         g.drawEllipse(muteButtonBounds.toFloat(), 1.5f);
         
-        // Track text (greyed out if muted)
-        g.setColour(isMuted ? juce::Colour(0xff444444) : juce::Colour(0xff888888));
-        auto textBounds = trackBounds.reduced(12, 0).withTrimmedLeft(24);
+        // Track text (greyed out if muted, brighter when active)
+        g.setColour(isMuted ? juce::Colour(0xff444444) : 
+                   (isSelected ? juce::Colour(0xffaaaaaa) : juce::Colour(0xff777777)));
+        auto textBounds = trackBounds.reduced(16, 0).withTrimmedLeft(28); // More padding
         g.drawText("Track " + juce::String(i + 1), textBounds, juce::Justification::centredLeft, true);
     }
     
@@ -321,28 +343,32 @@ void PlaylistComponent::paint(juce::Graphics& g)
 void PlaylistComponent::resized()
 {
     auto bounds = getLocalBounds();
-    titleBarArea = bounds.removeFromTop(32);
+    int titleBarHeight = isDocked ? 0 : 32;
+    titleBarArea = bounds.removeFromTop(titleBarHeight);
     
-    // Position window control buttons in title bar - extra small
-    int buttonSize = 20;
-    auto buttonY = (titleBarArea.getHeight() - buttonSize) / 2;
-    closeButton.setBounds(titleBarArea.getRight() - buttonSize - 4, buttonY, buttonSize, buttonSize);
-    maximizeButton.setBounds(titleBarArea.getRight() - (buttonSize * 2) - 6, buttonY, buttonSize, buttonSize);
-    minimizeButton.setBounds(titleBarArea.getRight() - (buttonSize * 3) - 8, buttonY, buttonSize, buttonSize);
+    // Position window control buttons in title bar - extra small (only if not docked)
+    if (!isDocked)
+    {
+        int buttonSize = 20;
+        auto buttonY = (titleBarArea.getHeight() - buttonSize) / 2;
+        closeButton.setBounds(titleBarArea.getRight() - buttonSize - 4, buttonY, buttonSize, buttonSize);
+        maximizeButton.setBounds(titleBarArea.getRight() - (buttonSize * 2) - 6, buttonY, buttonSize, buttonSize);
+        minimizeButton.setBounds(titleBarArea.getRight() - (buttonSize * 3) - 8, buttonY, buttonSize, buttonSize);
+    }
     
     // Track list divider area (4px wide, draggable)
-    trackListDividerArea = juce::Rectangle<int>(trackListWidth, 32 + scrollbarThickness, 4, getHeight() - 32 - scrollbarThickness);
+    trackListDividerArea = juce::Rectangle<int>(trackListWidth, titleBarHeight + scrollbarThickness, 4, getHeight() - titleBarHeight - scrollbarThickness);
     
     // Position scrollbars
     // Horizontal scrollbar above ruler (after track list)
     int hScrollX = trackListWidth + 4;
-    int hScrollY = 32;
+    int hScrollY = titleBarHeight;
     int hScrollWidth = getWidth() - hScrollX - scrollbarThickness;
     horizontalScrollbar.setBounds(hScrollX, hScrollY, hScrollWidth, scrollbarThickness);
     
     // Vertical scrollbar on right side
     int vScrollX = getWidth() - scrollbarThickness;
-    int vScrollY = 32 + scrollbarThickness;
+    int vScrollY = titleBarHeight + scrollbarThickness;
     int vScrollHeight = getHeight() - vScrollY;
     verticalScrollbar.setBounds(vScrollX, vScrollY, scrollbarThickness, vScrollHeight);
     
@@ -358,6 +384,31 @@ void PlaylistComponent::resized()
 
 void PlaylistComponent::mouseDown(const juce::MouseEvent& event)
 {
+    // Bring to front when clicked anywhere
+    toFront(true);
+    
+    // Update focus in parent
+    if (auto* parent = dynamic_cast<MainComponent*>(getParentComponent()))
+    {
+        parent->updateComponentFocus();
+    }
+    
+    // Check if clicking on title bar - let base handle drag
+    if (titleBarArea.contains(event.getPosition()))
+    {
+        FloatingWindow::mouseDown(event);
+        isDragging = true;
+        enterLightweightMode();
+        
+        // Restore from maximized if dragging
+        if (isMaximized)
+        {
+            isMaximized = false;
+            setBounds(normalBounds);
+        }
+        return;
+    }
+    
     // Check if clicking on scrollbars - let them handle it
     if (horizontalScrollbar.getBounds().contains(event.getPosition()) ||
         verticalScrollbar.getBounds().contains(event.getPosition()))
@@ -458,18 +509,6 @@ void PlaylistComponent::mouseDown(const juce::MouseEvent& event)
             return;
         }
     }
-    
-    if (titleBarArea.contains(event.getPosition()))
-    {
-        isDragging = true;
-        
-        // Restore from maximized if dragging
-        if (isMaximized)
-        {
-            isMaximized = false;
-            setBounds(normalBounds);
-        }
-    }
 }
 
 juce::Rectangle<int> PlaylistComponent::getMuteButtonBounds(int trackIndex)
@@ -488,6 +527,8 @@ juce::Rectangle<int> PlaylistComponent::getTrackBounds(int trackIndex)
 
 void PlaylistComponent::mouseDrag(const juce::MouseEvent& event)
 {
+    // Base handles window dragging if isDragging from title bar
+    
     // Handle clip resizing
     if (isResizingClip && selectedClipIndex >= 0 && selectedClipIndex < audioClips.size())
     {
@@ -623,6 +664,10 @@ void PlaylistComponent::mouseUp(const juce::MouseEvent& event)
     if (isDragging)
     {
         isDragging = false;
+        
+        // Exit global lightweight mode
+        DragStateManager::getInstance().exitLightweightMode();
+        exitLightweightMode();
         checkSnapToCorner();
     }
 }
@@ -679,6 +724,18 @@ void PlaylistComponent::toggleMaximize()
         setBounds(workspaceBounds);
         isMaximized = true;
     }
+}
+
+void PlaylistComponent::setDocked(bool shouldBeDocked)
+{
+    isDocked = shouldBeDocked;
+    
+    // Hide window controls when docked
+    minimizeButton.setVisible(!isDocked);
+    maximizeButton.setVisible(!isDocked);
+    closeButton.setVisible(!isDocked);
+    
+    repaint();
 }
 
 void PlaylistComponent::checkSnapToCorner()
@@ -841,6 +898,11 @@ void PlaylistComponent::loadAudioFileAsync(const juce::File& file, double startT
                 const juce::ScopedLock lock(clipLoadingLock);
                 audioClips.push_back(std::move(clip));
                 pendingLoads--;
+                
+                // Update loop behavior when clips change
+                if (audioEngine != nullptr)
+                    audioEngine->updateLoopBehavior();
+                
                 repaint();
             });
         }
@@ -1116,6 +1178,11 @@ void PlaylistComponent::deleteSelectedClip()
     {
         audioClips.erase(audioClips.begin() + selectedClipIndex);
         selectedClipIndex = -1;
+        
+        // Update loop behavior when clips change
+        if (audioEngine != nullptr)
+            audioEngine->updateLoopBehavior();
+        
         repaint();
     }
 }
@@ -1222,5 +1289,47 @@ void PlaylistComponent::timerCallback()
     if (needsRepaint)
     {
         repaint();
+    }
+}
+
+void PlaylistComponent::enterLightweightMode()
+{
+    // Disable expensive effects during drag for smooth 60 FPS performance
+    shadowEnabled = false;
+    blurEnabled = false;
+    
+    // Trigger repaint to apply lightweight rendering
+    repaint();
+}
+
+void PlaylistComponent::exitLightweightMode()
+{
+    // Re-enable effects after drag
+    shadowEnabled = true;
+    blurEnabled = true;
+    
+    // Smooth transition back with slight delay to avoid jarring effect
+    juce::Timer::callAfterDelay(100, [this]() {
+        repaint();
+    });
+}
+
+void PlaylistComponent::setRenderingActive(bool shouldRender)
+{
+    if (renderingActive == shouldRender)
+        return;
+    
+    renderingActive = shouldRender;
+    
+    // Update GPU context manager
+    GPUContextManager::getInstance().setComponentRenderingActive(this, shouldRender);
+    
+    if (shouldRender)
+    {
+        startTimer(16); // Resume animation timer
+    }
+    else
+    {
+        stopTimer(); // Stop animation timer
     }
 }

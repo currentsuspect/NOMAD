@@ -89,6 +89,10 @@ public:
     float getFontSizeLarge() const { return getFontSize("large", 18.0f); }
     float getFontSizeTitle() const { return getFontSize("title", 24.0f); }
     
+    // Font creation
+    // TODO: Implement font creation when NUIFont supports copying
+    // NUIFont getDefaultFont() const;
+    
 private:
     std::unordered_map<std::string, NUIColor> colors_;
     std::unordered_map<std::string, float> dimensions_;
