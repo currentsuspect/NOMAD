@@ -3,8 +3,21 @@
  * Implementation file
  */
 
+#include <stddef.h>
+
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#define NOCOMM
+
+// Suppress APIENTRY redefinition warning before including headers
+#pragma warning(push)
+#pragma warning(disable: 4005)
+
 #include <glad/glad.h>
 #include <Windows.h>
+
+// Restore warning level
+#pragma warning(pop)
 
 /* Function pointers */
 PFNGLCLEARCOLORPROC glClearColor = NULL;
@@ -43,6 +56,14 @@ PFNGLBINDBUFFERPROC glBindBuffer = NULL;
 PFNGLBUFFERDATAPROC glBufferData = NULL;
 PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray = NULL;
 PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer = NULL;
+
+PFNGLGENTEXTURESPROC glGenTextures = NULL;
+PFNGLDELETETEXTURESPROC glDeleteTextures = NULL;
+PFNGLBINDTEXTUREPROC glBindTexture = NULL;
+PFNGLTEXIMAGE2DPROC glTexImage2D = NULL;
+PFNGLTEXPARAMETERIPROC glTexParameteri = NULL;
+PFNGLACTIVETEXTUREPROC glActiveTexture = NULL;
+PFNGLPIXELSTOREIPROC glPixelStorei = NULL;
 
 static void* get_proc(const char* name) {
     void* proc = (void*)wglGetProcAddress(name);
@@ -93,6 +114,15 @@ int gladLoadGL(void) {
     glBufferData = (PFNGLBUFFERDATAPROC)get_proc("glBufferData");
     glEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC)get_proc("glEnableVertexAttribArray");
     glVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC)get_proc("glVertexAttribPointer");
+    
+    /* Load texture functions */
+    glGenTextures = (PFNGLGENTEXTURESPROC)get_proc("glGenTextures");
+    glDeleteTextures = (PFNGLDELETETEXTURESPROC)get_proc("glDeleteTextures");
+    glBindTexture = (PFNGLBINDTEXTUREPROC)get_proc("glBindTexture");
+    glTexImage2D = (PFNGLTEXIMAGE2DPROC)get_proc("glTexImage2D");
+    glTexParameteri = (PFNGLTEXPARAMETERIPROC)get_proc("glTexParameteri");
+    glActiveTexture = (PFNGLACTIVETEXTUREPROC)get_proc("glActiveTexture");
+    glPixelStorei = (PFNGLPIXELSTOREIPROC)get_proc("glPixelStorei");
     
     /* Check if essential functions loaded */
     if (!glCreateShader || !glGenVertexArrays) {

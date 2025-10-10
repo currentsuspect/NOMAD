@@ -162,10 +162,17 @@ TransportComponent::TransportComponent(TransportController& transport)
     
     // Start timer for position updates and animations
     startTimer(33); // Update ~30 times per second for smooth animations
+    
+    // Register with GPU context manager
+    GPUContextManager::getInstance().registerComponent(this);
+    GPUContextManager::getInstance().setComponentRenderingActive(this, true);
 }
 
 TransportComponent::~TransportComponent()
 {
+    // Unregister from GPU context manager
+    GPUContextManager::getInstance().unregisterComponent(this);
+    
     stopTimer();
     transportController.removeListener(this);
 }

@@ -4,6 +4,7 @@
 #include "TransportController.h"
 #include "SequencerEngine.h"
 #include "../Models/PatternManager.h"
+#include "Mixer.h"
 
 /**
  * Core audio engine that manages audio I/O and processing.
@@ -53,12 +54,16 @@ public:
     // Access to sequencer engine
     SequencerEngine& getSequencerEngine() { return sequencerEngine; }
     
+    // Access to mixer
+    Mixer* getMixer() { return mixer.get(); }
+    
     // Playback mode
     void setPlaybackMode(PlaybackMode mode);
     PlaybackMode getPlaybackMode() const;
     
     // Clip playback
     void setAudioClips(const std::vector<class AudioClip>* clips);
+    void updateLoopBehavior(); // Update loop based on clips
     
 private:
     void renderAudioClips(float* const* outputChannelData, int numOutputChannels, int numSamples);
@@ -80,6 +85,9 @@ private:
     // Audio clips (non-owning pointer, owned by PlaylistComponent)
     const std::vector<class AudioClip>* audioClips = nullptr;
     juce::CriticalSection clipsLock;
+    
+    // Audio mixer
+    std::unique_ptr<Mixer> mixer;
     
     // MIDI buffer for sequencer output
     juce::MidiBuffer midiBuffer;

@@ -34,6 +34,12 @@ target_sources(NOMAD PRIVATE
     Source/Audio/TransportController.cpp
     Source/Audio/SequencerEngine.h
     Source/Audio/SequencerEngine.cpp
+    Source/Audio/Mixer.h
+    Source/Audio/Mixer.cpp
+    Source/Audio/MixerChannel.h
+    Source/Audio/MixerChannel.cpp
+    Source/Audio/EffectsProcessor.h
+    Source/Audio/EffectsProcessor.cpp
     Source/Models/Pattern.h
     Source/Models/Pattern.cpp
     Source/Models/PatternManager.h
@@ -58,6 +64,13 @@ target_sources(NOMAD PRIVATE
     Source/UI/MinimalScrollbar.cpp
     Source/UI/SequencerView.h
     Source/UI/SequencerView.cpp
+    Source/UI/MixerComponent.h
+    Source/UI/MixerComponent.cpp
+    Source/UI/FloatingWindow.h
+    Source/UI/FloatingWindow.cpp
+    Source/UI/ThemeManager.h
+    Source/UI/WindowManager.h
+    Source/UI/EffectCache.h
 )
 
 target_include_directories(NOMAD PRIVATE
@@ -75,28 +88,20 @@ target_compile_definitions(NOMAD PRIVATE
 if(WIN32)
     target_compile_definitions(NOMAD PRIVATE
         JUCE_ASIO=0
-        JUCE_WASAPI=1
         JUCE_DIRECTSOUND=1
     )
 endif()
 
 target_link_libraries(NOMAD PRIVATE
-    juce::juce_audio_basics
-    juce::juce_audio_devices
-    juce::juce_audio_formats
-    juce::juce_audio_processors
     juce::juce_audio_utils
-    juce::juce_core
-    juce::juce_data_structures
-    juce::juce_events
-    juce::juce_graphics
+    juce::juce_audio_processors
+    juce::juce_audio_formats
+    juce::juce_audio_devices
+    juce::juce_audio_basics
     juce::juce_gui_basics
     juce::juce_gui_extra
     juce::juce_opengl
-)
-
-target_link_libraries(NOMAD PRIVATE
-    juce::juce_recommended_config_flags
+    juce::juce_dsp
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags
 )
@@ -133,3 +138,57 @@ target_link_libraries(NOMAD_Tests PRIVATE
 # Enable testing
 enable_testing()
 add_test(NAME PatternTests COMMAND NOMAD_Tests)
+
+# Mixer Test Application
+juce_add_gui_app(MixerTest
+    PRODUCT_NAME "NOMAD Mixer Test"
+    COMPANY_NAME "NOMAD Audio"
+    BUNDLE_ID "com.nomadaudio.nomad.mixertest"
+)
+
+juce_generate_juce_header(MixerTest)
+
+target_sources(MixerTest PRIVATE
+    Source/Tests/MixerTest.h
+    Source/Tests/MixerTestApp.h
+    Source/Tests/MixerTestApp.cpp
+    Source/Audio/Mixer.h
+    Source/Audio/Mixer.cpp
+    Source/Audio/MixerChannel.h
+    Source/Audio/MixerChannel.cpp
+    Source/Audio/EffectsProcessor.h
+    Source/Audio/EffectsProcessor.cpp
+)
+
+target_include_directories(MixerTest PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source
+)
+
+target_compile_definitions(MixerTest PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:MixerTest,JUCE_PRODUCT_NAME>"
+    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:MixerTest,JUCE_VERSION>"
+)
+
+# Windows-specific settings
+if(WIN32)
+    target_compile_definitions(MixerTest PRIVATE
+        JUCE_ASIO=0
+        JUCE_DIRECTSOUND=1
+    )
+endif()
+
+target_link_libraries(MixerTest PRIVATE
+    juce::juce_audio_utils
+    juce::juce_audio_processors
+    juce::juce_audio_formats
+    juce::juce_audio_devices
+    juce::juce_audio_basics
+    juce::juce_gui_basics
+    juce::juce_gui_extra
+    juce::juce_data_structures
+    juce::juce_events
+    juce::juce_core
+    juce::juce_dsp
+)

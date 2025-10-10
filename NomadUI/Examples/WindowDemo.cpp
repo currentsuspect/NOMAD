@@ -1,5 +1,6 @@
+#include <glad/glad.h>  // MUST be first to avoid conflicts
 #include "../Platform/Windows/NUIWindowWin32.h"
-#include <glad/glad.h>
+#include <Windows.h>  // For Sleep()
 #include <iostream>
 #include <chrono>
 #include <cmath>

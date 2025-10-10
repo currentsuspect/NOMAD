@@ -1,12 +1,28 @@
 #include "NUIRendererGL.h"
+#include "../NUITextRenderer.h"
+#include "../NUIFont.h"
+#include "../NUITextRendererGDI.h"
+#include "../NUITextRendererModern.h"
 #include <cstring>
 #include <cmath>
-
-// GLAD must be included before any OpenGL headers
-#include <glad/glad.h>
+#include <iostream>
 
 #ifdef _WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #define NOMINMAX
+    #define NOCOMM
     #include <Windows.h>
+#endif
+
+// GLAD must be included after Windows headers to avoid macro conflicts
+#include <glad/glad.h>
+
+// Suppress APIENTRY redefinition warning - both define the same value
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable: 4005)
+// Windows.h redefines APIENTRY but it's the same value, so we can ignore the warning
+#pragma warning(pop)
 #endif
 
 namespace NomadUI {
@@ -96,6 +112,46 @@ bool NUIRendererGL::initialize(int width, int height) {
     createBuffers();
     updateProjectionMatrix();
     
+    // Initialize text rendering
+    textRenderer_ = std::make_unique<NUITextRenderer>();
+    if (!textRenderer_->initialize()) {
+        std::cerr << "Failed to initialize text renderer" << std::endl;
+        return false;
+    }
+    
+    // Load default font
+    defaultFont_ = std::make_shared<NUIFont>();
+    if (!defaultFont_->loadFromFile("C:/Windows/Fonts/arial.ttf", 16)) {
+        // Fallback to system font
+        if (!defaultFont_->loadFromFile("C:/Windows/Fonts/calibri.ttf", 16)) {
+            std::cerr << "Warning: Could not load default font, text rendering will use placeholders" << std::endl;
+        }
+    }
+    
+    // Don't cache ASCII glyphs during initialization to avoid crashes
+    defaultFont_->cacheASCII();
+    
+    // Initialize modern text renderer (primary) - only if SDL2 is available
+    #ifdef NOMADUI_SDL2_AVAILABLE
+    modernTextRenderer_ = std::make_shared<NUITextRendererModern>();
+    if (!modernTextRenderer_->initialize()) {
+        std::cerr << "Warning: Modern text renderer failed to initialize" << std::endl;
+    } else {
+        // Load default font
+        if (!modernTextRenderer_->loadFont("C:/Windows/Fonts/arial.ttf", 16)) {
+            if (!modernTextRenderer_->loadFont("C:/Windows/Fonts/calibri.ttf", 16)) {
+                std::cerr << "Warning: Could not load default font for modern renderer" << std::endl;
+            }
+        }
+    }
+    #else
+    std::cout << "SDL2 not available - using GDI text rendering fallback" << std::endl;
+    #endif
+    
+    // Initialize GDI text renderer as fallback
+    gdiTextRenderer_ = std::make_shared<NUITextRendererGDI>();
+    gdiTextRenderer_->initialize();
+    
     // Set initial state
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -106,6 +162,14 @@ bool NUIRendererGL::initialize(int width, int height) {
 }
 
 void NUIRendererGL::shutdown() {
+    // Shutdown text renderer
+    if (textRenderer_) {
+        textRenderer_->shutdown();
+        textRenderer_.reset();
+    }
+    
+    defaultFont_.reset();
+    
     if (vao_) {
         glDeleteVertexArrays(1, &vao_);
         vao_ = 0;
@@ -131,6 +195,12 @@ void NUIRendererGL::resize(int width, int height) {
     width_ = width;
     height_ = height;
     updateProjectionMatrix();
+    
+    // Update modern text renderer viewport
+    if (modernTextRenderer_) {
+        modernTextRenderer_->setViewport(width, height);
+    }
+    
     glViewport(0, 0, width, height);
 }
 
@@ -353,21 +423,89 @@ void NUIRendererGL::drawShadow(const NUIRect& rect, float offsetX, float offsetY
 // ============================================================================
 
 void NUIRendererGL::drawText(const std::string& text, const NUIPoint& position, float fontSize, const NUIColor& color) {
-    // TODO: Implement with FreeType
-    // For now, draw a placeholder rect
-    NUIRect textRect(position.x, position.y, text.length() * fontSize * 0.6f, fontSize);
-    fillRect(textRect, color.withAlpha(0.3f));
+    // Try modern OpenGL text rendering first (only if SDL2 is available)
+    #ifdef NOMADUI_SDL2_AVAILABLE
+    if (modernTextRenderer_) {
+        // For now, use fixed font size - in production, create separate atlases per size
+        modernTextRenderer_->setViewport(width_, height_);
+        modernTextRenderer_->drawText(text, position, color);
+        return;
+    }
+    #endif
+    
+    // Fallback to GDI text rendering (Windows)
+    #ifdef _WIN32
+    if (gdiTextRenderer_) {
+        // Get device context from current OpenGL context
+        HDC hdc = wglGetCurrentDC();
+        if (hdc) {
+            gdiTextRenderer_->drawText(text, position, fontSize, color, hdc);
+        }
+    }
+    #else
+    // Fallback to legacy OpenGL text rendering on other platforms
+    if (textRenderer_ && defaultFont_) {
+        // Get font at requested size
+        auto font = NUIFontManager::getInstance().getFont(defaultFont_->getFilepath(), static_cast<int>(fontSize));
+        if (!font) font = defaultFont_;
+        
+        // Begin text batch
+        textRenderer_->setOpacity(globalOpacity_);
+        textRenderer_->beginBatch(projectionMatrix_);
+        
+        // Draw text
+        textRenderer_->drawText(text, font, position, color);
+        
+        // End batch and flush
+        textRenderer_->endBatch();
+    }
+    #endif
 }
 
 void NUIRendererGL::drawTextCentered(const std::string& text, const NUIRect& rect, float fontSize, const NUIColor& color) {
-    float textWidth = text.length() * fontSize * 0.6f;
-    float x = rect.x + (rect.width - textWidth) * 0.5f;
-    float y = rect.y + (rect.height - fontSize) * 0.5f;
-    drawText(text, {x, y}, fontSize, color);
+    if (!textRenderer_ || !defaultFont_) {
+        // Fallback to placeholder
+        float textWidth = text.length() * fontSize * 0.6f;
+        float x = rect.x + (rect.width - textWidth) * 0.5f;
+        float y = rect.y + (rect.height - fontSize) * 0.5f;
+        NUIRect textRect(x, y, textWidth, fontSize);
+        fillRect(textRect, color.withAlpha(0.3f));
+        return;
+    }
+    
+    // Get font at requested size
+    auto font = NUIFontManager::getInstance().getFont(defaultFont_->getFilepath(), static_cast<int>(fontSize));
+    if (!font) font = defaultFont_;
+    
+    // Begin text batch
+    textRenderer_->setOpacity(globalOpacity_);
+    textRenderer_->beginBatch(projectionMatrix_);
+    
+    // Draw centered text
+    textRenderer_->drawTextAligned(
+        text, 
+        font, 
+        rect, 
+        color,
+        NUITextRenderer::Alignment::Center,
+        NUITextRenderer::VerticalAlignment::Middle
+    );
+    
+    // End batch and flush
+    textRenderer_->endBatch();
 }
 
 NUISize NUIRendererGL::measureText(const std::string& text, float fontSize) {
-    return {text.length() * fontSize * 0.6f, fontSize};
+    if (!textRenderer_ || !defaultFont_) {
+        // Fallback estimation
+        return {text.length() * fontSize * 0.6f, fontSize};
+    }
+    
+    // Get font at requested size
+    auto font = NUIFontManager::getInstance().getFont(defaultFont_->getFilepath(), static_cast<int>(fontSize));
+    if (!font) font = defaultFont_;
+    
+    return textRenderer_->measureText(text, font);
 }
 
 // ============================================================================
@@ -421,7 +559,7 @@ void NUIRendererGL::flush() {
     // Use shader
     glUseProgram(primitiveShader_.id);
     glUniformMatrix4fv(primitiveShader_.projectionLoc, 1, GL_FALSE, projectionMatrix_);
-    glUniform1f(primitiveShader_.opacityLoc, globalOpacity_);
+    // Note: opacity is already in vertex colors
     glUniform1i(primitiveShader_.primitiveTypeLoc, 0); // Simple rect
     
     // Draw
@@ -466,7 +604,7 @@ bool NUIRendererGL::loadShaders() {
     
     // Get uniform locations
     primitiveShader_.projectionLoc = glGetUniformLocation(primitiveShader_.id, "uProjection");
-    primitiveShader_.opacityLoc = glGetUniformLocation(primitiveShader_.id, "uOpacity");
+    // Note: opacity is baked into vertex colors, no uniform needed
     primitiveShader_.primitiveTypeLoc = glGetUniformLocation(primitiveShader_.id, "uPrimitiveType");
     primitiveShader_.radiusLoc = glGetUniformLocation(primitiveShader_.id, "uRadius");
     primitiveShader_.sizeLoc = glGetUniformLocation(primitiveShader_.id, "uSize");

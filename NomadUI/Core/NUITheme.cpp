@@ -124,4 +124,11 @@ float NUITheme::getFontSize(const std::string& name, float defaultSize) const {
     return defaultSize;
 }
 
+// TODO: Implement font creation when NUIFont supports copying
+// NUIFont NUITheme::getDefaultFont() const {
+//     NUIFont font;
+//     // TODO: Load default font from file
+//     return font;
+// }
+
 } // namespace NomadUI

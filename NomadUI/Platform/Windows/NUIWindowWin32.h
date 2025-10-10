@@ -3,11 +3,11 @@
 #include "../../Core/NUITypes.h"
 #include <string>
 #include <functional>
+#include <cstdint>
 
-// Forward declare Windows types to avoid including Windows.h in header
-typedef struct HWND__* HWND;
-typedef struct HDC__* HDC;
-typedef struct HGLRC__* HGLRC;
+// Opaque handle types (platform-specific, defined in .cpp)
+struct NUIWindowHandleWin32;
+typedef NUIWindowHandleWin32* NUIWindowHandle;
 
 namespace NomadUI {
 
@@ -60,15 +60,15 @@ public:
     void setRenderer(NUIRenderer* renderer);
     NUIRenderer* getRenderer() const { return m_renderer; }
     
-    // Native handles
-    HWND getHWND() const { return m_hwnd; }
-    HDC getHDC() const { return m_hdc; }
-    HGLRC getHGLRC() const { return m_hglrc; }
+    // Native handles (void* for platform abstraction)
+    void* getNativeHandle() const { return m_hwnd; }
+    void* getNativeDeviceContext() const { return m_hdc; }
+    void* getNativeGLContext() const { return m_hglrc; }
 
 private:
-    // Window procedure
-    static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-    LRESULT handleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
+    // Window procedure (implemented in .cpp where Windows types are available)
+    static long long __stdcall WindowProc(void* hwnd, unsigned int msg, unsigned long long wParam, long long lParam);
+    long long handleMessage(unsigned int msg, unsigned long long wParam, long long lParam);
     
     // Helper methods
     bool registerWindowClass();
@@ -79,10 +79,10 @@ private:
     void handleKey(int key, bool pressed);
     void handleResize(int width, int height);
     
-    // Window handles
-    HWND m_hwnd;
-    HDC m_hdc;
-    HGLRC m_hglrc;
+    // Window handles (void* for platform abstraction)
+    void* m_hwnd;
+    void* m_hdc;
+    void* m_hglrc;
     
     // Window properties
     std::string m_title;

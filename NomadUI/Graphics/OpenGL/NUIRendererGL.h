@@ -1,8 +1,13 @@
 #pragma once
 
 #include "../NUIRenderer.h"
+#include "../NUIFont.h"
+#include "../NUITextRenderer.h"
+#include "../NUITextRendererGDI.h"
+#include "../NUITextRendererModern.h"
 #include <vector>
 #include <unordered_map>
+#include <memory>
 
 namespace NomadUI {
 
@@ -173,6 +178,12 @@ private:
     // Textures
     std::unordered_map<uint32_t, uint32_t> textures_;
     uint32_t nextTextureId_ = 1;
+    
+    // Text rendering
+    std::shared_ptr<NUITextRenderer> textRenderer_;
+    std::shared_ptr<NUIFont> defaultFont_;
+    std::shared_ptr<NUITextRendererGDI> gdiTextRenderer_;
+    std::shared_ptr<NUITextRendererModern> modernTextRenderer_;
     
     // Projection matrix (orthographic)
     float projectionMatrix_[16];

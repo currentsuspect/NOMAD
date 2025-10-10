@@ -12,6 +12,8 @@
 #ifndef __GLAD_H_
 #define __GLAD_H_
 
+#include <stddef.h>  /* For ptrdiff_t */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -48,6 +50,20 @@ typedef ptrdiff_t GLsizeiptr;
 #define GL_FLOAT 0x1406
 #define GL_DOUBLE 0x140A
 #define GL_TRIANGLES 0x0004
+
+/* Texture constants */
+#define GL_TEXTURE_2D 0x0DE1
+#define GL_TEXTURE0 0x84C0
+#define GL_RED 0x1903
+#define GL_RGB 0x1907
+#define GL_RGBA 0x1908
+#define GL_TEXTURE_WRAP_S 0x2802
+#define GL_TEXTURE_WRAP_T 0x2803
+#define GL_TEXTURE_MIN_FILTER 0x2801
+#define GL_TEXTURE_MAG_FILTER 0x2800
+#define GL_LINEAR 0x2601
+#define GL_CLAMP_TO_EDGE 0x812F
+#define GL_UNPACK_ALIGNMENT 0x0CF5
 #define GL_ONE 1
 #define GL_SRC_ALPHA 0x0302
 #define GL_ONE_MINUS_SRC_ALPHA 0x0303
@@ -127,6 +143,15 @@ typedef void (APIENTRY *PFNGLBUFFERDATAPROC)(GLenum target, GLsizeiptr size, con
 typedef void (APIENTRY *PFNGLENABLEVERTEXATTRIBARRAYPROC)(GLuint index);
 typedef void (APIENTRY *PFNGLVERTEXATTRIBPOINTERPROC)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
 
+/* Texture functions */
+typedef void (APIENTRY *PFNGLGENTEXTURESPROC)(GLsizei n, GLuint *textures);
+typedef void (APIENTRY *PFNGLDELETETEXTURESPROC)(GLsizei n, const GLuint *textures);
+typedef void (APIENTRY *PFNGLBINDTEXTUREPROC)(GLenum target, GLuint texture);
+typedef void (APIENTRY *PFNGLTEXIMAGE2DPROC)(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void *pixels);
+typedef void (APIENTRY *PFNGLTEXPARAMETERIPROC)(GLenum target, GLenum pname, GLint param);
+typedef void (APIENTRY *PFNGLACTIVETEXTUREPROC)(GLenum texture);
+typedef void (APIENTRY *PFNGLPIXELSTOREIPROC)(GLenum pname, GLint param);
+
 /* Function declarations */
 extern PFNGLCLEARCOLORPROC glClearColor;
 extern PFNGLCLEARPROC glClear;
@@ -164,6 +189,14 @@ extern PFNGLBINDBUFFERPROC glBindBuffer;
 extern PFNGLBUFFERDATAPROC glBufferData;
 extern PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
 extern PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
+
+extern PFNGLGENTEXTURESPROC glGenTextures;
+extern PFNGLDELETETEXTURESPROC glDeleteTextures;
+extern PFNGLBINDTEXTUREPROC glBindTexture;
+extern PFNGLTEXIMAGE2DPROC glTexImage2D;
+extern PFNGLTEXPARAMETERIPROC glTexParameteri;
+extern PFNGLACTIVETEXTUREPROC glActiveTexture;
+extern PFNGLPIXELSTOREIPROC glPixelStorei;
 
 /* Load OpenGL functions */
 int gladLoadGL(void);
