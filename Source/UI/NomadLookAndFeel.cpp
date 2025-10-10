@@ -7,6 +7,10 @@ NomadLookAndFeel::NomadLookAndFeel()
     setColour(juce::TextButton::buttonColourId, getBackgroundMedium());
     setColour(juce::TextButton::textColourOffId, getTextSecondary());
     setColour(juce::Label::textColourId, getTextPrimary());
+    
+    // FL Studio style: Purple sliders instead of teal
+    setColour(juce::Slider::thumbColourId, juce::Colour(0xffa855f7)); // Purple
+    setColour(juce::Slider::trackColourId, juce::Colour(0xff7c3aed)); // Deep purple
 }
 
 void NomadLookAndFeel::drawButtonBackground(juce::Graphics& g,

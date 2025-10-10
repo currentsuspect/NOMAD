@@ -2,10 +2,10 @@
 
 TransportController::TransportController()
 {
-    // Enable loop by default with 4-bar loop (16 beats in 4/4 time)
-    loopEnabled.store(true);
+    // Disable loop by default - will be enabled automatically when needed
+    loopEnabled.store(false);
     loopStartBeats = 0.0;
-    loopEndBeats = 16.0; // 4 bars * 4 beats
+    loopEndBeats = 16.0; // 4 bars * 4 beats (default for pattern mode)
 }
 
 void TransportController::play()

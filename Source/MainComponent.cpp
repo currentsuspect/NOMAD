@@ -4,8 +4,12 @@
 MainComponent::MainComponent()
     : transportComponent(audioEngine.getTransportController()),
       sequencerView(audioEngine.getPatternManager(), audioEngine.getTransportController()),
+      mixerComponent(*audioEngine.getMixer()),
       resizer(this, &resizeConstraints)
 {
+    // Attach shared OpenGL context for GPU-accelerated rendering
+    GPUContextManager::getInstance().attachToComponent(this);
+    
     // Set custom look and feel
     setLookAndFeel(&nomadLookAndFeel);
     
@@ -78,6 +82,9 @@ MainComponent::MainComponent()
     sequencerView.setSequencerEngine(&audioEngine.getSequencerEngine());
     addAndMakeVisible(sequencerView);
     
+    // Setup mixer component
+    addAndMakeVisible(mixerComponent);
+    
     // Update audio info display
     updateAudioInfo();
     
@@ -94,6 +101,10 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     stopTimer();
+    
+    // Detach shared OpenGL context before destruction
+    GPUContextManager::getInstance().detach();
+    
     setLookAndFeel(nullptr);
     audioEngine.shutdown();
 }
@@ -217,27 +228,57 @@ void MainComponent::resized()
     // Position the resizer in the bottom-right corner (absolute positioning, doesn't affect layout)
     resizer.setBounds(getWidth() - 16, getHeight() - 16, 16, 16);
     
-    // Split remaining area: sequencer on top, playlist below
-    auto sequencerArea = bounds.removeFromTop(300);
-    sequencerView.setBounds(sequencerArea);
+    // FL Studio-style floating windows with z-order: Playlist (back), Mixer (middle), Sequencer (front)
     
-    // Set workspace bounds for playlist window and position it
+    // Set workspace bounds for all floating windows
     playlistWindow.setWorkspaceBounds(bounds);
-    if (!playlistWindow.getBounds().isEmpty())
-    {
-        // Keep existing position if already placed
-        auto currentBounds = playlistWindow.getBounds();
-        playlistWindow.setBounds(currentBounds.constrainedWithin(bounds));
-    }
-    else
-    {
-        // Initial positioning - center in workspace
-        auto workspaceCenter = bounds.getCentre();
-        playlistWindow.setCentrePosition(workspaceCenter.x, workspaceCenter.y);
-    }
+    mixerComponent.setWorkspaceBounds(bounds);
+    sequencerView.setWorkspaceBounds(bounds);
     
-    // Main content area (for future use)
-    // bounds now contains the remaining space for tracks, mixer, etc.
+    // Playlist - floating, undocked (back layer)
+    playlistWindow.setDocked(false);
+    
+    // Initial size and position - large, centered
+    int playlistW = juce::jmin(bounds.getWidth() - 100, 1000);
+    int playlistH = juce::jmin(bounds.getHeight() - 100, 600);
+    auto playlistBounds = juce::Rectangle<int>(
+        bounds.getCentreX() - playlistW/2, 
+        bounds.getCentreY() - playlistH/2,
+        playlistW, playlistH);
+    
+    // Always constrain to workspace bounds
+    playlistWindow.getBoundsConstrainer().checkBounds(playlistBounds, playlistBounds, bounds, false, false, false, false);
+    playlistWindow.setBounds(playlistBounds);
+    playlistWindow.toBack(); // Send to back
+    
+    // Mixer - floating window (middle layer)
+    // Initial size and position - right side
+    int mixerW = 630; // 9 channels * 70px
+    int mixerH = 400;
+    auto mixerBounds = juce::Rectangle<int>(
+        bounds.getRight() - mixerW - 20,
+        bounds.getBottom() - mixerH - 20,
+        mixerW, mixerH);
+    
+    // Always constrain to workspace bounds
+    mixerComponent.getBoundsConstrainer().checkBounds(mixerBounds, mixerBounds, bounds, false, false, false, false);
+    mixerComponent.setBounds(mixerBounds);
+    
+    // Sequencer - floating window (front layer)
+    // Initial size and position - top left
+    int seqW = 800;
+    int seqH = 350;
+    auto seqBounds = juce::Rectangle<int>(
+        bounds.getX() + 20, 
+        bounds.getY() + 20, 
+        seqW, seqH);
+    
+    // Always constrain to workspace bounds
+    sequencerView.getBoundsConstrainer().checkBounds(seqBounds, seqBounds, bounds, false, false, false, false);
+    sequencerView.setBounds(seqBounds);
+    sequencerView.toFront(false); // Bring to front
+    
+    // Remove focus-based rendering hierarchy to avoid flicker/competition
 }
 
 void MainComponent::mouseDown(const juce::MouseEvent& event)
@@ -357,6 +398,11 @@ void MainComponent::timerCallback()
     // Update playhead position every frame for smooth movement
     double currentPosition = audioEngine.getTransportController().getPosition();
     playlistWindow.setPlayheadPosition(currentPosition);
+}
+
+void MainComponent::updateComponentFocus()
+{
+    // No-op: we keep all windows rendering; z-order is handled per-window on click
 }
 
 bool MainComponent::keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent)

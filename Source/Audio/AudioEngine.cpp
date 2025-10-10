@@ -4,6 +4,21 @@
 AudioEngine::AudioEngine()
     : sequencerEngine(patternManager, transportController)
 {
+    // Create the mixer
+    mixer = std::make_unique<Mixer>();
+    
+    // Add default channels (like FL Studio - multiple tracks + master)
+    if (mixer)
+    {
+        // Add 8 audio tracks
+        for (int i = 1; i <= 8; ++i)
+        {
+            mixer->addChannel("Track " + juce::String(i), MixerChannel::ChannelType::Audio);
+        }
+        
+        // Add master channel
+        mixer->addChannel("Master", MixerChannel::ChannelType::Master);
+    }
 }
 
 AudioEngine::~AudioEngine()
@@ -44,8 +59,57 @@ bool AudioEngine::initialize()
 
 void AudioEngine::shutdown()
 {
+    // Remove the mixer callback first
+    if (mixer)
+    {
+        deviceManager.removeAudioCallback(mixer.get());
+    }
+    
+    // Then remove our own callback
     deviceManager.removeAudioCallback(this);
     deviceManager.closeAudioDevice();
+    
+    // Reset the mixer
+    mixer.reset();
+}
+
+void AudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
+                                                 int numInputChannels,
+                                                 float* const* outputChannelData,
+                                                 int numOutputChannels,
+                                                 int numSamples,
+                                                 const juce::AudioIODeviceCallbackContext& context)
+{
+    juce::ignoreUnused(context, inputChannelData, numInputChannels);
+    
+    // Clear output buffers
+    for (int i = 0; i < numOutputChannels; ++i)
+    {
+        if (outputChannelData[i] != nullptr)
+            juce::FloatVectorOperations::clear(outputChannelData[i], numSamples);
+    }
+    
+    // Only process if transport is playing
+    if (!transportController.isPlaying())
+        return;
+    
+    // Render based on playback mode
+    if (playbackMode.load() == PlaybackMode::Song)
+    {
+        // Song mode - render audio clips from playlist
+        renderAudioClips(outputChannelData, numOutputChannels, numSamples);
+    }
+    else
+    {
+        // Pattern mode - render MIDI from sequencer
+        midiBuffer.clear();
+        renderMidiFromSequencer(midiBuffer, numSamples);
+        
+        // TODO: Route MIDI to synthesizers
+    }
+    
+    // Update transport position
+    transportController.advancePosition(numSamples, currentSampleRate);
 }
 
 void AudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
@@ -55,63 +119,17 @@ void AudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
         currentSampleRate = device->getCurrentSampleRate();
         currentBlockSize = device->getCurrentBufferSizeSamples();
         
-        juce::Logger::writeToLog("Audio device started:");
-        juce::Logger::writeToLog("  Sample Rate: " + juce::String(currentSampleRate) + " Hz");
-        juce::Logger::writeToLog("  Buffer Size: " + juce::String(currentBlockSize) + " samples");
-        juce::Logger::writeToLog("  Device: " + device->getName());
+        // Initialize the mixer with the correct sample rate and buffer size
+        if (mixer)
+        {
+            deviceManager.addAudioCallback(mixer.get());
+        }
     }
 }
 
 void AudioEngine::audioDeviceStopped()
 {
-    juce::Logger::writeToLog("Audio device stopped");
-    currentSampleRate = 0.0;
-    currentBlockSize = 0;
-}
-
-void AudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
-                                                  int numInputChannels,
-                                                  float* const* outputChannelData,
-                                                  int numOutputChannels,
-                                                  int numSamples,
-                                                  const juce::AudioIODeviceCallbackContext& context)
-{
-    juce::ignoreUnused(inputChannelData, numInputChannels, context);
-    
-    // CRITICAL: Prevent denormals for massive CPU savings
-    juce::ScopedNoDenormals noDenormals;
-    
-    // Clear output buffers first (vectorized operation)
-    for (int channel = 0; channel < numOutputChannels; ++channel)
-    {
-        if (outputChannelData[channel] != nullptr)
-        {
-            juce::FloatVectorOperations::clear(outputChannelData[channel], numSamples);
-        }
-    }
-    
-    // Process based on playback mode
-    if (transportController.isPlaying())
-    {
-        PlaybackMode mode = playbackMode.load();
-        
-        if (mode == PlaybackMode::Pattern)
-        {
-            // Pattern mode: play sequencer patterns
-            renderMidiFromSequencer(midiBuffer, numSamples);
-        }
-        else // Song mode
-        {
-            // Song mode: play playlist clips
-            renderAudioClips(outputChannelData, numOutputChannels, numSamples);
-        }
-        
-        transportController.advancePosition(numSamples, currentSampleRate);
-    }
-    else if (transportController.isRecording())
-    {
-        transportController.advancePosition(numSamples, currentSampleRate);
-    }
+    // Clean up when audio device stops
 }
 
 double AudioEngine::getSampleRate() const
@@ -136,6 +154,36 @@ void AudioEngine::setAudioClips(const std::vector<AudioClip>* clips)
 {
     const juce::ScopedLock lock(clipsLock);
     audioClips = clips;
+    updateLoopBehavior();
+}
+
+void AudioEngine::updateLoopBehavior()
+{
+    const juce::ScopedLock lock(clipsLock);
+    
+    // Check if we're in song mode
+    if (playbackMode.load() != PlaybackMode::Song)
+    {
+        // In pattern mode, enable looping with default 4-bar loop
+        transportController.setLoopEnabled(true);
+        transportController.setLoopPoints(0.0, 16.0);
+        return;
+    }
+    
+    // In song mode, check if there are any clips
+    if (audioClips == nullptr || audioClips->empty())
+    {
+        // No clips - enable looping with default 4-bar loop for empty playlist
+        transportController.setLoopEnabled(true);
+        transportController.setLoopPoints(0.0, 16.0);
+        return;
+    }
+    
+    // There are clips - disable looping and let playback continue
+    transportController.setLoopEnabled(false);
+    
+    // Optionally, we could calculate the end point of the furthest clip
+    // and stop playback there, but for now we just disable looping
 }
 
 void AudioEngine::renderAudioClips(float* const* outputChannelData, int numOutputChannels, int numSamples)
@@ -194,6 +242,7 @@ void AudioEngine::renderAudioClips(float* const* outputChannelData, int numOutpu
 void AudioEngine::setPlaybackMode(PlaybackMode mode)
 {
     playbackMode.store(mode);
+    updateLoopBehavior(); // Update loop behavior when mode changes
 }
 
 AudioEngine::PlaybackMode AudioEngine::getPlaybackMode() const
