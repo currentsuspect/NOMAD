@@ -1,8 +1,6 @@
 #pragma once
 
 #include "../NUIRenderer.h"
-#include "../NUIFont.h"
-#include "../NUITextRenderer.h"
 #include <vector>
 #include <unordered_map>
 #include <memory>
@@ -164,7 +162,6 @@ private:
     
     // Shaders
     ShaderProgram primitiveShader_;
-    ShaderProgram textShader_;
     
     // Vertex batch
     std::vector<Vertex> vertices_;
@@ -176,6 +173,9 @@ private:
     // Textures
     std::unordered_map<uint32_t, uint32_t> textures_;
     uint32_t nextTextureId_ = 1;
+    
+    // Text rendering (placeholder - will be replaced with MSDF system)
+    std::string defaultFontPath_;
     
     // Projection matrix (orthographic)
     float projectionMatrix_[16];

@@ -32,27 +32,19 @@ set(NOMADUI_GRAPHICS_SOURCES
     Graphics/NUIRenderer.cpp
 )
 
-set(NOMADUI_TEXT_SOURCES
-    Graphics/NUIFont.h
-    Graphics/NUIFont.cpp
-    Graphics/NUITextRenderer.h
-    Graphics/NUITextRenderer.cpp
-)
+# Text rendering removed - using external MSDF text renderer
 
 # Create core library
 add_library(NomadUI_Core STATIC
     ${NOMADUI_CORE_SOURCES}
     ${NOMADUI_GRAPHICS_SOURCES}
-    ${NOMADUI_TEXT_SOURCES}
 )
 
 target_include_directories(NomadUI_Core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(NomadUI_Core PUBLIC
-    freetype
-)
+# FreeType dependency removed - handled by MSDF text renderer
 
 # ============================================================================
 # GLAD - OpenGL Loader
