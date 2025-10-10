@@ -247,10 +247,10 @@ void NUIRendererGL::fillRoundedRect(const NUIRect& rect, float radius, const NUI
 
 void NUIRendererGL::strokeRect(const NUIRect& rect, float thickness, const NUIColor& color) {
     // Draw 4 lines
-    drawLine({rect.x, rect.y}, {rect.right(), rect.y}, thickness, color);
-    drawLine({rect.right(), rect.y}, {rect.right(), rect.bottom()}, thickness, color);
-    drawLine({rect.right(), rect.bottom()}, {rect.x, rect.bottom()}, thickness, color);
-    drawLine({rect.x, rect.bottom()}, {rect.x, rect.y}, thickness, color);
+    drawLine(NUIPoint({rect.x, rect.y}), NUIPoint({rect.right(), rect.y}), color, thickness);
+    drawLine(NUIPoint({rect.right(), rect.y}), NUIPoint({rect.right(), rect.bottom()}), color, thickness);
+    drawLine(NUIPoint({rect.right(), rect.bottom()}), NUIPoint({rect.x, rect.bottom()}), color, thickness);
+    drawLine(NUIPoint({rect.x, rect.bottom()}), NUIPoint({rect.x, rect.y}), color, thickness);
 }
 
 void NUIRendererGL::strokeRoundedRect(const NUIRect& rect, float radius, float thickness, const NUIColor& color) {
@@ -440,269 +440,269 @@ void NUIRendererGL::drawCharacter(char c, float x, float y, float width, float h
         case 'A':
         case 'a':
             // A shape: /\ and -
-            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.5f, charY), lineWidth, color);
-            drawLine(NUIPoint(x + charWidth*0.5f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
-            drawLine(NUIPoint(x + charWidth*0.2f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(NUIPoint(x + charWidth*0.1f, charY + charHeight)), NUIPoint(NUIPoint(x + charWidth*0.5f, charY)), color, lineWidth);
+            drawLine(NUIPoint(NUIPoint(x + charWidth*0.5f, charY)), NUIPoint(NUIPoint(x + charWidth*0.9f, charY + charHeight)), color, lineWidth);
+            drawLine(NUIPoint(NUIPoint(x + charWidth*0.2f, charY + charHeight*0.5f)), NUIPoint(NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f)), color, lineWidth);
             break;
         case 'B':
         case 'b':
             // B shape: | and curves
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.7f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.7f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.9f, charY + charHeight*0.25f, color, lineWidth);
-            drawLine(x + charWidth*0.7f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight*0.75f, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.7f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.7f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.7f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.25f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.75f), lineWidth, color);
             break;
         case 'C':
         case 'c':
             // C shape: curve
-            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.1f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY), NUIPoint(x + charWidth*0.1f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.7f, charY + charHeight), lineWidth, color);
             break;
         case 'D':
         case 'd':
             // D shape: | and curve
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.6f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.6f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.6f, charY, x + charWidth*0.9f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.6f, charY + charHeight, x + charWidth*0.9f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.6f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.6f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.6f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.6f, charY + charHeight), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.5f), lineWidth, color);
             break;
         case 'E':
         case 'e':
             // E shape: | and horizontal lines
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.8f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.6f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.8f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.6f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.8f, charY + charHeight), lineWidth, color);
             break;
         case 'F':
         case 'f':
             // F shape: | and horizontal lines
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.8f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.6f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.8f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.6f, charY + charHeight*0.5f), lineWidth, color);
             break;
         case 'G':
         case 'g':
             // G shape: C with line
-            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.1f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.7f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY), NUIPoint(x + charWidth*0.1f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.7f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.5f), lineWidth, color);
             break;
         case 'H':
         case 'h':
             // H shape: | | and -
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight*0.5f, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.5f), lineWidth, color);
             break;
         case 'I':
         case 'i':
             // I shape: | with top and bottom
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.5f, charY, x + charWidth*0.5f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY), NUIPoint(x + charWidth*0.5f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
         case 'J':
         case 'j':
             // J shape: | with curve
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.5f, charY, x + charWidth*0.5f, charY + charHeight*0.8f, color, lineWidth);
-            drawLine(x + charWidth*0.5f, charY + charHeight*0.8f, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY), NUIPoint(x + charWidth*0.5f, charY + charHeight*0.8f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY + charHeight*0.8f), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
             break;
         case 'K':
         case 'k':
             // K shape: | and diagonal
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.9f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
         case 'L':
         case 'l':
             // L shape: | and -
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.8f, charY + charHeight), lineWidth, color);
             break;
         case 'M':
         case 'm':
             // M shape: | \ / |
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.5f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.5f, charY + charHeight*0.5f, x + charWidth*0.9f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.5f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
         case 'N':
         case 'n':
             // N shape: | \ |
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
         case 'O':
         case 'o':
             // O shape: circle/oval
-            drawLine(x + charWidth*0.3f, charY, x + charWidth*0.7f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.2f, x + charWidth*0.1f, charY + charHeight*0.8f, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY + charHeight*0.2f, x + charWidth*0.9f, charY + charHeight*0.8f, color, lineWidth);
-            drawLine(x + charWidth*0.3f, charY + charHeight, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.3f, charY), NUIPoint(x + charWidth*0.7f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.2f), NUIPoint(x + charWidth*0.1f, charY + charHeight*0.8f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY + charHeight*0.2f), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.8f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.3f, charY + charHeight), NUIPoint(x + charWidth*0.7f, charY + charHeight), lineWidth, color);
             break;
         case 'P':
         case 'p':
             // P shape: | and P
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.7f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.7f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.9f, charY + charHeight*0.25f, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.7f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.7f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.25f), lineWidth, color);
             break;
         case 'Q':
         case 'q':
             // Q shape: O with tail
-            drawLine(x + charWidth*0.3f, charY, x + charWidth*0.7f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.2f, x + charWidth*0.1f, charY + charHeight*0.8f, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY + charHeight*0.2f, x + charWidth*0.9f, charY + charHeight*0.8f, color, lineWidth);
-            drawLine(x + charWidth*0.3f, charY + charHeight, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.7f, charY + charHeight*0.8f, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.3f, charY), NUIPoint(x + charWidth*0.7f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.2f), NUIPoint(x + charWidth*0.1f, charY + charHeight*0.8f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY + charHeight*0.2f), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.8f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.3f, charY + charHeight), NUIPoint(x + charWidth*0.7f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY + charHeight*0.8f), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
         case 'R':
         case 'r':
             // R shape: P with diagonal
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.7f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.7f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.9f, charY + charHeight*0.25f, color, lineWidth);
-            drawLine(x + charWidth*0.7f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.7f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.7f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.25f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
         case 'S':
         case 's':
             // S shape: S curve
-            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.1f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.7f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.7f, charY + charHeight*0.5f, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.7f, charY + charHeight, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY), NUIPoint(x + charWidth*0.1f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.7f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.7f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY + charHeight), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
             break;
         case 'T':
         case 't':
             // T shape: - and |
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.5f, charY, x + charWidth*0.5f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY), NUIPoint(x + charWidth*0.5f, charY + charHeight), lineWidth, color);
             break;
         case 'U':
         case 'u':
             // U shape: | | and -
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight*0.8f, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight*0.8f, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.8f, x + charWidth*0.9f, charY + charHeight*0.8f, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight*0.8f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.8f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.8f), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.8f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
         case 'V':
         case 'v':
             // V shape: \ /
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.5f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.5f, charY + charHeight, x + charWidth*0.9f, charY, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.5f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY + charHeight), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
             break;
         case 'W':
         case 'w':
             // W shape: | \ / |
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.5f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.5f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.5f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
         case 'X':
         case 'x':
             // X shape: \ /
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
             break;
         case 'Y':
         case 'y':
             // Y shape: \ / and |
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.5f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.5f, charY + charHeight*0.5f, x + charWidth*0.9f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.5f, charY + charHeight*0.5f, x + charWidth*0.5f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.5f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.5f, charY + charHeight), lineWidth, color);
             break;
         case 'Z':
         case 'z':
             // Z shape: - \ -
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
         case '0':
             // 0 shape: oval
-            drawLine(x + charWidth*0.3f, charY, x + charWidth*0.7f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.2f, x + charWidth*0.1f, charY + charHeight*0.8f, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY + charHeight*0.2f, x + charWidth*0.9f, charY + charHeight*0.8f, color, lineWidth);
-            drawLine(x + charWidth*0.3f, charY + charHeight, x + charWidth*0.7f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.3f, charY), NUIPoint(x + charWidth*0.7f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.2f), NUIPoint(x + charWidth*0.1f, charY + charHeight*0.8f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY + charHeight*0.2f), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.8f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.3f, charY + charHeight), NUIPoint(x + charWidth*0.7f, charY + charHeight), lineWidth, color);
             break;
         case '1':
             // 1 shape: |
-            drawLine(x + charWidth*0.5f, charY, x + charWidth*0.5f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.3f, charY, x + charWidth*0.5f, charY, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY), NUIPoint(x + charWidth*0.5f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.3f, charY), NUIPoint(x + charWidth*0.5f, charY), lineWidth, color);
             break;
         case '2':
             // 2 shape: - \ -
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.8f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.8f, charY, x + charWidth*0.1f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.8f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.8f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.8f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.8f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.8f, charY + charHeight), lineWidth, color);
             break;
         case '3':
             // 3 shape: - | -
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.8f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.8f, charY, x + charWidth*0.8f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.8f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.8f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.8f, charY), NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.8f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.8f, charY + charHeight), lineWidth, color);
             break;
         case '4':
             // 4 shape: | \ |
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.8f, charY, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.8f, charY), NUIPoint(x + charWidth*0.8f, charY + charHeight), lineWidth, color);
             break;
         case '5':
             // 5 shape: | - \ -
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.8f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.8f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.8f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.8f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.8f, charY + charHeight), lineWidth, color);
             break;
         case '6':
             // 6 shape: | - \ -
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.8f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.8f, charY + charHeight*0.5f, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.8f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.8f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.8f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.8f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.8f, charY + charHeight), lineWidth, color);
             break;
         case '7':
             // 7 shape: - |
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
         case '8':
             // 8 shape: | - | - |
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
         case '9':
             // 9 shape: | - | - |
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.5f, x + charWidth*0.9f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.9f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
         case '.':
             // Period: small dot
@@ -711,7 +711,7 @@ void NUIRendererGL::drawCharacter(char c, float x, float y, float width, float h
         case ',':
             // Comma: small dot with tail
             fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.8f, charWidth*0.2f, charHeight*0.2f), color);
-            drawLine(x + charWidth*0.4f, charY + charHeight*0.8f, x + charWidth*0.3f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.4f, charY + charHeight*0.8f), NUIPoint(x + charWidth*0.3f, charY + charHeight), lineWidth, color);
             break;
         case ':':
             // Colon: two dots
@@ -722,19 +722,19 @@ void NUIRendererGL::drawCharacter(char c, float x, float y, float width, float h
             // Semicolon: dot with tail and comma
             fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.3f, charWidth*0.2f, charHeight*0.2f), color);
             fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.7f, charWidth*0.2f, charHeight*0.2f), color);
-            drawLine(x + charWidth*0.4f, charY + charHeight*0.7f, x + charWidth*0.3f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.4f, charY + charHeight*0.7f), NUIPoint(x + charWidth*0.3f, charY + charHeight), lineWidth, color);
             break;
         case '!':
             // Exclamation: | and dot
-            drawLine(x + charWidth*0.5f, charY, x + charWidth*0.5f, charY + charHeight*0.7f, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY), NUIPoint(x + charWidth*0.5f, charY + charHeight*0.7f), lineWidth, color);
             fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.8f, charWidth*0.2f, charHeight*0.2f), color);
             break;
         case '?':
             // Question mark: ? shape
-            drawLine(x + charWidth*0.7f, charY, x + charWidth*0.1f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight*0.3f, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight*0.3f, x + charWidth*0.5f, charY + charHeight*0.5f, color, lineWidth);
-            drawLine(x + charWidth*0.5f, charY + charHeight*0.5f, x + charWidth*0.5f, charY + charHeight*0.7f, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.7f, charY), NUIPoint(x + charWidth*0.1f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight*0.3f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight*0.3f), NUIPoint(x + charWidth*0.5f, charY + charHeight*0.5f), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.5f, charY + charHeight*0.5f), NUIPoint(x + charWidth*0.5f, charY + charHeight*0.7f), lineWidth, color);
             fillRect(NUIRect(x + charWidth*0.4f, charY + charHeight*0.8f, charWidth*0.2f, charHeight*0.2f), color);
             break;
         case ' ':
@@ -742,10 +742,10 @@ void NUIRendererGL::drawCharacter(char c, float x, float y, float width, float h
             break;
         default:
             // Unknown character: draw a box
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.9f, charY, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY, x + charWidth*0.1f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.9f, charY, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
-            drawLine(x + charWidth*0.1f, charY + charHeight, x + charWidth*0.9f, charY + charHeight, color, lineWidth);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.9f, charY), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY), NUIPoint(x + charWidth*0.1f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.9f, charY), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
+            drawLine(NUIPoint(x + charWidth*0.1f, charY + charHeight), NUIPoint(x + charWidth*0.9f, charY + charHeight), lineWidth, color);
             break;
     }
 }
