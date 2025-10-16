@@ -1,9 +1,13 @@
-#include <glad/glad.h>  // MUST be included before Windows.h
+#include "../../External/glad/include/glad/glad.h"  // MUST be included before Windows.h
 
 // Prevent Windows from defining conflicting macros
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define NOCOMM
+
+// Suppress APIENTRY redefinition warning
+#pragma warning(push)
+#pragma warning(disable: 4005)
 
 #include "NUIWindowWin32.h"
 #include "../../Graphics/NUIRenderer.h"
@@ -11,6 +15,9 @@
 #include <Windows.h>
 #include <windowsx.h>  // For GET_X_LPARAM, GET_Y_LPARAM
 #include <iostream>
+
+// Restore warnings
+#pragma warning(pop)
 
 namespace NomadUI {
 
@@ -30,6 +37,9 @@ NUIWindowWin32::NUIWindowWin32()
     , m_width(800)
     , m_height(600)
     , m_shouldClose(false)
+    , m_isFullScreen(false)
+    , m_restoreX(0), m_restoreY(0), m_restoreWidth(0), m_restoreHeight(0)
+    , m_restoreStyle(0)
     , m_rootComponent(nullptr)
     , m_renderer(nullptr)
     , m_mouseX(0)
@@ -440,9 +450,82 @@ void NUIWindowWin32::handleMouseWheel(float delta) {
     }
 }
 
+NUIKeyCode NUIWindowWin32::convertKeyCode(int windowsKey) {
+    switch (windowsKey) {
+        case VK_SPACE: return NUIKeyCode::Space;
+        case VK_RETURN: return NUIKeyCode::Enter;
+        case VK_ESCAPE: return NUIKeyCode::Escape;
+        case VK_TAB: return NUIKeyCode::Tab;
+        case VK_BACK: return NUIKeyCode::Backspace;
+        case VK_DELETE: return NUIKeyCode::Delete;
+        case VK_LEFT: return NUIKeyCode::Left;
+        case VK_RIGHT: return NUIKeyCode::Right;
+        case VK_UP: return NUIKeyCode::Up;
+        case VK_DOWN: return NUIKeyCode::Down;
+        case 'A': return NUIKeyCode::A;
+        case 'B': return NUIKeyCode::B;
+        case 'C': return NUIKeyCode::C;
+        case 'D': return NUIKeyCode::D;
+        case 'E': return NUIKeyCode::E;
+        case 'F': return NUIKeyCode::F;
+        case 'G': return NUIKeyCode::G;
+        case 'H': return NUIKeyCode::H;
+        case 'I': return NUIKeyCode::I;
+        case 'J': return NUIKeyCode::J;
+        case 'K': return NUIKeyCode::K;
+        case 'L': return NUIKeyCode::L;
+        case 'M': return NUIKeyCode::M;
+        case 'N': return NUIKeyCode::N;
+        case 'O': return NUIKeyCode::O;
+        case 'P': return NUIKeyCode::P;
+        case 'Q': return NUIKeyCode::Q;
+        case 'R': return NUIKeyCode::R;
+        case 'S': return NUIKeyCode::S;
+        case 'T': return NUIKeyCode::T;
+        case 'U': return NUIKeyCode::U;
+        case 'V': return NUIKeyCode::V;
+        case 'W': return NUIKeyCode::W;
+        case 'X': return NUIKeyCode::X;
+        case 'Y': return NUIKeyCode::Y;
+        case 'Z': return NUIKeyCode::Z;
+        case '0': return NUIKeyCode::Num0;
+        case '1': return NUIKeyCode::Num1;
+        case '2': return NUIKeyCode::Num2;
+        case '3': return NUIKeyCode::Num3;
+        case '4': return NUIKeyCode::Num4;
+        case '5': return NUIKeyCode::Num5;
+        case '6': return NUIKeyCode::Num6;
+        case '7': return NUIKeyCode::Num7;
+        case '8': return NUIKeyCode::Num8;
+        case '9': return NUIKeyCode::Num9;
+        case VK_F1: return NUIKeyCode::F1;
+        case VK_F2: return NUIKeyCode::F2;
+        case VK_F3: return NUIKeyCode::F3;
+        case VK_F4: return NUIKeyCode::F4;
+        case VK_F5: return NUIKeyCode::F5;
+        case VK_F6: return NUIKeyCode::F6;
+        case VK_F7: return NUIKeyCode::F7;
+        case VK_F8: return NUIKeyCode::F8;
+        case VK_F9: return NUIKeyCode::F9;
+        case VK_F10: return NUIKeyCode::F10;
+        case VK_F11: return NUIKeyCode::F11;
+        case VK_F12: return NUIKeyCode::F12;
+        default: return NUIKeyCode::Unknown;
+    }
+}
+
 void NUIWindowWin32::handleKey(int key, bool pressed) {
     if (m_keyCallback) {
         m_keyCallback(key, pressed);
+    }
+    
+    // Forward to root component
+    if (m_rootComponent) {
+        NUIKeyEvent event;
+        event.keyCode = convertKeyCode(key);
+        event.pressed = pressed;
+        event.released = !pressed;
+        m_rootComponent->onKeyEvent(event);
     }
 }
 
@@ -458,6 +541,11 @@ void NUIWindowWin32::handleResize(int width, int height) {
         m_rootComponent->setBounds(NUIRect(0, 0, width, height));
     }
     
+    // Update renderer projection matrix and viewport
+    if (m_renderer) {
+        m_renderer->resize(width, height);
+    }
+    
     // Update OpenGL viewport
     if (m_hglrc) {
         makeContextCurrent();
@@ -466,5 +554,93 @@ void NUIWindowWin32::handleResize(int width, int height) {
         }
     }
 }
+
+void NUIWindowWin32::toggleFullScreen() {
+    if (m_isFullScreen) {
+        exitFullScreen();
+    } else {
+        enterFullScreen();
+    }
+}
+
+void NUIWindowWin32::enterFullScreen() {
+    if (m_isFullScreen || !m_hwnd) return;
+    
+    // Store current window state
+    RECT rect;
+    GetWindowRect(TO_HWND(m_hwnd), &rect);
+    m_restoreX = rect.left;
+    m_restoreY = rect.top;
+    m_restoreWidth = rect.right - rect.left;
+    m_restoreHeight = rect.bottom - rect.top;
+    m_restoreStyle = GetWindowLong(TO_HWND(m_hwnd), GWL_STYLE);
+    
+    // Get screen dimensions
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    
+    // Remove title bar and borders
+    DWORD newStyle = WS_POPUP | WS_VISIBLE;
+    SetWindowLong(TO_HWND(m_hwnd), GWL_STYLE, newStyle);
+    
+    // Set window to cover entire screen
+    SetWindowPos(TO_HWND(m_hwnd), HWND_TOP, 0, 0, screenWidth, screenHeight, 
+                 SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+    
+    m_isFullScreen = true;
+    m_width = screenWidth;
+    m_height = screenHeight;
+    
+    // Update root component bounds
+    if (m_rootComponent) {
+        m_rootComponent->setBounds(NUIRect(0, 0, screenWidth, screenHeight));
+    }
+    
+    // Update OpenGL viewport and projection matrix
+    if (m_hglrc) {
+        makeContextCurrent();
+        if (glViewport) {
+            glViewport(0, 0, screenWidth, screenHeight);
+        }
+        // Update renderer projection matrix for new dimensions
+        if (m_renderer) {
+            m_renderer->resize(screenWidth, screenHeight);
+        }
+    }
+}
+
+void NUIWindowWin32::exitFullScreen() {
+    if (!m_isFullScreen || !m_hwnd) return;
+    
+    // Restore original window style
+    SetWindowLong(TO_HWND(m_hwnd), GWL_STYLE, m_restoreStyle);
+    
+    // Restore original position and size
+    SetWindowPos(TO_HWND(m_hwnd), HWND_NOTOPMOST, m_restoreX, m_restoreY, 
+                 m_restoreWidth, m_restoreHeight, 
+                 SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+    
+    m_isFullScreen = false;
+    m_width = m_restoreWidth;
+    m_height = m_restoreHeight;
+    
+    // Update root component bounds
+    if (m_rootComponent) {
+        m_rootComponent->setBounds(NUIRect(0, 0, m_restoreWidth, m_restoreHeight));
+    }
+    
+    // Update OpenGL viewport and projection matrix
+    if (m_hglrc) {
+        makeContextCurrent();
+        if (glViewport) {
+            glViewport(0, 0, m_restoreWidth, m_restoreHeight);
+        }
+        // Update renderer projection matrix for new dimensions
+        if (m_renderer) {
+            m_renderer->resize(m_restoreWidth, m_restoreHeight);
+        }
+    }
+}
+
 
 } // namespace NomadUI

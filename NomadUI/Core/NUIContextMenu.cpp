@@ -1,6 +1,11 @@
 #include "NUIContextMenu.h"
 #include "../Graphics/NUIRenderer.h"
+#include "NUIThemeSystem.h"
 #include <algorithm>
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 #include <cmath>
 #include <iostream>
 
@@ -74,6 +79,15 @@ NUIContextMenu::NUIContextMenu()
     : NUIComponent()
 {
     setSize(200, 100); // Default size
+    
+    // Apply theme colors
+    auto& themeManager = NUIThemeManager::getInstance();
+    backgroundColor_ = themeManager.getColor("surface");
+    borderColor_ = themeManager.getColor("border");
+    textColor_ = themeManager.getColor("text");
+    hoverColor_ = themeManager.getColor("primary"); // Use Nomad's purple for highlight
+    separatorColor_ = themeManager.getColor("border");
+    shortcutColor_ = themeManager.getColor("textSecondary");
 }
 
 void NUIContextMenu::onRender(NUIRenderer& renderer)
@@ -256,11 +270,37 @@ void NUIContextMenu::showAt(const NUIPoint& position)
 
 void NUIContextMenu::showAt(int x, int y)
 {
-    setPosition(x, y);
-    isVisible_ = true;
-    hoveredItemIndex_ = -1;
-    pressedItemIndex_ = -1;
     updateLayout();
+    float menuWidth = getBounds().width;
+    float menuHeight = getBounds().height;
+    
+    // Smart positioning - near cursor but adjust if off-screen
+    float posX = x;
+    float posY = y;
+    
+    // Get parent window bounds (the actual window the menu should stay within)
+    NUIRect parentBounds = getParent() ? getParent()->getBounds() : NUIRect(0, 0, 800, 600);
+    float windowRight = parentBounds.x + parentBounds.width;
+    float windowBottom = parentBounds.y + parentBounds.height;
+    
+    // Check if menu would go off the right edge of the window - move it left
+    if (posX + menuWidth > windowRight) {
+        posX = windowRight - menuWidth - 10; // 10px margin from window edge
+    }
+    
+    // Check if menu would go off the bottom edge of the window - move it up
+    if (posY + menuHeight > windowBottom) {
+        posY = windowBottom - menuHeight - 10; // 10px margin from window edge
+    }
+    
+    // Ensure menu doesn't go off the left or top edges of the window
+    if (posX < parentBounds.x) posX = parentBounds.x + 10; // 10px margin from window edge
+    if (posY < parentBounds.y) posY = parentBounds.y + 10; // 10px margin from window edge
+    
+    setPosition(posX, posY);
+    isVisible_ = true;
+    hoveredItemIndex_ = 0; // Start with first item selected
+    pressedItemIndex_ = -1;
     triggerShow();
     setDirty(true);
 }
@@ -382,6 +422,23 @@ void NUIContextMenu::setOnItemClick(std::function<void(std::shared_ptr<NUIContex
     onItemClickCallback_ = callback;
 }
 
+void NUIContextMenu::navigateUp()
+{
+    if (hoveredItemIndex_ > 0) {
+        hoveredItemIndex_--;
+        setDirty(true);
+    }
+}
+
+void NUIContextMenu::navigateDown()
+{
+    if (hoveredItemIndex_ < getItemCount() - 1) {
+        hoveredItemIndex_++;
+        setDirty(true);
+    }
+}
+
+
 std::shared_ptr<NUIContextMenuItem> NUIContextMenu::getItem(int index) const
 {
     if (index >= 0 && index < static_cast<int>(items_.size()))
@@ -408,10 +465,12 @@ void NUIContextMenu::drawItem(NUIRenderer& renderer, std::shared_ptr<NUIContextM
 
     NUIRect itemRect = getItemRect(index);
     
-    // Draw hover background
+    // Draw hover background with smooth effect
     if (index == hoveredItemIndex_)
     {
-        renderer.fillRoundedRect(itemRect, borderRadius_, hoverColor_);
+        // Use Nomad's purple for highlight - proper purple color
+        NUIColor purpleHighlight = NUIColor(0.6f, 0.3f, 0.9f, 0.8f); // Real purple color
+        renderer.fillRoundedRect(itemRect, borderRadius_, purpleHighlight);
     }
     
     // Draw item content
@@ -461,12 +520,29 @@ void NUIContextMenu::drawItem(NUIRenderer& renderer, std::shared_ptr<NUIContextM
     
     // Draw text
     NUIColor textColor = item->isEnabled() ? textColor_ : textColor_.withAlpha(0.5f);
+    
+    // Draw default icons for common actions (using ASCII for compatibility)
+    std::string icon = "";
+    if (item->getText() == "Cut") icon = "X";
+    else if (item->getText() == "Copy") icon = "C";
+    else if (item->getText() == "Paste") icon = "V";
+    else if (item->getText() == "Settings") icon = "S";
+    
+    if (!icon.empty())
+    {
+        // Draw icon with slightly different color for visibility
+        NUIColor iconColor = textColor;
+        iconColor.r = 0.7f; // Slightly dimmer
+        renderer.drawText(icon, NUIPoint(x, y), 12.0f, iconColor);
+        x += 12.0f; // Minimal space for icon
+    }
     renderer.drawText(item->getText(), NUIPoint(x, y), 14.0f, textColor); // Larger text
     
     // Draw shortcut
     if (!item->getShortcut().empty())
     {
-        float shortcutX = itemRect.x + itemRect.width - itemPadding_;
+        // Position shortcut with proper spacing from the right edge
+        float shortcutX = itemRect.x + itemRect.width - itemPadding_ - 40.0f; // Much more space from edge
         renderer.drawText(item->getShortcut(), NUIPoint(shortcutX, y), 12.0f, shortcutColor_);
     }
     
@@ -530,7 +606,7 @@ float NUIContextMenu::calculateMenuHeight() const
     }
     
     float height = visibleItems * itemHeight_;
-    return std::min(height, maxHeight_);
+    return (height < maxHeight_) ? height : maxHeight_;
 }
 
 int NUIContextMenu::getItemAtPosition(const NUIPoint& position) const
@@ -606,7 +682,7 @@ void NUIContextMenu::handleItemHover(int index)
 void NUIContextMenu::updateSize()
 {
     float height = calculateMenuHeight();
-    float width = 200.0f; // Default width, could be calculated based on content
+    float width = 280.0f; // Much wider for proper shortcut spacing
     
     setSize(width, height);
 }

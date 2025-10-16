@@ -5,10 +5,11 @@ in vec4 vColor;
 
 out vec4 FragColor;
 
-uniform int uPrimitiveType; // 0=rect, 1=rounded_rect, 2=circle, 3=gradient
+uniform int uPrimitiveType; // 0=rect, 1=rounded_rect, 2=circle, 3=gradient, 4=radial_gradient, 5=texture
 uniform float uRadius;
 uniform vec2 uSize;
 uniform vec4 uGradientColor; // For gradients
+uniform sampler2D uTexture; // For texture rendering
 
 // Signed distance function for rounded rectangle
 float sdRoundedRect(vec2 p, vec2 size, float radius) {
@@ -57,6 +58,11 @@ void main() {
         vec2 center = vec2(0.5, 0.5);
         float dist = length(vTexCoord - center) * 2.0;
         color = mix(vColor, uGradientColor, clamp(dist, 0.0, 1.0));
+    }
+    else if (uPrimitiveType == 5) {
+        // Texture rendering
+        vec4 texColor = texture(uTexture, vTexCoord);
+        color = vec4(texColor.rgb, texColor.a * vColor.a);
     }
     
     FragColor = color;

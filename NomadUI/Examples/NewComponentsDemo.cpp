@@ -14,6 +14,7 @@
 #include "Core/NUIScrollbar.h"
 #include "Core/NUIContextMenu.h"
 #include "Core/NUITheme.h"
+#include "Core/NUIThemeSystem.h"
 #include "Graphics/OpenGL/NUIRendererGL.h"
 #include "Platform/Windows/NUIWindowWin32.h"
 
@@ -27,9 +28,9 @@ private:
 public:
     NewComponentsDemo()
     {
-        // Create a theme
-        auto theme = std::make_shared<NUITheme>();
-        setTheme(theme);
+        // Apply beautiful Nomad Dark theme
+        auto& themeManager = NUIThemeManager::getInstance();
+        themeManager.setActiveTheme("nomad-dark");
         
         // Create components
         createComponents();
@@ -37,75 +38,7 @@ public:
     
     void createComponents()
     {
-        // Button
-        auto button = std::make_shared<NUIButton>("Test Button");
-        button->setBounds(NUIRect(20, 20, 120, 30));
-        button->setOnClick([]() {
-            std::cout << "Button clicked!" << std::endl;
-        });
-        addChild(button);
-        
-        // Label
-        auto label = std::make_shared<NUILabel>("New Components Demo");
-        label->setBounds(NUIRect(20, 60, 200, 25));
-        label->setTextColor(NUIColor::fromHex(0xffa855f7));
-        addChild(label);
-        
-        // Slider
-        auto slider = std::make_shared<NUISlider>("Volume");
-        slider->setBounds(NUIRect(20, 100, 200, 20));
-        slider->setRange(0.0, 100.0);
-        slider->setValue(50.0);
-        slider->setOnValueChange([](double value) {
-            std::cout << "Slider value: " << value << std::endl;
-        });
-        addChild(slider);
-        
-        // Checkbox
-        auto checkbox = std::make_shared<NUICheckbox>("Enable Feature");
-        checkbox->setBounds(NUIRect(20, 140, 150, 20));
-        checkbox->setOnCheckedChange([](bool checked) {
-            std::cout << "Checkbox: " << (checked ? "checked" : "unchecked") << std::endl;
-        });
-        addChild(checkbox);
-        
-        // Text Input
-        auto textInput = std::make_shared<NUITextInput>("Enter text here...");
-        textInput->setBounds(NUIRect(20, 180, 200, 30));
-        textInput->setPlaceholderText("Type something...");
-        textInput->setOnTextChange([](const std::string& text) {
-            std::cout << "Text changed: " << text << std::endl;
-        });
-        addChild(textInput);
-        
-        // Progress Bar
-        auto progressBar = std::make_shared<NUIProgressBar>();
-        progressBar->setBounds(NUIRect(20, 220, 200, 20));
-        progressBar->setMinValue(0.0);
-        progressBar->setMaxValue(100.0);
-        progressBar->setProgress(75.0);
-        progressBar->setAnimated(true);
-        addChild(progressBar);
-        
-        // Vertical Scrollbar
-        auto vScrollbar = std::make_shared<NUIScrollbar>(NUIScrollbar::Orientation::Vertical);
-        vScrollbar->setBounds(NUIRect(250, 20, 16, 200)); // 16px width
-        vScrollbar->setRangeLimit(0.0, 100.0);
-        vScrollbar->setCurrentRange(0.0, 20.0);
-        vScrollbar->setSingleStepSize(5.0);  // Step size for arrow buttons
-        vScrollbar->setPageStepSize(20.0);   // Step size for track clicks
-        addChild(vScrollbar);
-        
-        // Horizontal Scrollbar
-        auto hScrollbar = std::make_shared<NUIScrollbar>(NUIScrollbar::Orientation::Horizontal);
-        hScrollbar->setBounds(NUIRect(20, 250, 200, 16)); // 16px height
-        hScrollbar->setRangeLimit(0.0, 100.0);
-        hScrollbar->setCurrentRange(0.0, 20.0);
-        hScrollbar->setSingleStepSize(5.0);  // Step size for arrow buttons
-        hScrollbar->setPageStepSize(20.0);   // Step size for track clicks
-        addChild(hScrollbar);
-        
-        // Context Menu
+        // Context Menu - Clean, focused demo for font testing
         contextMenu_ = std::make_shared<NUIContextMenu>();
         contextMenu_->addItem("Cut", []() { std::cout << "Cut selected" << std::endl; });
         contextMenu_->addItem("Copy", []() { std::cout << "Copy selected" << std::endl; });
@@ -131,11 +64,11 @@ public:
         // Handle right-click to show context menu
         if (event.pressed && event.button == NUIMouseButton::Right)
         {
-            if (contextMenu_)
-            {
-                contextMenu_->showAt(event.position);
-                return true;
-            }
+              if (contextMenu_)
+              {
+                  contextMenu_->showAt(event.position);
+                  return true;
+              }
         }
         
         // Handle left-click to hide context menu if clicking outside
@@ -155,24 +88,61 @@ public:
         return NUIComponent::onMouseEvent(event);
     }
     
+    bool onKeyEvent(const NUIKeyEvent& event) override
+    {
+        // Handle keyboard navigation for context menu
+        if (contextMenu_ && contextMenu_->isVisible())
+        {
+            if (event.pressed)
+            {
+                switch (event.keyCode)
+                {
+                    case NUIKeyCode::Escape:
+                        contextMenu_->hide();
+                        return true;
+                    case NUIKeyCode::Enter:
+                    case NUIKeyCode::Space:
+                        // Trigger selected item
+                        if (contextMenu_->getHoveredItemIndex() >= 0)
+                        {
+                            auto item = contextMenu_->getItem(contextMenu_->getHoveredItemIndex());
+                            if (item && item->getOnClick())
+                            {
+                                item->getOnClick()();
+                                contextMenu_->hide();
+                            }
+                        }
+                        return true;
+                    case NUIKeyCode::Up:
+                        contextMenu_->navigateUp();
+                        return true;
+                    case NUIKeyCode::Down:
+                        contextMenu_->navigateDown();
+                        return true;
+                    case NUIKeyCode::W:
+                        contextMenu_->navigateUp();
+                        return true;
+                    case NUIKeyCode::S:
+                        contextMenu_->navigateDown();
+                        return true;
+                }
+            }
+        }
+        
+        return NUIComponent::onKeyEvent(event);
+    }
+    
     void onRender(NUIRenderer& renderer) override
     {
-        // Draw background
-        renderer.fillRect(getBounds(), NUIColor::fromHex(0xff1a1d22));
+        // Draw themed background
+        auto& themeManager = NUIThemeManager::getInstance();
+        NUIColor bgColor = themeManager.getColor("background");
+        renderer.fillRect(getBounds(), bgColor);
         
         // Render children first (UI components)
         renderChildren(renderer);
         
-        // Only draw test text if context menu is not visible (to avoid conflicts)
-        if (!contextMenu_ || !contextMenu_->isVisible()) {
-            // Draw test text AFTER children so it appears on top
-            renderer.drawText("TEST TEXT VISIBLE?", NUIPoint(60, 80), 24.0f, NUIColor(1.0f, 1.0f, 1.0f, 1.0f)); // White text
-            
-            // Draw multiple test texts at different positions
-            renderer.drawText("TOP LEFT", NUIPoint(10, 20), 16.0f, NUIColor(1.0f, 0.0f, 0.0f, 1.0f)); // Red text
-            renderer.drawText("CENTER", NUIPoint(150, 150), 20.0f, NUIColor(0.0f, 1.0f, 0.0f, 1.0f)); // Green text
-            renderer.drawText("BOTTOM RIGHT", NUIPoint(200, 250), 14.0f, NUIColor(0.0f, 0.0f, 1.0f, 1.0f)); // Blue text
-        }
+        // Clean demo - no debug text needed
     }
 };
 
