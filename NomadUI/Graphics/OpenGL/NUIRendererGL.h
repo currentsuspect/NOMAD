@@ -9,6 +9,10 @@
 #include <unordered_map>
 #include <memory>
 
+// Forward declarations
+struct FT_Bitmap_;
+typedef struct FT_Bitmap_ FT_Bitmap;
+
 namespace NomadUI {
 
 /**
@@ -145,8 +149,13 @@ private:
     void initializeTextRendering();
     bool loadFont(const std::string& fontPath);
     void renderTextWithFont(const std::string& text, const NUIPoint& position, float fontSize, const NUIColor& color);
+    void drawCharacterPixels(char c, float x, float y, float width, float height, const NUIColor& color, float scale);
     void drawCleanCharacter(char c, float x, float y, float width, float height, const NUIColor& color);
     void drawCharacter(char c, float x, float y, float width, float height, const NUIColor& color);
+    
+    // High-quality text rendering helpers
+    float getDPIScale();
+    void renderCharacterImproved(char c, float x, float y, FT_Bitmap* bitmap, const NUIColor& color, float dpiScale);
     
     // Shader helpers
     uint32_t compileShader(const char* source, uint32_t type);

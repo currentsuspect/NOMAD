@@ -167,6 +167,10 @@ public:
     int getItemCount() const { return static_cast<int>(items_.size()); }
     std::shared_ptr<NUIContextMenuItem> getItem(int index) const;
     int getHoveredItemIndex() const { return hoveredItemIndex_; }
+    
+    // Keyboard navigation
+    virtual void navigateUp();
+    virtual void navigateDown();
 
 protected:
     // Override these for custom menu appearance

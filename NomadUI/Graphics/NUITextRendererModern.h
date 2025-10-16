@@ -13,7 +13,7 @@
 #endif
 
 // OpenGL includes
-#include <glad/glad.h>
+#include "../External/glad/include/glad/glad.h"
 
 #ifdef NOMADUI_SDL2_AVAILABLE
 // SDL2 includes

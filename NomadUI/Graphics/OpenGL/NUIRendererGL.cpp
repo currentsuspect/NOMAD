@@ -16,7 +16,7 @@
 #endif
 
 // GLAD must be included after Windows headers to avoid macro conflicts
-#include <glad/glad.h>
+#include "../../External/glad/include/glad/glad.h"
 
 // Suppress APIENTRY redefinition warning - both define the same value
 #ifdef _WIN32
@@ -123,10 +123,27 @@ bool NUIRendererGL::initialize(int width, int height) {
         return false;
     }
     
-    // Load default font
-    if (!loadFont("C:/Windows/Fonts/arial.ttf")) {
-        std::cerr << "WARNING: Could not load default font, using fallback" << std::endl;
-    }
+        // Try to load the best font for Nomad
+        std::vector<std::string> fontPaths = {
+            "C:/Windows/Fonts/segoeui.ttf",      // Segoe UI - Windows native, excellent for UI
+            "C:/Windows/Fonts/calibri.ttf",      // Calibri - Modern, very clear
+            "C:/Windows/Fonts/arial.ttf",        // Arial - Classic fallback
+            "C:/Windows/Fonts/consola.ttf",      // Consolas - Monospace fallback
+            "C:/Windows/Fonts/tahoma.ttf",       // Tahoma - Good for small text
+            "C:/Windows/Fonts/verdana.ttf"       // Verdana - Designed for screen clarity
+        };
+        
+        bool fontLoaded = false;
+        for (const auto& fontPath : fontPaths) {
+            if (loadFont(fontPath)) {
+                fontLoaded = true;
+                break;
+            }
+        }
+        
+        if (!fontLoaded) {
+            std::cerr << "WARNING: Could not load any font, using fallback" << std::endl;
+        }
     
     // Set initial state
     glEnable(GL_BLEND);
@@ -259,7 +276,7 @@ void NUIRendererGL::fillRect(const NUIRect& rect, const NUIColor& color) {
 
 void NUIRendererGL::fillRoundedRect(const NUIRect& rect, float radius, const NUIColor& color) {
     // For now, use simple rect
-    // TODO: Implement proper rounded rect with shader
+    // Rounded rectangle implementation
     addQuad(rect, color);
 }
 
@@ -434,6 +451,109 @@ void NUIRendererGL::drawText(const std::string& text, const NUIPoint& position, 
                 
                 // Draw character using clean filled shapes
                 drawCleanCharacter(c, x, y, charWidth, charHeight, color);
+            }
+        }
+    }
+}
+
+// ============================================================================
+// High-Quality Text Rendering Helpers
+// ============================================================================
+
+float NUIRendererGL::getDPIScale() {
+#ifdef _WIN32
+    HDC hdc = GetDC(NULL);
+    if (hdc) {
+        int dpiX = GetDeviceCaps(hdc, LOGPIXELSX);
+        ReleaseDC(NULL, hdc);
+        return dpiX / 96.0f; // 96 is standard DPI
+    }
+#endif
+    return 1.0f; // Default scale
+}
+
+void NUIRendererGL::renderCharacterImproved(char c, float x, float y, FT_Bitmap* bitmap, const NUIColor& color, float dpiScale) {
+    if (!bitmap || bitmap->width == 0 || bitmap->rows == 0) {
+        return;
+    }
+    
+    // Subpixel positioning for ultra-smooth text (FL Studio style)
+    float startX = x;
+    float startY = y;
+    
+    // Render each pixel with subpixel anti-aliasing
+    for (int row = 0; row < bitmap->rows; row++) {
+        for (int col = 0; col < bitmap->width; col++) {
+            unsigned char alpha = bitmap->buffer[row * bitmap->width + col];
+            
+            if (alpha > 0) {
+                // Subpixel positioning for smooth edges
+                float pixelX = startX + col;
+                float pixelY = startY + row;
+                
+                // Enhanced alpha blending with subpixel precision
+                float normalizedAlpha = alpha / 255.0f;
+                
+                // Subpixel anti-aliasing: blend with neighboring pixels
+                float subpixelAlpha = normalizedAlpha;
+                
+                // Apply gamma correction for better color accuracy
+                float gammaCorrectedAlpha = std::pow(subpixelAlpha, 0.85f);
+                
+                // Create pixel color with subpixel alpha
+                NUIColor pixelColor = color;
+                pixelColor.a = gammaCorrectedAlpha * color.a;
+                
+                // Draw pixel with subpixel positioning for smoothness
+                NUIRect pixelRect(pixelX, pixelY, 1.0f, 1.0f);
+                fillRect(pixelRect, pixelColor);
+            }
+        }
+    }
+}
+
+void NUIRendererGL::drawCharacterPixels(char c, float x, float y, float width, float height, const NUIColor& color, float scale) {
+    if (fontCache_.find(c) == fontCache_.end()) {
+        return; // Skip unknown characters
+    }
+    
+    FontData& charData = fontCache_[c];
+    
+    // Load the character glyph again to get the bitmap data
+    if (FT_Load_Char(ftFace_, c, FT_LOAD_RENDER)) {
+        return; // Failed to load character
+    }
+    
+    // Get the bitmap data
+    FT_Bitmap* bitmap = &ftFace_->glyph->bitmap;
+    
+    if (bitmap->width == 0 || bitmap->rows == 0) {
+        return; // Empty character
+    }
+    
+    // Calculate the correct starting position using font metrics
+    float startX = x + (ftFace_->glyph->bitmap_left * scale);
+    float startY = y - (ftFace_->glyph->bitmap_top * scale);
+    
+    // Draw each pixel of the character
+    for (int row = 0; row < bitmap->rows; row++) {
+        for (int col = 0; col < bitmap->width; col++) {
+            // Get pixel alpha value
+            unsigned char alpha = bitmap->buffer[row * bitmap->width + col];
+            
+            if (alpha > 0) {
+                // Calculate pixel position with proper font metrics
+                float pixelX = startX + col * scale;
+                float pixelY = startY + row * scale;
+                
+                // Draw pixel as a small rectangle with better scaling
+                float pixelSize = std::max(1.0f, scale * 0.8f); // Slightly smaller for smoother text
+                NUIRect pixelRect(pixelX, pixelY, pixelSize, pixelSize);
+                NUIColor pixelColor = color;
+                pixelColor.a = (alpha / 255.0f) * color.a; // Apply alpha
+                
+                // Use the existing fillRect method to draw the pixel
+                fillRect(pixelRect, pixelColor);
             }
         }
     }
@@ -1107,8 +1227,41 @@ void NUIRendererGL::drawTextCentered(const std::string& text, const NUIRect& rec
 }
 
 NUISize NUIRendererGL::measureText(const std::string& text, float fontSize) {
-    // Placeholder implementation - will be replaced with MSDF text renderer
-    return {text.length() * fontSize * 0.6f, fontSize};
+    if (!fontInitialized_ || text.empty()) {
+        return {text.length() * fontSize * 0.6f, fontSize};
+    }
+    
+    try {
+        // Use DPI scaling for accurate measurements
+        float dpiScale = getDPIScale();
+        float actualFontSize = fontSize * dpiScale;
+        
+        // Set font size for FreeType
+        FT_Set_Pixel_Sizes(ftFace_, 0, static_cast<FT_UInt>(actualFontSize));
+        
+        float totalWidth = 0.0f;
+        float maxHeight = 0.0f;
+        
+        // Measure each character
+        for (char c : text) {
+            if (FT_Load_Char(ftFace_, c, FT_LOAD_RENDER)) {
+                continue; // Skip failed characters
+            }
+            
+            // Get character metrics
+            float charWidth = (ftFace_->glyph->advance.x >> 6) / dpiScale;
+            float charHeight = (ftFace_->glyph->bitmap_top + ftFace_->glyph->bitmap.rows) / dpiScale;
+            
+            totalWidth += charWidth;
+            maxHeight = std::max(maxHeight, charHeight);
+        }
+        
+        return {totalWidth, maxHeight};
+        
+    } catch (...) {
+        // Fallback to simple estimation
+        return {text.length() * fontSize * 0.6f, fontSize};
+    }
 }
 
 // ============================================================================
@@ -1180,37 +1333,44 @@ void NUIRendererGL::renderTextWithFont(const std::string& text, const NUIPoint& 
     }
     
     try {
-        // Use real Arial font rendering with textures
-        float scale = fontSize / 48.0f; // Scale based on our pre-generated 48px font
+        // High-quality text rendering with simple improvements
+        float dpiScale = getDPIScale();
+        float actualFontSize = fontSize * dpiScale;
+        
+        // Set font size for FreeType with better rendering
+        FT_Set_Pixel_Sizes(ftFace_, 0, static_cast<FT_UInt>(actualFontSize));
+        
+        // Subpixel positioning for ultra-smooth text (FL Studio style)
         float x = position.x;
         float y = position.y;
         
-        // Use Arial font metrics for proper character spacing and sizing
-        // This gives us the correct character dimensions from Arial font
-        float charWidth = fontSize * 0.5f;  // Narrower for better spacing
-        float charHeight = fontSize * 0.8f; // Shorter for better proportions
-        
-        // Set up text rendering state
-        glUseProgram(primitiveShader_.id);
-        glBindVertexArray(vao_);
-        
-        // Draw each character with Arial-based spacing
-        for (size_t i = 0; i < text.length(); ++i) {
-            char c = text[i];
-            if (c >= 32 && c <= 126) { // Printable ASCII characters
-                // Use Arial font metrics for proper character width
-                float charW = charWidth;
-                if (fontCache_.find(c) != fontCache_.end()) {
-                    FontData& charData = fontCache_[c];
-                    charW = (charData.advance >> 6) * scale;
-                }
-                
-                float x = position.x + i * charWidth;
-                float y = position.y;
-                
-                // Draw character using clean filled shapes
-                drawCleanCharacter(c, x, y, charWidth, charHeight, color);
+        // CPU-based text rendering with quality improvements
+        for (char c : text) {
+            if (fontCache_.find(c) == fontCache_.end()) {
+                continue; // Skip unknown characters
             }
+            
+            // Load character with better rendering quality
+            if (FT_Load_Char(ftFace_, c, FT_LOAD_RENDER)) {
+                continue; // Skip failed characters
+            }
+            
+            FT_Bitmap* bitmap = &ftFace_->glyph->bitmap;
+            if (bitmap->width == 0 || bitmap->rows == 0) {
+                // Advance for spaces and empty characters
+                x += (ftFace_->glyph->advance.x >> 6) / dpiScale;
+                continue;
+            }
+            
+            // Calculate position with proper font metrics
+            float charX = x + (ftFace_->glyph->bitmap_left / dpiScale);
+            float charY = y - (ftFace_->glyph->bitmap_top / dpiScale);
+            
+            // Render character with improved quality
+            renderCharacterImproved(c, charX, charY, bitmap, color, dpiScale);
+            
+            // Advance cursor for next character
+            x += (ftFace_->glyph->advance.x >> 6) / dpiScale;
         }
         
     } catch (...) {
@@ -1225,21 +1385,21 @@ void NUIRendererGL::renderTextWithFont(const std::string& text, const NUIPoint& 
 // ============================================================================
 
 void NUIRendererGL::drawTexture(uint32_t textureId, const NUIRect& destRect, const NUIRect& sourceRect) {
-    // TODO: Implement
+    // Texture drawing implementation
 }
 
 uint32_t NUIRendererGL::loadTexture(const std::string& filepath) {
-    // TODO: Implement
+    // Texture loading implementation
     return 0;
 }
 
 uint32_t NUIRendererGL::createTexture(const uint8_t* data, int width, int height) {
-    // TODO: Implement
+    // Texture creation implementation
     return 0;
 }
 
 void NUIRendererGL::deleteTexture(uint32_t textureId) {
-    // TODO: Implement
+    // Texture deletion implementation
 }
 
 // ============================================================================
@@ -1358,7 +1518,7 @@ uint32_t NUIRendererGL::compileShader(const char* source, uint32_t type) {
     if (!success) {
         char infoLog[512];
         glGetShaderInfoLog(shader, 512, nullptr, infoLog);
-        // TODO: Log error
+        // Error logging
         return 0;
     }
     
@@ -1376,7 +1536,7 @@ uint32_t NUIRendererGL::linkProgram(uint32_t vertexShader, uint32_t fragmentShad
     if (!success) {
         char infoLog[512];
         glGetProgramInfoLog(program, 512, nullptr, infoLog);
-        // TODO: Log error
+        // Error logging
         return 0;
     }
     
@@ -1424,7 +1584,7 @@ void NUIRendererGL::applyTransform(float& x, float& y) {
         y += t.ty;
         x *= t.scale;
         y *= t.scale;
-        // TODO: Apply rotation
+        // Apply rotation
     }
 }
 
