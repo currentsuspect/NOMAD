@@ -1,6 +1,7 @@
 #include "NUIComponent.h"
 #include "NUITheme.h"
 #include <algorithm>
+#include <iostream>
 
 // Forward declare NUIRenderer to avoid dependency
 namespace NomadUI {

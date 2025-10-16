@@ -75,12 +75,6 @@ void NUITextRendererGDI::drawText(
 {
     if (!initialized_ || !hdc) return;
     
-    static int callCount = 0;
-    callCount++;
-    if (callCount % 60 == 0) { // Log every 60 calls (roughly once per second at 60fps)
-        std::cout << "GDI drawText called " << callCount << " times" << std::endl;
-    }
-    
     HDC deviceContext = static_cast<HDC>(hdc);
     int fontSizeInt = static_cast<int>(fontSize);
     

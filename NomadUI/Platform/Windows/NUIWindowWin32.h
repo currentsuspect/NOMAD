@@ -40,6 +40,12 @@ public:
     void getSize(int& width, int& height) const;
     void setPosition(int x, int y);
     
+    // Full screen support
+    void toggleFullScreen();
+    bool isFullScreen() const { return m_isFullScreen; }
+    void enterFullScreen();
+    void exitFullScreen();
+    
     // OpenGL context
     bool createGLContext();
     bool makeContextCurrent();
@@ -78,6 +84,7 @@ private:
     void handleMouseWheel(float delta);
     void handleKey(int key, bool pressed);
     void handleResize(int width, int height);
+    NUIKeyCode convertKeyCode(int windowsKey);
     
     // Window handles (void* for platform abstraction)
     void* m_hwnd;
@@ -89,6 +96,11 @@ private:
     int m_width;
     int m_height;
     bool m_shouldClose;
+    
+    // Full screen state
+    bool m_isFullScreen;
+    int m_restoreX, m_restoreY, m_restoreWidth, m_restoreHeight;
+    unsigned long m_restoreStyle;
     
     // Components
     NUIComponent* m_rootComponent;

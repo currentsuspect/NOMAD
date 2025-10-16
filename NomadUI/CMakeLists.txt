@@ -41,6 +41,10 @@ set(NOMADUI_CORE_SOURCES
     Core/NUIProgressBar.cpp
     Core/NUIScrollbar.h
     Core/NUIScrollbar.cpp
+    Core/NUICustomTitleBar.h
+    Core/NUICustomTitleBar.cpp
+    Core/NUICustomWindow.h
+    Core/NUICustomWindow.cpp
     # Core/NUIApp.h  # Requires renderer
     # Core/NUIApp.cpp
 )
@@ -430,6 +434,68 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
 
         set_target_properties(NomadUI_NewComponentsDemo PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
+        
+        # Custom Window Demo (Windows only, requires OpenGL + Win32)
+        add_executable(NomadUI_CustomWindowDemo
+            Examples/CustomWindowDemo.cpp
+            Platform/Windows/NUIWindowWin32.cpp
+            Core/NUIComponent.cpp
+            Core/NUITheme.cpp
+            Core/NUIAnimation.cpp
+            Core/NUIThemeSystem.cpp
+            Core/NUICustomTitleBar.cpp
+            Core/NUICustomWindow.cpp
+            Graphics/NUIRenderer.cpp
+            Graphics/OpenGL/NUIRendererGL.cpp
+            ${NOMADUI_TEXT_SOURCES}
+        )
+        
+        # Add glad.c as a separate C file
+        target_sources(NomadUI_CustomWindowDemo PRIVATE External/glad/src/glad.c)
+        set_source_files_properties(External/glad/src/glad.c PROPERTIES LANGUAGE C)
+        
+        target_include_directories(NomadUI_CustomWindowDemo PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/External/glad/include
+        )
+        
+        target_link_libraries(NomadUI_CustomWindowDemo PRIVATE 
+            opengl32
+            freetype
+        )
+        
+        set_target_properties(NomadUI_CustomWindowDemo PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
+        
+        # Full Screen Demo (Windows only, requires OpenGL + Win32)
+        add_executable(NomadUI_FullScreenDemo
+            Examples/FullScreenDemo.cpp
+            Platform/Windows/NUIWindowWin32.cpp
+            Core/NUIComponent.cpp
+            Core/NUITheme.cpp
+            Core/NUIAnimation.cpp
+            Core/NUIThemeSystem.cpp
+            Graphics/NUIRenderer.cpp
+            Graphics/OpenGL/NUIRendererGL.cpp
+            ${NOMADUI_TEXT_SOURCES}
+        )
+        
+        # Add glad.c as a separate C file
+        target_sources(NomadUI_FullScreenDemo PRIVATE External/glad/src/glad.c)
+        set_source_files_properties(External/glad/src/glad.c PROPERTIES LANGUAGE C)
+        
+        target_include_directories(NomadUI_FullScreenDemo PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/External/glad/include
+        )
+        
+        target_link_libraries(NomadUI_FullScreenDemo PRIVATE 
+            opengl32
+            freetype
+        )
+        
+        set_target_properties(NomadUI_FullScreenDemo PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
         )
     endif()
