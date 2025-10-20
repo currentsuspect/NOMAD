@@ -1,5 +1,6 @@
 #include "../Core/NUIComponent.h"
 #include "../Core/NUICustomWindow.h"
+#include "../Core/NUIContextMenu.h"
 #include "../Core/NUIThemeSystem.h"
 #include "../Graphics/NUIRenderer.h"
 #include "../Graphics/OpenGL/NUIRendererGL.h"
@@ -13,9 +14,75 @@ using namespace NomadUI;
 class CustomWindowContent : public NUIComponent {
 private:
     NUICustomWindow* customWindow_ = nullptr;
+    std::shared_ptr<NUIContextMenu> contextMenu_;
     
 public:
+    CustomWindowContent() {
+        createContextMenu();
+    }
+    
     void setCustomWindow(NUICustomWindow* window) { customWindow_ = window; }
+    
+    void createContextMenu() {
+        contextMenu_ = std::make_shared<NUIContextMenu>();
+        
+        // Apply Nomad theme colors to context menu
+        auto& themeManager = NUIThemeManager::getInstance();
+        contextMenu_->setBackgroundColor(themeManager.getColor("surfaceTertiary"));
+        contextMenu_->setBorderColor(themeManager.getColor("borderActive"));
+        contextMenu_->setTextColor(themeManager.getColor("textPrimary"));
+        contextMenu_->setHoverColor(themeManager.getColor("primary"));
+        contextMenu_->setSeparatorColor(themeManager.getColor("borderSubtle"));
+        contextMenu_->setShortcutColor(themeManager.getColor("textSecondary"));
+        
+        // Add menu items showcasing different features
+        contextMenu_->addItem("Cut", []() { 
+            std::cout << "Cut selected" << std::endl; 
+        });
+        
+        contextMenu_->addItem("Copy", []() { 
+            std::cout << "Copy selected" << std::endl; 
+        });
+        
+        contextMenu_->addItem("Paste", []() { 
+            std::cout << "Paste selected" << std::endl; 
+        });
+        
+        contextMenu_->addSeparator();
+        
+        // Theme options (without submenu for now)
+        contextMenu_->addRadioItem("Nomad Dark Theme", "theme", true, []() {
+            NUIThemeManager::getInstance().setActiveTheme("nomad-dark");
+            std::cout << "Switched to Nomad Dark theme" << std::endl;
+        });
+        
+        contextMenu_->addRadioItem("Nomad Light Theme", "theme", false, []() {
+            NUIThemeManager::getInstance().setActiveTheme("nomad-light");
+            std::cout << "Switched to Nomad Light theme" << std::endl;
+        });
+        
+        contextMenu_->addSeparator();
+        
+        contextMenu_->addCheckbox("Show Grid", false, [](bool checked) {
+            std::cout << "Show Grid: " << (checked ? "ON" : "OFF") << std::endl;
+        });
+        
+        contextMenu_->addCheckbox("Snap to Grid", true, [](bool checked) {
+            std::cout << "Snap to Grid: " << (checked ? "ON" : "OFF") << std::endl;
+        });
+        
+        contextMenu_->addSeparator();
+        
+        contextMenu_->addItem("Settings", []() {
+            std::cout << "Settings selected" << std::endl;
+        });
+        
+        contextMenu_->addItem("About", []() {
+            std::cout << "About Nomad UI" << std::endl;
+        });
+        
+        addChild(contextMenu_);
+    }
     
     void onRender(NUIRenderer& renderer) override {
         // Get window dimensions for responsive layout
@@ -36,7 +103,7 @@ public:
         // Perfect responsive text centering using measureText
         std::string titleText = "Custom Window Demo";
         NUISize titleSize = renderer.measureText(titleText, titleFontSize);
-        NUIPoint textPos(centerX - titleSize.width * 0.5f, centerY - titleSize.height * 2.0f);
+        NUIPoint textPos(centerX - titleSize.width * 0.5f, centerY - titleSize.height * 2.5f);
         renderer.drawText(titleText, textPos, titleFontSize, textColor);
         
         // Add full-screen mode indicator
@@ -55,51 +122,132 @@ public:
         renderer.drawText(modeText, textPos, textFontSize * 0.8f, modeColor);
         
         // Draw instructions - perfectly centered with dynamic spacing
-        textPos.y += titleSize.height + textFontSize * 0.8f; // Dynamic spacing based on font size
+        textPos.y += titleSize.height + textFontSize * 0.8f;
         std::string instruction1 = "This is a custom window with title bar";
         NUISize instr1Size = renderer.measureText(instruction1, textFontSize);
         textPos.x = centerX - instr1Size.width * 0.5f;
         renderer.drawText(instruction1, textPos, textFontSize, textColor);
         
-        textPos.y += textFontSize * 1.3f; // Dynamic line spacing
+        textPos.y += textFontSize * 1.3f;
         std::string instruction2 = "Press F11 to toggle full screen";
         NUISize instr2Size = renderer.measureText(instruction2, textFontSize);
         textPos.x = centerX - instr2Size.width * 0.5f;
         renderer.drawText(instruction2, textPos, textFontSize, textColor);
         
         textPos.y += textFontSize * 1.3f;
-        std::string instruction3 = "Drag the title bar to move the window";
+        std::string instruction3 = "Right-click to open context menu";
         NUISize instr3Size = renderer.measureText(instruction3, textFontSize);
         textPos.x = centerX - instr3Size.width * 0.5f;
-        renderer.drawText(instruction3, textPos, textFontSize, textColor);
+        renderer.drawText(instruction3, textPos, textFontSize, themeManager.getColor("primary"));
         
         textPos.y += textFontSize * 1.3f;
-        std::string instruction4 = "Use the window controls (minimize, maximize, close)";
+        std::string instruction4 = "Drag the title bar to move the window";
         NUISize instr4Size = renderer.measureText(instruction4, textFontSize);
         textPos.x = centerX - instr4Size.width * 0.5f;
         renderer.drawText(instruction4, textPos, textFontSize, textColor);
         
-        // Draw window size info - perfectly centered with dynamic spacing
-        textPos.y += textFontSize * 2.5f; // More space before debug info
-        std::string sizeInfo = "Window Size: " + std::to_string((int)bounds.width) + " x " + std::to_string((int)bounds.height);
+        // Draw window size info
+        textPos.y += textFontSize * 2.5f;
+        int windowWidth = static_cast<int>(bounds.width);
+        int windowHeight = static_cast<int>(bounds.height);
+        if (customWindow_ && !customWindow_->isFullScreen()) {
+            windowHeight += 32;
+        }
+        std::string sizeInfo = "Window Size: " + std::to_string(windowWidth) + " x " + std::to_string(windowHeight);
         NUISize sizeInfoSize = renderer.measureText(sizeInfo, textFontSize * 0.9f);
         textPos.x = centerX - sizeInfoSize.width * 0.5f;
         renderer.drawText(sizeInfo, textPos, textFontSize * 0.9f, accentColor);
         
-        // Draw some decorative elements - perfectly responsive positioning
-        float rectWidth = std::min(bounds.width * 0.08f, 80.0f); // 8% of width, max 80px
-        float rectHeight = rectWidth * 0.75f; // 75% of width for nice proportions
-        float rectSpacing = rectWidth * 0.6f; // 60% of width for spacing
-        float rectY = centerY + textFontSize * 3.0f; // Dynamic Y position based on font size
+        // Draw color palette showcase at the bottom
+        float paletteY = bounds.height - 120.0f;
+        float paletteX = 40.0f;
+        float swatchSize = 40.0f;
+        float swatchSpacing = 50.0f;
         
-        NUIRect rect1(centerX - rectWidth - rectSpacing, rectY, rectWidth, rectHeight);
-        NUIRect rect2(centerX - rectWidth * 0.5f, rectY, rectWidth, rectHeight);
-        NUIRect rect3(centerX + rectSpacing, rectY, rectWidth, rectHeight);
+        // Title for color showcase
+        std::string paletteTitle = "Nomad Color Palette";
+        renderer.drawText(paletteTitle, NUIPoint(paletteX, paletteY - 20.0f), 12.0f, themeManager.getColor("textSecondary"));
         
-        NUIColor rectColor = themeManager.getColor("surface");
-        renderer.fillRect(rect1, rectColor);
-        renderer.fillRect(rect2, rectColor);
-        renderer.fillRect(rect3, rectColor);
+        // Core structure colors
+        renderer.fillRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), themeManager.getColor("backgroundPrimary"));
+        renderer.strokeRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), 1.0f, themeManager.getColor("borderSubtle"));
+        renderer.drawText("BG1", NUIPoint(paletteX + 5, paletteY + swatchSize + 12), 10.0f, themeManager.getColor("textSecondary"));
+        
+        paletteX += swatchSpacing;
+        renderer.fillRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), themeManager.getColor("backgroundSecondary"));
+        renderer.strokeRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), 1.0f, themeManager.getColor("borderSubtle"));
+        renderer.drawText("BG2", NUIPoint(paletteX + 5, paletteY + swatchSize + 12), 10.0f, themeManager.getColor("textSecondary"));
+        
+        paletteX += swatchSpacing;
+        renderer.fillRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), themeManager.getColor("surfaceTertiary"));
+        renderer.strokeRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), 1.0f, themeManager.getColor("borderSubtle"));
+        renderer.drawText("Surf", NUIPoint(paletteX + 5, paletteY + swatchSize + 12), 10.0f, themeManager.getColor("textSecondary"));
+        
+        paletteX += swatchSpacing;
+        renderer.fillRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), themeManager.getColor("surfaceRaised"));
+        renderer.strokeRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), 1.0f, themeManager.getColor("borderSubtle"));
+        renderer.drawText("Card", NUIPoint(paletteX + 5, paletteY + swatchSize + 12), 10.0f, themeManager.getColor("textSecondary"));
+        
+        // Accent colors
+        paletteX += swatchSpacing * 1.5f;
+        renderer.fillRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), themeManager.getColor("primary"));
+        renderer.strokeRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), 1.0f, themeManager.getColor("borderActive"));
+        renderer.drawText("Accent", NUIPoint(paletteX, paletteY + swatchSize + 12), 10.0f, themeManager.getColor("textSecondary"));
+        
+        paletteX += swatchSpacing;
+        renderer.fillRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), themeManager.getColor("primaryHover"));
+        renderer.strokeRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), 1.0f, themeManager.getColor("borderSubtle"));
+        renderer.drawText("Hover", NUIPoint(paletteX, paletteY + swatchSize + 12), 10.0f, themeManager.getColor("textSecondary"));
+        
+        // Status colors
+        paletteX += swatchSpacing * 1.5f;
+        renderer.fillRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), themeManager.getColor("success"));
+        renderer.strokeRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), 1.0f, themeManager.getColor("borderSubtle"));
+        renderer.drawText("OK", NUIPoint(paletteX + 8, paletteY + swatchSize + 12), 10.0f, themeManager.getColor("textSecondary"));
+        
+        paletteX += swatchSpacing;
+        renderer.fillRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), themeManager.getColor("warning"));
+        renderer.strokeRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), 1.0f, themeManager.getColor("borderSubtle"));
+        renderer.drawText("Warn", NUIPoint(paletteX + 2, paletteY + swatchSize + 12), 10.0f, themeManager.getColor("textSecondary"));
+        
+        paletteX += swatchSpacing;
+        renderer.fillRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), themeManager.getColor("error"));
+        renderer.strokeRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), 1.0f, themeManager.getColor("borderSubtle"));
+        renderer.drawText("Error", NUIPoint(paletteX + 2, paletteY + swatchSize + 12), 10.0f, themeManager.getColor("textSecondary"));
+        
+        paletteX += swatchSpacing;
+        renderer.fillRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), themeManager.getColor("info"));
+        renderer.strokeRect(NUIRect(paletteX, paletteY, swatchSize, swatchSize), 1.0f, themeManager.getColor("borderSubtle"));
+        renderer.drawText("Info", NUIPoint(paletteX + 5, paletteY + swatchSize + 12), 10.0f, themeManager.getColor("textSecondary"));
+        
+        // Render context menu if visible
+        if (contextMenu_ && contextMenu_->isVisible()) {
+            contextMenu_->onRender(renderer);
+        }
+    }
+    
+    bool onMouseEvent(const NUIMouseEvent& event) override {
+        // Handle context menu interaction first
+        if (contextMenu_ && contextMenu_->isVisible()) {
+            if (contextMenu_->onMouseEvent(event)) {
+                return true;
+            }
+        }
+        
+        // Show context menu on right-click
+        if (event.pressed && event.button == NUIMouseButton::Right) {
+            contextMenu_->showAt(event.position);
+            return true;
+        }
+        
+        // Hide context menu on left-click outside
+        if (event.pressed && event.button == NUIMouseButton::Left) {
+            if (contextMenu_ && contextMenu_->isVisible()) {
+                contextMenu_->hide();
+            }
+        }
+        
+        return NUIComponent::onMouseEvent(event);
     }
 };
 
@@ -168,19 +316,27 @@ int main() {
     std::cout << "Controls:" << std::endl;
     std::cout << "  F11 - Toggle full screen" << std::endl;
     std::cout << "  Escape - Exit full screen" << std::endl;
+    std::cout << "  Right-click - Open context menu (showcases Nomad theme)" << std::endl;
     std::cout << "  Custom title bar with window controls" << std::endl;
     std::cout << std::endl;
+    std::cout << "Features:" << std::endl;
+    std::cout << "  - Complete Nomad color palette showcase" << std::endl;
+    std::cout << "  - Context menu with theme colors" << std::endl;
+    std::cout << "  - Layered background system" << std::endl;
+    std::cout << "  - Status colors (success, warning, error, info)" << std::endl;
+    std::cout << std::endl;
     
-    // Create window
+    // Create window with exact content dimensions (1000x700)
+    // The custom window will handle the title bar internally
     NUIWindowWin32 window;
     if (!window.create("Nomad Custom Window Demo", 1000, 700)) {
         std::cerr << "Failed to create window" << std::endl;
         return -1;
     }
     
-    // Create renderer
+    // Create renderer with matching window dimensions
     NUIRendererGL renderer;
-    if (!renderer.initialize(800, 600)) {
+    if (!renderer.initialize(1000, 700)) {
         std::cerr << "Failed to initialize renderer" << std::endl;
         return -1;
     }

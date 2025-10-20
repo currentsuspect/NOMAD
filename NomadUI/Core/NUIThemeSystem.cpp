@@ -141,21 +141,71 @@ void NUIThemeManager::setOnThemeChanged(std::function<void(const NUIThemePropert
 NUIColor NUIThemeManager::getColor(const std::string& colorName) const {
     const auto& theme = getCurrentTheme();
     
-    // Map color names to theme properties
+    // Core Structure
+    if (colorName == "backgroundPrimary") return theme.backgroundPrimary;
+    if (colorName == "backgroundSecondary") return theme.backgroundSecondary;
+    if (colorName == "surfaceTertiary") return theme.surfaceTertiary;
+    if (colorName == "surfaceRaised") return theme.surfaceRaised;
+    
+    // Legacy compatibility
     if (colorName == "background") return theme.background;
     if (colorName == "surface") return theme.surface;
+    if (colorName == "surfaceVariant") return theme.surfaceVariant;
+    
+    // Accent & Branding
     if (colorName == "primary") return theme.primary;
+    if (colorName == "primaryHover") return theme.primaryHover;
+    if (colorName == "primaryPressed") return theme.primaryPressed;
+    if (colorName == "accent") return theme.primary;
     if (colorName == "secondary") return theme.secondary;
-    if (colorName == "error") return theme.error;
-    if (colorName == "warning") return theme.warning;
+    
+    // Functional Colors
     if (colorName == "success") return theme.success;
+    if (colorName == "warning") return theme.warning;
+    if (colorName == "error") return theme.error;
     if (colorName == "info") return theme.info;
+    
+    // Text
     if (colorName == "text") return theme.textPrimary;
+    if (colorName == "textPrimary") return theme.textPrimary;
     if (colorName == "textSecondary") return theme.textSecondary;
+    if (colorName == "textDisabled") return theme.textDisabled;
+    if (colorName == "textLink") return theme.textLink;
+    if (colorName == "textCritical") return theme.textCritical;
+    
+    // Borders
     if (colorName == "border") return theme.border;
+    if (colorName == "borderSubtle") return theme.borderSubtle;
+    if (colorName == "borderActive") return theme.borderActive;
+    if (colorName == "divider") return theme.divider;
+    
+    // Interactive States
     if (colorName == "hover") return theme.hover;
     if (colorName == "pressed") return theme.pressed;
     if (colorName == "focused") return theme.focused;
+    if (colorName == "selected") return theme.selected;
+    
+    // Interactive Elements
+    if (colorName == "buttonBgDefault") return theme.buttonBgDefault;
+    if (colorName == "buttonBgHover") return theme.buttonBgHover;
+    if (colorName == "buttonBgActive") return theme.buttonBgActive;
+    if (colorName == "buttonTextDefault") return theme.buttonTextDefault;
+    if (colorName == "buttonTextActive") return theme.buttonTextActive;
+    
+    if (colorName == "toggleDefault") return theme.toggleDefault;
+    if (colorName == "toggleHover") return theme.toggleHover;
+    if (colorName == "toggleActive") return theme.toggleActive;
+    
+    if (colorName == "inputBgDefault") return theme.inputBgDefault;
+    if (colorName == "inputBgHover") return theme.inputBgHover;
+    if (colorName == "inputBorderFocus") return theme.inputBorderFocus;
+    
+    if (colorName == "sliderTrack") return theme.sliderTrack;
+    if (colorName == "sliderHandle") return theme.sliderHandle;
+    if (colorName == "sliderHandleHover") return theme.sliderHandleHover;
+    if (colorName == "sliderHandlePressed") return theme.sliderHandlePressed;
+    
+    if (colorName == "highlightGlow") return theme.highlightGlow;
     
     return theme.primary; // Default fallback
 }
@@ -291,43 +341,86 @@ float NUIThemedComponent::getThemeFontSize(const std::string& fontSizeName) cons
 NUIThemeProperties NUIThemePresets::createNomadDark() {
     NUIThemeProperties theme;
     
-    // Colors
-    theme.background = NUIColor(0.08f, 0.08f, 0.12f, 1.0f);
-    theme.surface = NUIColor(0.12f, 0.12f, 0.16f, 1.0f);
-    theme.surfaceVariant = NUIColor(0.16f, 0.16f, 0.20f, 1.0f);
-    theme.primary = NUIColor(0.4f, 0.6f, 1.0f, 1.0f);
-    theme.primaryVariant = NUIColor(0.3f, 0.5f, 0.9f, 1.0f);
-    theme.secondary = NUIColor(0.6f, 0.6f, 0.7f, 1.0f);
+    // 🧱 1. Core Structure - Layered backgrounds
+    theme.backgroundPrimary = NUIColor(0.094f, 0.094f, 0.098f, 1.0f);    // #181819 - Deep matte black
+    theme.backgroundSecondary = NUIColor(0.118f, 0.118f, 0.122f, 1.0f);  // #1e1e1f - Panels, sidebars
+    theme.surfaceTertiary = NUIColor(0.141f, 0.141f, 0.157f, 1.0f);      // #242428 - Dialogs, popups
+    theme.surfaceRaised = NUIColor(0.173f, 0.173f, 0.192f, 1.0f);        // #2c2c31 - Cards, containers
+    
+    // Legacy compatibility
+    theme.background = theme.backgroundPrimary;
+    theme.surface = theme.backgroundSecondary;
+    theme.surfaceVariant = theme.surfaceTertiary;
+    
+    // 💡 2. Accent & Branding
+    theme.primary = NUIColor(0.545f, 0.498f, 1.0f, 1.0f);                // #8B7FFF - Core Nomad purple
+    theme.primaryHover = NUIColor(0.655f, 0.620f, 1.0f, 1.0f);           // #A79EFF - Hover variant
+    theme.primaryPressed = NUIColor(0.400f, 0.353f, 0.851f, 1.0f);       // #665AD9 - Pressed state
+    theme.primaryVariant = theme.primaryPressed;
+    
+    theme.secondary = theme.backgroundSecondary;
     theme.secondaryVariant = NUIColor(0.5f, 0.5f, 0.6f, 1.0f);
-    theme.error = NUIColor(0.9f, 0.3f, 0.3f, 1.0f);
-    theme.warning = NUIColor(1.0f, 0.7f, 0.2f, 1.0f);
-    theme.success = NUIColor(0.3f, 0.8f, 0.4f, 1.0f);
-    theme.info = NUIColor(0.2f, 0.7f, 0.9f, 1.0f);
     
-    // Text colors
-    theme.textPrimary = NUIColor(0.95f, 0.95f, 0.95f, 1.0f);
-    theme.textSecondary = NUIColor(0.7f, 0.7f, 0.7f, 1.0f);
-    theme.textDisabled = NUIColor(0.5f, 0.5f, 0.5f, 1.0f);
+    // 🌈 6. Functional Colors (Status Feedback)
+    theme.success = NUIColor(0.357f, 0.847f, 0.588f, 1.0f);              // #5BD896 - Green
+    theme.warning = NUIColor(1.0f, 0.847f, 0.420f, 1.0f);                // #FFD86B - Amber
+    theme.error = NUIColor(1.0f, 0.369f, 0.369f, 1.0f);                  // #FF5E5E - Red
+    theme.info = NUIColor(0.420f, 0.796f, 1.0f, 1.0f);                   // #6BCBFF - Cyan-blue
     
-    // Interactive states
+    // 🧭 3. Text & Typography
+    theme.textPrimary = NUIColor(0.898f, 0.898f, 0.910f, 1.0f);          // #E5E5E8 - Main text
+    theme.textSecondary = NUIColor(0.651f, 0.651f, 0.667f, 1.0f);        // #A6A6AA - Subtext
+    theme.textDisabled = NUIColor(0.353f, 0.353f, 0.365f, 1.0f);         // #5A5A5D - Inactive
+    theme.textLink = theme.primary;                                       // #8B7FFF - Links/actions
+    theme.textCritical = theme.error;                                     // #FF5E5E - Errors
+    
+    // 🪞 5. Borders & Highlights
+    theme.borderSubtle = NUIColor(0.173f, 0.173f, 0.184f, 1.0f);         // #2c2c2f - Divider lines
+    theme.borderActive = theme.primary;                                   // #8B7FFF - Selected/focused
+    theme.border = theme.borderSubtle;
+    theme.divider = NUIColor(0.2f, 0.2f, 0.25f, 1.0f);
+    theme.outline = NUIColor(0.4f, 0.4f, 0.45f, 1.0f);
+    theme.outlineVariant = NUIColor(0.25f, 0.25f, 0.3f, 1.0f);
+    
+    // 🖱️ 4. Interactive Elements - Buttons
+    theme.buttonBgDefault = theme.surfaceTertiary;                        // #242428
+    theme.buttonBgHover = NUIColor(0.180f, 0.180f, 0.200f, 1.0f);        // #2e2e33
+    theme.buttonBgActive = theme.primary;                                 // #8B7FFF
+    theme.buttonTextDefault = theme.textPrimary;                          // #E5E5E8
+    theme.buttonTextActive = NUIColor(1.0f, 1.0f, 1.0f, 1.0f);          // #ffffff
+    
+    // Toggle / Switch
+    theme.toggleDefault = NUIColor(0.227f, 0.227f, 0.247f, 1.0f);        // #3a3a3f
+    theme.toggleHover = NUIColor(0.290f, 0.290f, 0.314f, 1.0f);          // #4a4a50
+    theme.toggleActive = theme.primary;                                   // #8B7FFF
+    
+    // Input Fields
+    theme.inputBgDefault = NUIColor(0.106f, 0.106f, 0.110f, 1.0f);       // #1b1b1c
+    theme.inputBgHover = NUIColor(0.122f, 0.122f, 0.125f, 1.0f);         // #1f1f20
+    theme.inputBorderFocus = theme.primary;                               // #8B7FFF
+    
+    // Sliders
+    theme.sliderTrack = NUIColor(0.165f, 0.165f, 0.180f, 1.0f);          // #2a2a2e
+    theme.sliderHandle = theme.primary;                                   // #8B7FFF
+    theme.sliderHandleHover = theme.primaryHover;                         // #A79EFF
+    theme.sliderHandlePressed = theme.primaryPressed;                     // #665AD9
+    
+    // Interactive states (legacy)
     theme.hover = NUIColor(1.0f, 1.0f, 1.0f, 0.08f);
     theme.pressed = NUIColor(1.0f, 1.0f, 1.0f, 0.12f);
     theme.focused = theme.primary.withAlpha(0.2f);
     theme.selected = theme.primary.withAlpha(0.15f);
     theme.disabled = NUIColor(0.5f, 0.5f, 0.5f, 0.38f);
     
-    // Borders
-    theme.border = NUIColor(0.3f, 0.3f, 0.35f, 1.0f);
-    theme.divider = NUIColor(0.2f, 0.2f, 0.25f, 1.0f);
-    theme.outline = NUIColor(0.4f, 0.4f, 0.45f, 1.0f);
-    theme.outlineVariant = NUIColor(0.25f, 0.25f, 0.3f, 1.0f);
+    // Highlight glow
+    theme.highlightGlow = NUIColor(0.545f, 0.498f, 1.0f, 0.3f);          // rgba(139, 127, 255, 0.3)
     
-    // Shadows
+    // 🪞 5. Shadows
     theme.shadowXS = NUIThemeProperties::Shadow(0, 1, 2, 0, NUIColor::black(), 0.1f);
     theme.shadowS = NUIThemeProperties::Shadow(0, 2, 4, 0, NUIColor::black(), 0.15f);
-    theme.shadowM = NUIThemeProperties::Shadow(0, 4, 8, 0, NUIColor::black(), 0.2f);
-    theme.shadowL = NUIThemeProperties::Shadow(0, 8, 16, 0, NUIColor::black(), 0.25f);
-    theme.shadowXL = NUIThemeProperties::Shadow(0, 16, 32, 0, NUIColor::black(), 0.3f);
+    theme.shadowM = NUIThemeProperties::Shadow(0, 4, 8, 0, NUIColor::black(), 0.4f);   // Ambient
+    theme.shadowL = NUIThemeProperties::Shadow(0, 8, 16, 0, NUIColor::black(), 0.6f);  // Floating UI
+    theme.shadowXL = NUIThemeProperties::Shadow(0, 16, 32, 0, NUIColor::black(), 0.6f);
     
     return theme;
 }

@@ -80,14 +80,14 @@ NUIContextMenu::NUIContextMenu()
 {
     setSize(200, 100); // Default size
     
-    // Apply theme colors
+    // Apply Nomad theme colors - using the new layered system
     auto& themeManager = NUIThemeManager::getInstance();
-    backgroundColor_ = themeManager.getColor("surface");
-    borderColor_ = themeManager.getColor("border");
-    textColor_ = themeManager.getColor("text");
-    hoverColor_ = themeManager.getColor("primary"); // Use Nomad's purple for highlight
-    separatorColor_ = themeManager.getColor("border");
-    shortcutColor_ = themeManager.getColor("textSecondary");
+    backgroundColor_ = themeManager.getColor("surfaceTertiary");      // #242428 - Dialogs/popups
+    borderColor_ = themeManager.getColor("borderActive");             // #8B7FFF - Active purple border
+    textColor_ = themeManager.getColor("textPrimary");                // #E5E5E8 - Main text
+    hoverColor_ = themeManager.getColor("primary");                   // #8B7FFF - Nomad purple highlight
+    separatorColor_ = themeManager.getColor("borderSubtle");          // #2c2c2f - Subtle dividers
+    shortcutColor_ = themeManager.getColor("textSecondary");          // #A6A6AA - Muted shortcuts
 }
 
 void NUIContextMenu::onRender(NUIRenderer& renderer)
@@ -465,53 +465,58 @@ void NUIContextMenu::drawItem(NUIRenderer& renderer, std::shared_ptr<NUIContextM
 
     NUIRect itemRect = getItemRect(index);
     
-    // Draw hover background with smooth effect
+    // Draw hover background with Nomad's purple highlight
     if (index == hoveredItemIndex_)
     {
-        // Use Nomad's purple for highlight - proper purple color
-        NUIColor purpleHighlight = NUIColor(0.6f, 0.3f, 0.9f, 0.8f); // Real purple color
-        renderer.fillRoundedRect(itemRect, borderRadius_, purpleHighlight);
+        auto& themeManager = NUIThemeManager::getInstance();
+        NUIColor purpleHighlight = themeManager.getColor("primary").withAlpha(0.15f);
+        renderer.fillRoundedRect(itemRect, 2.0f, purpleHighlight);
     }
     
     // Draw item content
-    float x = itemRect.x + itemPadding_;
-    float y = itemRect.y + itemRect.height * 0.5f;
-    
-    // Draw icon if present
-    if (!item->getIcon().empty())
-    {
-        // TODO: Draw icon when icon system is implemented
-        x += iconSize_ + itemPadding_;
-    }
+    float x = itemRect.x + itemPadding_ + 4.0f;
+    float y = itemRect.y + (itemRect.height * 0.5f) + 5.0f; // Vertically center text
     
     // Draw checkbox/radio indicator
     if (item->getType() == NUIContextMenuItem::Type::Checkbox || 
         item->getType() == NUIContextMenuItem::Type::Radio)
     {
-        float indicatorSize = 12.0f;
-        NUIRect indicatorRect(x, y - indicatorSize * 0.5f, indicatorSize, indicatorSize);
+        float indicatorSize = 14.0f;
+        float indicatorY = itemRect.y + (itemRect.height - indicatorSize) * 0.5f;
+        NUIRect indicatorRect(x, indicatorY, indicatorSize, indicatorSize);
         
-        // Draw indicator background
-        renderer.strokeRoundedRect(indicatorRect, 2.0f, 1.0f, borderColor_);
+        auto& themeManager = NUIThemeManager::getInstance();
         
-        // Draw checkmark or dot
-        if (item->isChecked())
+        if (item->getType() == NUIContextMenuItem::Type::Checkbox)
         {
-            if (item->getType() == NUIContextMenuItem::Type::Checkbox)
+            // Checkbox - rounded square
+            renderer.strokeRoundedRect(indicatorRect, 3.0f, 1.0f, themeManager.getColor("borderSubtle"));
+            
+            if (item->isChecked())
             {
+                // Fill with purple
+                renderer.fillRoundedRect(indicatorRect, 3.0f, themeManager.getColor("primary"));
+                
                 // Draw checkmark
                 NUIPoint center = indicatorRect.center();
-                float size = indicatorSize * 0.6f;
-                NUIPoint p1(center.x - size * 0.3f, center.y);
-                NUIPoint p2(center.x - size * 0.1f, center.y + size * 0.2f);
-                NUIPoint p3(center.x + size * 0.3f, center.y - size * 0.2f);
-                renderer.drawLine(p1, p2, 2.0f, textColor_);
-                renderer.drawLine(p2, p3, 2.0f, textColor_);
+                float size = indicatorSize * 0.5f;
+                NUIPoint p1(center.x - size * 0.4f, center.y);
+                NUIPoint p2(center.x - size * 0.1f, center.y + size * 0.3f);
+                NUIPoint p3(center.x + size * 0.4f, center.y - size * 0.3f);
+                renderer.drawLine(p1, p2, 2.0f, NUIColor(1.0f, 1.0f, 1.0f, 1.0f));
+                renderer.drawLine(p2, p3, 2.0f, NUIColor(1.0f, 1.0f, 1.0f, 1.0f));
             }
-            else
+        }
+        else
+        {
+            // Radio - circle
+            NUIPoint center = indicatorRect.center();
+            renderer.strokeCircle(center, indicatorSize * 0.5f, 1.0f, themeManager.getColor("borderSubtle"));
+            
+            if (item->isChecked())
             {
-                // Draw radio dot
-                renderer.fillCircle(indicatorRect.center(), indicatorSize * 0.3f, textColor_);
+                // Fill inner circle with purple
+                renderer.fillCircle(center, indicatorSize * 0.35f, themeManager.getColor("primary"));
             }
         }
         
@@ -519,31 +524,15 @@ void NUIContextMenu::drawItem(NUIRenderer& renderer, std::shared_ptr<NUIContextM
     }
     
     // Draw text
-    NUIColor textColor = item->isEnabled() ? textColor_ : textColor_.withAlpha(0.5f);
-    
-    // Draw default icons for common actions (using ASCII for compatibility)
-    std::string icon = "";
-    if (item->getText() == "Cut") icon = "X";
-    else if (item->getText() == "Copy") icon = "C";
-    else if (item->getText() == "Paste") icon = "V";
-    else if (item->getText() == "Settings") icon = "S";
-    
-    if (!icon.empty())
-    {
-        // Draw icon with slightly different color for visibility
-        NUIColor iconColor = textColor;
-        iconColor.r = 0.7f; // Slightly dimmer
-        renderer.drawText(icon, NUIPoint(x, y), 12.0f, iconColor);
-        x += 12.0f; // Minimal space for icon
-    }
-    renderer.drawText(item->getText(), NUIPoint(x, y), 14.0f, textColor); // Larger text
+    NUIColor textColor = item->isEnabled() ? textColor_ : textColor_.withAlpha(0.4f);
+    renderer.drawText(item->getText(), NUIPoint(x, y), 13.0f, textColor);
     
     // Draw shortcut
     if (!item->getShortcut().empty())
     {
-        // Position shortcut with proper spacing from the right edge
-        float shortcutX = itemRect.x + itemRect.width - itemPadding_ - 40.0f; // Much more space from edge
-        renderer.drawText(item->getShortcut(), NUIPoint(shortcutX, y), 12.0f, shortcutColor_);
+        auto& themeManager = NUIThemeManager::getInstance();
+        float shortcutX = itemRect.x + itemRect.width - itemPadding_ - 60.0f;
+        renderer.drawText(item->getShortcut(), NUIPoint(shortcutX, y), 12.0f, themeManager.getColor("textSecondary"));
     }
     
     // Draw submenu arrow
@@ -558,10 +547,11 @@ void NUIContextMenu::drawSeparator(NUIRenderer& renderer, int index)
     NUIRect itemRect = getItemRect(index);
     float centerY = itemRect.y + itemRect.height * 0.5f;
     
-    NUIPoint p1(itemRect.x + itemPadding_, centerY);
-    NUIPoint p2(itemRect.x + itemRect.width - itemPadding_, centerY);
+    auto& themeManager = NUIThemeManager::getInstance();
+    NUIPoint p1(itemRect.x + itemPadding_ + 4.0f, centerY);
+    NUIPoint p2(itemRect.x + itemRect.width - itemPadding_ - 4.0f, centerY);
     
-    renderer.drawLine(p1, p2, 1.0f, separatorColor_);
+    renderer.drawLine(p1, p2, 1.0f, themeManager.getColor("borderSubtle"));
 }
 
 void NUIContextMenu::drawSubmenuArrow(NUIRenderer& renderer, int index)
@@ -589,23 +579,46 @@ NUIRect NUIContextMenu::getItemRect(int index) const
     if (index < 0 || index >= getItemCount()) return NUIRect();
     
     NUIRect bounds = getBounds();
-    float y = bounds.y + index * itemHeight_;
+    float y = bounds.y;
     
-    return NUIRect(bounds.x, y, bounds.width, itemHeight_);
+    // Calculate Y position accounting for separator heights
+    for (int i = 0; i < index; ++i)
+    {
+        auto item = getItem(i);
+        if (item && item->getType() == NUIContextMenuItem::Type::Separator)
+        {
+            y += 8.0f; // Separators are shorter
+        }
+        else
+        {
+            y += itemHeight_;
+        }
+    }
+    
+    auto currentItem = getItem(index);
+    float height = (currentItem && currentItem->getType() == NUIContextMenuItem::Type::Separator) ? 8.0f : itemHeight_;
+    
+    return NUIRect(bounds.x, y, bounds.width, height);
 }
 
 float NUIContextMenu::calculateMenuHeight() const
 {
-    int visibleItems = 0;
+    float height = 0.0f;
     for (const auto& item : items_)
     {
         if (item && item->isVisible())
         {
-            visibleItems++;
+            if (item->getType() == NUIContextMenuItem::Type::Separator)
+            {
+                height += 8.0f; // Separators are shorter
+            }
+            else
+            {
+                height += itemHeight_;
+            }
         }
     }
     
-    float height = visibleItems * itemHeight_;
     return (height < maxHeight_) ? height : maxHeight_;
 }
 
@@ -615,14 +628,26 @@ int NUIContextMenu::getItemAtPosition(const NUIPoint& position) const
     if (!bounds.contains(position)) return -1;
     
     float relativeY = position.y - bounds.y;
-    int index = static_cast<int>(relativeY / itemHeight_);
+    float currentY = 0.0f;
     
-    if (index >= 0 && index < getItemCount())
+    for (int i = 0; i < getItemCount(); ++i)
     {
-        auto item = getItem(index);
+        auto item = getItem(i);
         if (item && item->isVisible())
         {
-            return index;
+            float itemH = (item->getType() == NUIContextMenuItem::Type::Separator) ? 8.0f : itemHeight_;
+            
+            if (relativeY >= currentY && relativeY < currentY + itemH)
+            {
+                // Don't allow selecting separators
+                if (item->getType() != NUIContextMenuItem::Type::Separator)
+                {
+                    return i;
+                }
+                return -1;
+            }
+            
+            currentY += itemH;
         }
     }
     
@@ -682,7 +707,7 @@ void NUIContextMenu::handleItemHover(int index)
 void NUIContextMenu::updateSize()
 {
     float height = calculateMenuHeight();
-    float width = 280.0f; // Much wider for proper shortcut spacing
+    float width = 220.0f; // Clean, compact width
     
     setSize(width, height);
 }

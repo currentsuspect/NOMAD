@@ -17,18 +17,32 @@ enum class NUIThemeVariant {
 
 // Theme properties
 struct NUIThemeProperties {
-    // Colors
+    // Core Structure - Layered backgrounds
+    NUIColor backgroundPrimary;      // Primary canvas (#181819)
+    NUIColor backgroundSecondary;    // Panels, sidebars (#1e1e1f)
+    NUIColor surfaceTertiary;        // Dialogs, popups (#242428)
+    NUIColor surfaceRaised;          // Cards, highlighted containers (#2c2c31)
+    
+    // Legacy compatibility
     NUIColor background;
     NUIColor surface;
     NUIColor surfaceVariant;
-    NUIColor primary;
+    
+    // Accent & Branding
+    NUIColor primary;                // Core accent (#8B7FFF)
+    NUIColor primaryHover;           // Hover variant (#A79EFF)
+    NUIColor primaryPressed;         // Pressed state (#665AD9)
     NUIColor primaryVariant;
+    
     NUIColor secondary;
     NUIColor secondaryVariant;
-    NUIColor error;
-    NUIColor warning;
-    NUIColor success;
-    NUIColor info;
+    
+    // Functional Colors (Status)
+    NUIColor success;                // #5BD896
+    NUIColor warning;                // #FFD86B
+    NUIColor error;                  // #FF5E5E
+    NUIColor info;                   // #6BCBFF
+    
     NUIColor onBackground;
     NUIColor onSurface;
     NUIColor onPrimary;
@@ -38,30 +52,55 @@ struct NUIThemeProperties {
     NUIColor onSuccess;
     NUIColor onInfo;
     
-    // Borders and dividers
+    // Text & Typography
+    NUIColor textPrimary;            // Main text (#E5E5E8)
+    NUIColor textSecondary;          // Subtext, labels (#A6A6AA)
+    NUIColor textDisabled;           // Inactive states (#5A5A5D)
+    NUIColor textLink;               // Links/actions (#8B7FFF)
+    NUIColor textCritical;           // Errors (#FF5E5E)
+    NUIColor textOnPrimary;
+    NUIColor textOnSecondary;
+    
+    // Borders & Highlights
+    NUIColor borderSubtle;           // Divider lines (#2c2c2f)
+    NUIColor borderActive;           // Selected/focused (#8B7FFF)
     NUIColor border;
     NUIColor divider;
     NUIColor outline;
     NUIColor outlineVariant;
     
-    // Interactive states
+    // Interactive States
     NUIColor hover;
     NUIColor pressed;
     NUIColor focused;
     NUIColor selected;
     NUIColor disabled;
     
-    // Text colors
-    NUIColor textPrimary;
-    NUIColor textSecondary;
-    NUIColor textDisabled;
-    NUIColor textOnPrimary;
-    NUIColor textOnSecondary;
+    // Interactive Element Defaults
+    NUIColor buttonBgDefault;        // #242428
+    NUIColor buttonBgHover;          // #2e2e33
+    NUIColor buttonBgActive;         // #8B7FFF
+    NUIColor buttonTextDefault;      // #E5E5E8
+    NUIColor buttonTextActive;       // #ffffff
+    
+    NUIColor toggleDefault;          // #3a3a3f
+    NUIColor toggleHover;            // #4a4a50
+    NUIColor toggleActive;           // #8B7FFF
+    
+    NUIColor inputBgDefault;         // #1b1b1c
+    NUIColor inputBgHover;           // #1f1f20
+    NUIColor inputBorderFocus;       // #8B7FFF
+    
+    NUIColor sliderTrack;            // #2a2a2e
+    NUIColor sliderHandle;           // #8B7FFF
+    NUIColor sliderHandleHover;      // #A79EFF
+    NUIColor sliderHandlePressed;    // #665AD9
     
     // Shadows and overlays
     NUIColor shadow;
     NUIColor overlay;
     NUIColor backdrop;
+    NUIColor highlightGlow;          // rgba(139, 127, 255, 0.3)
     
     // Spacing
     float spacingXS = 4.0f;

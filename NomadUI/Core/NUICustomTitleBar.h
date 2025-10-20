@@ -49,6 +49,15 @@ private:
     NUIRect maximizeButtonRect_;
     NUIRect closeButtonRect_;
     
+    // Hover states
+    enum class HoverButton {
+        None,
+        Minimize,
+        Maximize,
+        Close
+    };
+    HoverButton hoveredButton_;
+    
     // Drag state
     bool isDragging_;
     NUIPoint dragStartPos_;
