@@ -1,7 +1,4 @@
 #include "NUIRendererGL.h"
-#include "../NUITextRenderer.h"
-#include "../NUITextRendererGDI.h"
-#include "../NUITextRendererModern.h"
 #include <cstring>
 #include <cmath>
 #include <iostream>
@@ -113,8 +110,7 @@ bool NUIRendererGL::initialize(int width, int height) {
     createBuffers();
     updateProjectionMatrix();
     
-    // Initialize text rendering
-    initializeTextRendering();
+    // Text rendering will be initialized with FreeType below
     
     // Initialize FreeType
     fontInitialized_ = false;
@@ -150,6 +146,11 @@ bool NUIRendererGL::initialize(int width, int height) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
+    
+    // Note: MSAA support will be added in Phase 2
+    // For now, we rely on thin lines (1.0px) and proper blending for good quality
+    // Phase 2 will implement MSAA via framebuffer or WGL extensions
+    // See docs/MSAA_IMPLEMENTATION_GUIDE.md for details
     
     return true;
 }
@@ -191,14 +192,6 @@ void NUIRendererGL::shutdown() {
     }
     
     // Text rendering cleanup (no font objects to clean up)
-}
-
-void NUIRendererGL::initializeTextRendering() {
-    // Simple text rendering initialization
-    // We use basic line drawing for characters, no font loading needed
-    defaultFontPath_ = "C:/Windows/Fonts/arial.ttf"; // Windows default font path (for reference)
-    
-    // No actual font objects needed for our simple line-based text rendering
 }
 
 void NUIRendererGL::resize(int width, int height) {
@@ -506,53 +499,6 @@ void NUIRendererGL::renderCharacterImproved(char c, float x, float y, FT_Bitmap*
                 
                 // Draw pixel with subpixel positioning for smoothness
                 NUIRect pixelRect(pixelX, pixelY, 1.0f, 1.0f);
-                fillRect(pixelRect, pixelColor);
-            }
-        }
-    }
-}
-
-void NUIRendererGL::drawCharacterPixels(char c, float x, float y, float width, float height, const NUIColor& color, float scale) {
-    if (fontCache_.find(c) == fontCache_.end()) {
-        return; // Skip unknown characters
-    }
-    
-    FontData& charData = fontCache_[c];
-    
-    // Load the character glyph again to get the bitmap data
-    if (FT_Load_Char(ftFace_, c, FT_LOAD_RENDER)) {
-        return; // Failed to load character
-    }
-    
-    // Get the bitmap data
-    FT_Bitmap* bitmap = &ftFace_->glyph->bitmap;
-    
-    if (bitmap->width == 0 || bitmap->rows == 0) {
-        return; // Empty character
-    }
-    
-    // Calculate the correct starting position using font metrics
-    float startX = x + (ftFace_->glyph->bitmap_left * scale);
-    float startY = y - (ftFace_->glyph->bitmap_top * scale);
-    
-    // Draw each pixel of the character
-    for (int row = 0; row < bitmap->rows; row++) {
-        for (int col = 0; col < bitmap->width; col++) {
-            // Get pixel alpha value
-            unsigned char alpha = bitmap->buffer[row * bitmap->width + col];
-            
-            if (alpha > 0) {
-                // Calculate pixel position with proper font metrics
-                float pixelX = startX + col * scale;
-                float pixelY = startY + row * scale;
-                
-                // Draw pixel as a small rectangle with better scaling
-                float pixelSize = std::max(1.0f, scale * 0.8f); // Slightly smaller for smoother text
-                NUIRect pixelRect(pixelX, pixelY, pixelSize, pixelSize);
-                NUIColor pixelColor = color;
-                pixelColor.a = (alpha / 255.0f) * color.a; // Apply alpha
-                
-                // Use the existing fillRect method to draw the pixel
                 fillRect(pixelRect, pixelColor);
             }
         }
@@ -1388,18 +1334,20 @@ void NUIRendererGL::drawTexture(uint32_t textureId, const NUIRect& destRect, con
     // Texture drawing implementation
 }
 
+// ============================================================================
+// Texture/Image Drawing (Stub implementations)
+// ============================================================================
+
 uint32_t NUIRendererGL::loadTexture(const std::string& filepath) {
-    // Texture loading implementation
-    return 0;
+    return 0; // Not implemented
 }
 
 uint32_t NUIRendererGL::createTexture(const uint8_t* data, int width, int height) {
-    // Texture creation implementation
-    return 0;
+    return 0; // Not implemented
 }
 
 void NUIRendererGL::deleteTexture(uint32_t textureId) {
-    // Texture deletion implementation
+    // Not implemented
 }
 
 // ============================================================================

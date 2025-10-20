@@ -10,6 +10,7 @@ NUICustomTitleBar::NUICustomTitleBar()
     , title_("Nomad")
     , height_(32.0f)
     , isMaximized_(false)
+    , hoveredButton_(HoverButton::None)
     , isDragging_(false)
     , dragStartPos_(0, 0)
     , windowStartPos_(0, 0)
@@ -37,23 +38,20 @@ void NUICustomTitleBar::onRender(NUIRenderer& renderer) {
     
     // Get theme colors
     auto& themeManager = NUIThemeManager::getInstance();
-    NUIColor bgColor = themeManager.getColor("surface");
+    NUIColor bgColor = themeManager.getColor("background"); // Use background color for flush look
     NUIColor textColor = themeManager.getColor("text");
-    NUIColor borderColor = themeManager.getColor("border");
     
-    // Draw title bar background
+    // Draw title bar background - flush with window background
     renderer.fillRect(bounds, bgColor);
     
-    // Draw subtle separator line with lighter color for hierarchy
-    NUIColor separatorColor = themeManager.getColor("border");
-    separatorColor.a *= 0.6f; // Make it more subtle
-    NUIRect separatorRect(bounds.x, bounds.y + bounds.height - 1, bounds.width, 1);
-    renderer.fillRect(separatorRect, separatorColor);
+    // No separator line for clean, flush appearance
     
-    // Draw title text - perfectly left-centered alignment
-    float fontSize = std::max(12.0f, height_ * 0.4f); // Scale with title bar height
+    // Draw title text - left-aligned, vertically centered
+    float fontSize = 13.0f; // Fixed size for consistency
     NUISize titleSize = renderer.measureText(title_, fontSize);
-    NUIPoint titlePos(bounds.x + 4, bounds.y + (bounds.height - titleSize.height) * 0.5f); // Perfect left-center alignment
+    // Vertically center the text in the title bar (accounting for baseline)
+    float textY = bounds.y + (bounds.height - fontSize) * 0.5f + fontSize * 0.75f;
+    NUIPoint titlePos(bounds.x + 12, textY); // 12px left padding for better spacing
     renderer.drawText(title_, titlePos, fontSize, textColor);
     
     // Draw window controls
@@ -63,35 +61,84 @@ void NUICustomTitleBar::onRender(NUIRenderer& renderer) {
 void NUICustomTitleBar::drawWindowControls(NUIRenderer& renderer) {
     auto& themeManager = NUIThemeManager::getInstance();
     NUIColor textColor = themeManager.getColor("text");
-    NUIColor hoverColor = themeManager.getColor("primary");
+    NUIColor hoverBgColor = NUIColor(1.0f, 1.0f, 1.0f, 0.1f); // Subtle white overlay
+    NUIColor closeHoverBg = NUIColor(0.9f, 0.2f, 0.2f, 1.0f); // Red for close button
     
-    // Responsive font size for buttons
-    float buttonFontSize = std::max(10.0f, height_ * 0.35f);
+    // Modern crisp icons - smaller size, thinner lines for high-DPI displays
+    float iconSize = std::min(minimizeButtonRect_.width, minimizeButtonRect_.height) * 0.35f;
+    float lineThickness = 1.0f; // Thinner lines look crisper on modern displays
     
-    // Draw minimize button (-) - centered
-    std::string minText = "-";
-    NUISize minSize = renderer.measureText(minText, buttonFontSize);
-    NUIPoint minPos(minimizeButtonRect_.x + (minimizeButtonRect_.width - minSize.width) * 0.5f,
-                    minimizeButtonRect_.y + (minimizeButtonRect_.height - minSize.height) * 0.5f);
-    renderer.drawText(minText, minPos, buttonFontSize, textColor);
+    // Draw minimize button
+    if (hoveredButton_ == HoverButton::Minimize) {
+        renderer.fillRect(minimizeButtonRect_, hoverBgColor);
+    }
+    NUIPoint minCenter(minimizeButtonRect_.x + minimizeButtonRect_.width * 0.5f,
+                       minimizeButtonRect_.y + minimizeButtonRect_.height * 0.5f);
+    NUIPoint minStart(minCenter.x - iconSize * 0.5f, minCenter.y);
+    NUIPoint minEnd(minCenter.x + iconSize * 0.5f, minCenter.y);
+    renderer.drawLine(minStart, minEnd, lineThickness, textColor);
     
-    // Draw maximize/restore button (□ or ⟲) - centered
-    std::string maxText = isMaximized_ ? "⟲" : "□";
-    NUISize maxSize = renderer.measureText(maxText, buttonFontSize);
-    NUIPoint maxPos(maximizeButtonRect_.x + (maximizeButtonRect_.width - maxSize.width) * 0.5f,
-                    maximizeButtonRect_.y + (maximizeButtonRect_.height - maxSize.height) * 0.5f);
-    renderer.drawText(maxText, maxPos, buttonFontSize, textColor);
+    // Draw maximize/restore button
+    if (hoveredButton_ == HoverButton::Maximize) {
+        renderer.fillRect(maximizeButtonRect_, hoverBgColor);
+    }
+    NUIPoint maxCenter(maximizeButtonRect_.x + maximizeButtonRect_.width * 0.5f,
+                       maximizeButtonRect_.y + maximizeButtonRect_.height * 0.5f);
     
-    // Draw close button (×) - centered
-    std::string closeText = "×";
-    NUISize closeSize = renderer.measureText(closeText, buttonFontSize);
-    NUIPoint closePos(closeButtonRect_.x + (closeButtonRect_.width - closeSize.width) * 0.5f,
-                      closeButtonRect_.y + (closeButtonRect_.height - closeSize.height) * 0.5f);
-    renderer.drawText(closeText, closePos, buttonFontSize, textColor);
+    if (isMaximized_) {
+        // Restore icon - two overlapping squares (Telegram style)
+        float offset = iconSize * 0.15f;
+        NUIRect backSquare(maxCenter.x - iconSize * 0.35f + offset, 
+                          maxCenter.y - iconSize * 0.35f - offset, 
+                          iconSize * 0.7f, iconSize * 0.7f);
+        NUIRect frontSquare(maxCenter.x - iconSize * 0.35f - offset, 
+                           maxCenter.y - iconSize * 0.35f + offset, 
+                           iconSize * 0.7f, iconSize * 0.7f);
+        renderer.strokeRect(backSquare, lineThickness, textColor);
+        renderer.strokeRect(frontSquare, lineThickness, textColor);
+    } else {
+        // Maximize icon - single square
+        NUIRect maxSquare(maxCenter.x - iconSize * 0.5f, 
+                         maxCenter.y - iconSize * 0.5f, 
+                         iconSize, iconSize);
+        renderer.strokeRect(maxSquare, lineThickness, textColor);
+    }
+    
+    // Draw close button with red hover
+    if (hoveredButton_ == HoverButton::Close) {
+        renderer.fillRect(closeButtonRect_, closeHoverBg);
+    }
+    NUIPoint closeCenter(closeButtonRect_.x + closeButtonRect_.width * 0.5f,
+                         closeButtonRect_.y + closeButtonRect_.height * 0.5f);
+    float closeSize = iconSize * 0.8f;
+    NUIPoint closeTL(closeCenter.x - closeSize * 0.5f, closeCenter.y - closeSize * 0.5f);
+    NUIPoint closeTR(closeCenter.x + closeSize * 0.5f, closeCenter.y - closeSize * 0.5f);
+    NUIPoint closeBL(closeCenter.x - closeSize * 0.5f, closeCenter.y + closeSize * 0.5f);
+    NUIPoint closeBR(closeCenter.x + closeSize * 0.5f, closeCenter.y + closeSize * 0.5f);
+    NUIColor closeIconColor = (hoveredButton_ == HoverButton::Close) ? NUIColor(1.0f, 1.0f, 1.0f, 1.0f) : textColor;
+    renderer.drawLine(closeTL, closeBR, lineThickness, closeIconColor);
+    renderer.drawLine(closeTR, closeBL, lineThickness, closeIconColor);
 }
 
 bool NUICustomTitleBar::onMouseEvent(const NUIMouseEvent& event) {
     NUIPoint mousePos(event.position.x, event.position.y);
+    
+    // Update hover state
+    HoverButton previousHover = hoveredButton_;
+    hoveredButton_ = HoverButton::None;
+    
+    if (isPointInButton(mousePos, minimizeButtonRect_)) {
+        hoveredButton_ = HoverButton::Minimize;
+    } else if (isPointInButton(mousePos, maximizeButtonRect_)) {
+        hoveredButton_ = HoverButton::Maximize;
+    } else if (isPointInButton(mousePos, closeButtonRect_)) {
+        hoveredButton_ = HoverButton::Close;
+    }
+    
+    // Mark dirty if hover state changed
+    if (previousHover != hoveredButton_) {
+        setDirty(true);
+    }
     
     if (event.pressed && event.button == NUIMouseButton::Left) {
         // Check if clicking on window controls
@@ -110,29 +157,8 @@ bool NUICustomTitleBar::onMouseEvent(const NUIMouseEvent& event) {
             if (onClose_) onClose_();
             return true;
         }
-        else {
-            // Start dragging
-            isDragging_ = true;
-            dragStartPos_ = mousePos;
-            // Store current window position (this would need to be passed from window)
-            windowStartPos_ = NUIPoint(0, 0); // TODO: Get actual window position
-            return true;
-        }
-    }
-    else if (!event.pressed && event.button == NUIMouseButton::Left) {
-        // Stop dragging
-        if (isDragging_) {
-            isDragging_ = false;
-            return true;
-        }
-    }
-    else if (event.button == NUIMouseButton::None && isDragging_) {
-        // Handle dragging
-        if (onDrag_) {
-            NUIPoint delta(mousePos.x - dragStartPos_.x, mousePos.y - dragStartPos_.y);
-            onDrag_(delta.x, delta.y);
-        }
-        return true;
+        // Window dragging is now handled by Windows via WM_NCHITTEST
+        // No need to handle it here
     }
     
     return NUIComponent::onMouseEvent(event);

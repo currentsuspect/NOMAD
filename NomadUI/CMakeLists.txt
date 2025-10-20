@@ -447,6 +447,7 @@ if(NOMADUI_BUILD_EXAMPLES)
             Core/NUIThemeSystem.cpp
             Core/NUICustomTitleBar.cpp
             Core/NUICustomWindow.cpp
+            Core/NUIContextMenu.cpp
             Graphics/NUIRenderer.cpp
             Graphics/OpenGL/NUIRendererGL.cpp
             ${NOMADUI_TEXT_SOURCES}

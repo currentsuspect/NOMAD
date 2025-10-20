@@ -1,0 +1,37 @@
+feat: Complete Nomad Color System v1.0 + Production Context Menu
+
+Major theme system overhaul with complete Nomad color palette and
+production-ready context menu implementation.
+
+## Theme System
+- Added 40+ color properties to NUIThemeProperties
+- 4-tier layered background system for visual depth
+- Accent colors with hover/pressed variants
+- Status colors (success, warning, error, info)
+- Text hierarchy (5 levels)
+- Interactive element colors (buttons, toggles, inputs, sliders)
+- Backward compatible with legacy color names
+
+## Context Menu
+- Nomad-themed styling with proper color palette
+- Checkbox/radio support with visual indicators
+- Compact separators (8px height)
+- Hover effects (15% alpha purple)
+- Proper text rendering and alignment
+- 28px item height, 220px width
+- Keyboard navigation
+
+## Demo Enhancements
+- Interactive context menu on right-click
+- Color palette showcase (11 swatches)
+- Theme switcher
+- Grid options
+- Full-screen support
+
+## Documentation
+- NOMAD_COLOR_SYSTEM.md - Complete palette reference
+- THEME_DEMO_GUIDE.md - Usage guide
+- CHANGELOG.md - Version tracking
+
+Closes: Theme system foundation
+Next: Icons, grids, panels for v1.0

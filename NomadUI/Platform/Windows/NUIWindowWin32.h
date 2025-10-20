@@ -25,7 +25,7 @@ public:
     ~NUIWindowWin32();
 
     // Window creation and management
-    bool create(const std::string& title, int width, int height);
+    bool create(const std::string& title, int width, int height, bool startMaximized = false);
     void destroy();
     void show();
     void hide();
@@ -39,6 +39,13 @@ public:
     void setSize(int width, int height);
     void getSize(int& width, int& height) const;
     void setPosition(int x, int y);
+    void getPosition(int& x, int& y) const;
+    
+    // Window controls
+    void minimize();
+    void maximize();
+    void restore();
+    bool isMaximized() const;
     
     // Full screen support
     void toggleFullScreen();
@@ -101,6 +108,24 @@ private:
     bool m_isFullScreen;
     int m_restoreX, m_restoreY, m_restoreWidth, m_restoreHeight;
     unsigned long m_restoreStyle;
+    
+    // Windows Snap state
+    enum class SnapState {
+        None,
+        Left,
+        Right,
+        TopLeft,
+        TopRight,
+        BottomLeft,
+        BottomRight
+    };
+    SnapState m_snapState;
+    bool m_isDragging;
+    
+    // Snap helper methods
+    void checkSnapZones(int x, int y);
+    void applySnap(SnapState snap);
+    void restoreFromSnap();
     
     // Components
     NUIComponent* m_rootComponent;
