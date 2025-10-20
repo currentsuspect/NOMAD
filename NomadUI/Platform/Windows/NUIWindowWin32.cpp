@@ -14,7 +14,10 @@
 #include "../../Core/NUIComponent.h"
 #include <Windows.h>
 #include <windowsx.h>  // For GET_X_LPARAM, GET_Y_LPARAM
+#include <dwmapi.h>    // For DwmExtendFrameIntoClientArea
 #include <iostream>
+
+#pragma comment(lib, "dwmapi.lib")  // Link DWM API library
 
 // Restore warnings
 #pragma warning(pop)
@@ -40,6 +43,8 @@ NUIWindowWin32::NUIWindowWin32()
     , m_isFullScreen(false)
     , m_restoreX(0), m_restoreY(0), m_restoreWidth(0), m_restoreHeight(0)
     , m_restoreStyle(0)
+    , m_snapState(SnapState::None)
+    , m_isDragging(false)
     , m_rootComponent(nullptr)
     , m_renderer(nullptr)
     , m_mouseX(0)
@@ -73,7 +78,10 @@ bool NUIWindowWin32::registerWindowClass() {
     return true;
 }
 
-bool NUIWindowWin32::create(const std::string& title, int width, int height) {
+bool NUIWindowWin32::create(const std::string& title, int width, int height, bool startMaximized) {
+    // Set DPI awareness to avoid scaling issues
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    
     m_title = title;
     m_width = width;
     m_height = height;
@@ -88,27 +96,23 @@ bool NUIWindowWin32::create(const std::string& title, int width, int height) {
     wchar_t* wideTitle = new wchar_t[titleLen];
     MultiByteToWideChar(CP_UTF8, 0, title.c_str(), -1, wideTitle, titleLen);
     
-    // Calculate window size including borders
-    RECT rect = { 0, 0, width, height };
-    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
-    
-    // Calculate center position
+    // Calculate center position (no borders for borderless window)
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-    int windowWidth = rect.right - rect.left;
-    int windowHeight = rect.bottom - rect.top;
-    int x = (screenWidth - windowWidth) / 2;
-    int y = (screenHeight - windowHeight) / 2;
+    int x = (screenWidth - width) / 2;
+    int y = (screenHeight - height) / 2;
 
-    // Create window
+    // Create truly borderless window with maximize support
+    // Use WS_POPUP without WS_THICKFRAME to eliminate invisible borders
+    // We handle resizing manually via WM_NCHITTEST
     m_hwnd = CreateWindowExW(
-        0,
+        WS_EX_APPWINDOW,  // Ensure it appears in taskbar
         WINDOW_CLASS_NAME,
         wideTitle,
-        WS_OVERLAPPEDWINDOW,
-        x, y,  // Center the window
-        windowWidth,
-        windowHeight,
+        WS_POPUP | WS_MAXIMIZEBOX | WS_MINIMIZEBOX | WS_SYSMENU,  // No WS_THICKFRAME = no invisible borders
+        x, y,
+        width,
+        height,
         nullptr,
         nullptr,
         GetModuleHandle(nullptr),
@@ -121,6 +125,28 @@ bool NUIWindowWin32::create(const std::string& title, int width, int height) {
         std::cerr << "Failed to create window" << std::endl;
         return false;
     }
+    
+    // Use DWM to extend frame into client area for borderless appearance
+    // Set margins to 0 to make the entire window the client area
+    MARGINS margins = {0, 0, 0, 0};
+    DwmExtendFrameIntoClientArea(TO_HWND(m_hwnd), &margins);
+    
+    // Disable DWM window shadows to prevent any visual artifacts
+    DWMNCRENDERINGPOLICY policy = DWMNCRP_DISABLED;
+    DwmSetWindowAttribute(TO_HWND(m_hwnd), DWMWA_NCRENDERING_POLICY, &policy, sizeof(policy));
+    
+    // Ensure DWM composition is enabled for proper rendering
+    BOOL composition = TRUE;
+    DwmSetWindowAttribute(TO_HWND(m_hwnd), DWMWA_NCRENDERING_ENABLED, &composition, sizeof(composition));
+    
+    // Force window size to exactly what we want
+    // Our WM_NCCALCSIZE handler makes client area = window area, so just set window size
+    SetWindowPos(TO_HWND(m_hwnd), nullptr, x, y, width, height, 
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    
+    // Ensure our internal size tracking is correct
+    m_width = width;
+    m_height = height;
     
     // Get device context
     m_hdc = GetDC(TO_HWND(m_hwnd));
@@ -139,10 +165,21 @@ bool NUIWindowWin32::create(const std::string& title, int width, int height) {
         return false;
     }
     
+    // Start maximized if requested (optional)
+    if (startMaximized) {
+        // Note: User can manually maximize or use window.maximize() after creation
+        ShowWindow(TO_HWND(m_hwnd), SW_SHOWMAXIMIZED);
+        std::cout << "Window started maximized" << std::endl;
+    }
+    
     return true;
 }
 
 void NUIWindowWin32::setupPixelFormat() {
+    // Try to use MSAA for better anti-aliasing
+    // Note: This requires WGL extensions which are only available after creating a context
+    // For now, we'll use the basic pixel format and enable MSAA in the renderer if supported
+    
     PIXELFORMATDESCRIPTOR pfd = {};
     pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);
     pfd.nVersion = 1;
@@ -162,6 +199,13 @@ void NUIWindowWin32::setupPixelFormat() {
     if (!SetPixelFormat(TO_HDC(m_hdc), pixelFormat, &pfd)) {
         std::cerr << "Failed to set pixel format" << std::endl;
     }
+    
+    // TODO: For Phase 2 MSAA implementation:
+    // 1. Create temporary context
+    // 2. Load wglChoosePixelFormatARB
+    // 3. Destroy temporary context and window
+    // 4. Create new window with MSAA pixel format
+    // 5. Create final context with MSAA enabled
 }
 
 bool NUIWindowWin32::createGLContext() {
@@ -263,10 +307,8 @@ void NUIWindowWin32::setSize(int width, int height) {
     m_width = width;
     m_height = height;
     if (m_hwnd) {
-        RECT rect = { 0, 0, width, height };
-        AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
-        SetWindowPos(TO_HWND(m_hwnd), nullptr, 0, 0, 
-                    rect.right - rect.left, rect.bottom - rect.top,
+        // No need to adjust for borders since we're using a borderless window
+        SetWindowPos(TO_HWND(m_hwnd), nullptr, 0, 0, width, height,
                     SWP_NOMOVE | SWP_NOZORDER);
     }
 }
@@ -280,6 +322,56 @@ void NUIWindowWin32::setPosition(int x, int y) {
     if (m_hwnd) {
         SetWindowPos(TO_HWND(m_hwnd), nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
     }
+}
+
+void NUIWindowWin32::getPosition(int& x, int& y) const {
+    if (m_hwnd) {
+        RECT rect;
+        GetWindowRect(TO_HWND(m_hwnd), &rect);
+        x = rect.left;
+        y = rect.top;
+    } else {
+        x = 0;
+        y = 0;
+    }
+}
+
+void NUIWindowWin32::minimize() {
+    if (m_hwnd) {
+        // If maximized, restore first then minimize
+        if (isMaximized()) {
+            ShowWindow(TO_HWND(m_hwnd), SW_RESTORE);
+            // Small delay to ensure restore completes
+            Sleep(10);
+        }
+        ShowWindow(TO_HWND(m_hwnd), SW_MINIMIZE);
+    }
+}
+
+void NUIWindowWin32::maximize() {
+    if (m_hwnd) {
+        if (isMaximized()) {
+            ShowWindow(TO_HWND(m_hwnd), SW_RESTORE);
+        } else {
+            ShowWindow(TO_HWND(m_hwnd), SW_MAXIMIZE);
+        }
+    }
+}
+
+void NUIWindowWin32::restore() {
+    if (m_hwnd) {
+        ShowWindow(TO_HWND(m_hwnd), SW_RESTORE);
+    }
+}
+
+bool NUIWindowWin32::isMaximized() const {
+    if (m_hwnd) {
+        WINDOWPLACEMENT placement = {};
+        placement.length = sizeof(WINDOWPLACEMENT);
+        GetWindowPlacement(TO_HWND(m_hwnd), &placement);
+        return placement.showCmd == SW_SHOWMAXIMIZED;
+    }
+    return false;
 }
 
 void NUIWindowWin32::setRootComponent(NUIComponent* root) {
@@ -354,6 +446,71 @@ long long NUIWindowWin32::handleMessage(unsigned int msg, unsigned long long wPa
             return 0;
         }
         
+        case WM_NCCALCSIZE: {
+            // Handle non-client area for truly borderless window
+            if (wParam == TRUE) {
+                NCCALCSIZE_PARAMS* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam);
+                
+                // When maximized, adjust for the taskbar
+                if (isMaximized()) {
+                    // Get the monitor info to account for taskbar
+                    HMONITOR monitor = MonitorFromWindow(TO_HWND(m_hwnd), MONITOR_DEFAULTTONEAREST);
+                    MONITORINFO monitorInfo = {};
+                    monitorInfo.cbSize = sizeof(MONITORINFO);
+                    GetMonitorInfo(monitor, &monitorInfo);
+                    
+                    // Set client area to work area (screen minus taskbar)
+                    params->rgrc[0] = monitorInfo.rcWork;
+                } else {
+                    // For normal windowed mode, the client area equals the window area
+                    // params->rgrc[0] already contains the new window rect
+                    // params->rgrc[1] contains the old window rect
+                    // params->rgrc[2] contains the old client rect
+                    // By not modifying rgrc[0], we're saying: client area = window area
+                    // This eliminates the invisible borders that WS_THICKFRAME adds
+                }
+                // Return 0 to indicate we've handled the calculation
+                return 0;
+            }
+            break;
+        }
+        
+        case WM_NCHITTEST: {
+            // Custom hit testing for borderless window with resize support
+            POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            ScreenToClient(static_cast<HWND>(m_hwnd), &pt);
+            
+            // Don't allow resizing when maximized
+            if (!isMaximized()) {
+                // Define resize border width
+                const int resizeBorderWidth = 8;
+                
+                // Check for corner and edge resize areas
+                bool isLeft = pt.x < resizeBorderWidth;
+                bool isRight = pt.x >= m_width - resizeBorderWidth;
+                bool isTop = pt.y < resizeBorderWidth;
+                bool isBottom = pt.y >= m_height - resizeBorderWidth;
+                
+                // Return appropriate resize cursor positions
+                if (isTop && isLeft) return HTTOPLEFT;
+                if (isTop && isRight) return HTTOPRIGHT;
+                if (isBottom && isLeft) return HTBOTTOMLEFT;
+                if (isBottom && isRight) return HTBOTTOMRIGHT;
+                if (isTop) return HTTOP;
+                if (isBottom) return HTBOTTOM;
+                if (isLeft) return HTLEFT;
+                if (isRight) return HTRIGHT;
+            }
+            
+            // Check if in title bar area (top 32 pixels)
+            // But exclude the right 150 pixels for window controls (3 buttons * 46px + margin)
+            if (pt.y >= 0 && pt.y < 32 && pt.x < m_width - 150) {
+                return HTCAPTION; // Treat as title bar for dragging
+            }
+            
+            return HTCLIENT;
+        }
+        
         case WM_MOUSEMOVE: {
             int x = GET_X_LPARAM(lParam);
             int y = GET_Y_LPARAM(lParam);
@@ -398,6 +555,31 @@ long long NUIWindowWin32::handleMessage(unsigned int msg, unsigned long long wPa
         case WM_KEYUP:
             handleKey(static_cast<int>(wParam), false);
             return 0;
+        
+        case WM_ENTERSIZEMOVE:
+            // Window drag/resize started
+            m_isDragging = true;
+            return 0;
+        
+        case WM_EXITSIZEMOVE: {
+            // Window drag/resize ended - check for snap
+            m_isDragging = false;
+            
+            // Get cursor position
+            POINT cursorPos;
+            GetCursorPos(&cursorPos);
+            
+            // Check if we should snap
+            checkSnapZones(cursorPos.x, cursorPos.y);
+            return 0;
+        }
+        
+        case WM_MOVING: {
+            // Window is being moved - could show snap preview here
+            // For now, just track that we're dragging
+            m_isDragging = true;
+            return 0;
+        }
     }
     
     return DefWindowProcW(static_cast<HWND>(m_hwnd), static_cast<UINT>(msg), static_cast<WPARAM>(wParam), static_cast<LPARAM>(lParam));
@@ -640,6 +822,182 @@ void NUIWindowWin32::exitFullScreen() {
             m_renderer->resize(m_restoreWidth, m_restoreHeight);
         }
     }
+}
+
+// Windows Snap functionality
+void NUIWindowWin32::checkSnapZones(int x, int y) {
+    if (!m_hwnd || m_isFullScreen) return;
+    
+    // Get screen dimensions
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    
+    // Define snap threshold (pixels from edge)
+    const int snapThreshold = 20;
+    
+    // Check which snap zone the cursor is in
+    bool atTop = y < snapThreshold;
+    bool atBottom = y > screenHeight - snapThreshold;
+    bool atLeft = x < snapThreshold;
+    bool atRight = x > screenWidth - snapThreshold;
+    
+    SnapState newSnap = SnapState::None;
+    
+    // Corner snaps (quarter screen)
+    if (atTop && atLeft) {
+        newSnap = SnapState::TopLeft;
+    } else if (atTop && atRight) {
+        newSnap = SnapState::TopRight;
+    } else if (atBottom && atLeft) {
+        newSnap = SnapState::BottomLeft;
+    } else if (atBottom && atRight) {
+        newSnap = SnapState::BottomRight;
+    }
+    // Edge snaps (half screen)
+    else if (atTop) {
+        // Top edge maximizes
+        if (m_snapState != SnapState::None) {
+            restoreFromSnap();
+        }
+        maximize();
+        return;
+    } else if (atLeft) {
+        newSnap = SnapState::Left;
+    } else if (atRight) {
+        newSnap = SnapState::Right;
+    }
+    
+    // Apply snap if changed
+    if (newSnap != m_snapState && newSnap != SnapState::None) {
+        applySnap(newSnap);
+    }
+}
+
+void NUIWindowWin32::applySnap(SnapState snap) {
+    if (!m_hwnd || m_isFullScreen) return;
+    
+    // Store current position before snapping (if not already snapped)
+    if (m_snapState == SnapState::None && !isMaximized()) {
+        RECT rect;
+        GetWindowRect(TO_HWND(m_hwnd), &rect);
+        m_restoreX = rect.left;
+        m_restoreY = rect.top;
+        m_restoreWidth = rect.right - rect.left;
+        m_restoreHeight = rect.bottom - rect.top;
+    }
+    
+    // Get work area (screen minus taskbar)
+    RECT workArea;
+    SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
+    
+    int screenX = workArea.left;
+    int screenY = workArea.top;
+    int screenWidth = workArea.right - workArea.left;
+    int screenHeight = workArea.bottom - workArea.top;
+    
+    int newX, newY, newWidth, newHeight;
+    
+    switch (snap) {
+        case SnapState::Left:
+            newX = screenX;
+            newY = screenY;
+            newWidth = screenWidth / 2;
+            newHeight = screenHeight;
+            break;
+            
+        case SnapState::Right:
+            newX = screenX + screenWidth / 2;
+            newY = screenY;
+            newWidth = screenWidth / 2;
+            newHeight = screenHeight;
+            break;
+            
+        case SnapState::TopLeft:
+            newX = screenX;
+            newY = screenY;
+            newWidth = screenWidth / 2;
+            newHeight = screenHeight / 2;
+            break;
+            
+        case SnapState::TopRight:
+            newX = screenX + screenWidth / 2;
+            newY = screenY;
+            newWidth = screenWidth / 2;
+            newHeight = screenHeight / 2;
+            break;
+            
+        case SnapState::BottomLeft:
+            newX = screenX;
+            newY = screenY + screenHeight / 2;
+            newWidth = screenWidth / 2;
+            newHeight = screenHeight / 2;
+            break;
+            
+        case SnapState::BottomRight:
+            newX = screenX + screenWidth / 2;
+            newY = screenY + screenHeight / 2;
+            newWidth = screenWidth / 2;
+            newHeight = screenHeight / 2;
+            break;
+            
+        default:
+            return;
+    }
+    
+    // Apply the snap
+    SetWindowPos(TO_HWND(m_hwnd), nullptr, newX, newY, newWidth, newHeight,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    
+    m_snapState = snap;
+    m_width = newWidth;
+    m_height = newHeight;
+    
+    // Update root component
+    if (m_rootComponent) {
+        m_rootComponent->setBounds(NUIRect(0, 0, newWidth, newHeight));
+    }
+    
+    // Update renderer
+    if (m_renderer) {
+        m_renderer->resize(newWidth, newHeight);
+    }
+    
+    std::cout << "Window snapped to ";
+    switch (snap) {
+        case SnapState::Left: std::cout << "left half"; break;
+        case SnapState::Right: std::cout << "right half"; break;
+        case SnapState::TopLeft: std::cout << "top-left quarter"; break;
+        case SnapState::TopRight: std::cout << "top-right quarter"; break;
+        case SnapState::BottomLeft: std::cout << "bottom-left quarter"; break;
+        case SnapState::BottomRight: std::cout << "bottom-right quarter"; break;
+        default: break;
+    }
+    std::cout << std::endl;
+}
+
+void NUIWindowWin32::restoreFromSnap() {
+    if (!m_hwnd || m_snapState == SnapState::None) return;
+    
+    // Restore to previous position and size
+    SetWindowPos(TO_HWND(m_hwnd), nullptr, m_restoreX, m_restoreY, 
+                 m_restoreWidth, m_restoreHeight,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    
+    m_snapState = SnapState::None;
+    m_width = m_restoreWidth;
+    m_height = m_restoreHeight;
+    
+    // Update root component
+    if (m_rootComponent) {
+        m_rootComponent->setBounds(NUIRect(0, 0, m_restoreWidth, m_restoreHeight));
+    }
+    
+    // Update renderer
+    if (m_renderer) {
+        m_renderer->resize(m_restoreWidth, m_restoreHeight);
+    }
+    
+    std::cout << "Window restored from snap" << std::endl;
 }
 
 

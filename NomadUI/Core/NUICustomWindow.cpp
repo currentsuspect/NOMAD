@@ -4,6 +4,11 @@
 #include "../Core/NUIThemeSystem.h"
 #include <iostream>
 
+// Windows includes for PostMessageW
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <Windows.h>
+
 namespace NomadUI {
 
 NUICustomWindow::NUICustomWindow()
@@ -21,7 +26,7 @@ NUICustomWindow::NUICustomWindow()
     // Setup title bar callbacks
     setupTitleBarCallbacks();
     
-    // Set initial size
+    // Set initial size - this will be updated when the window is created
     setSize(800, 600);
     updateContentArea();
 }
@@ -152,7 +157,7 @@ void NUICustomWindow::updateContentArea() {
     } else {
         // In windowed mode, content area is below title bar
         float titleHeight = titleBar_->getHeight();
-        contentArea_ = NUIRect(bounds.x, bounds.y + titleHeight, 
+        contentArea_ = NUIRect(0, titleHeight, 
                               bounds.width, bounds.height - titleHeight);
     }
     
@@ -170,29 +175,32 @@ void NUICustomWindow::setupTitleBarCallbacks() {
 }
 
 void NUICustomWindow::handleWindowDrag(int deltaX, int deltaY) {
-    // This would need to be implemented in the window platform layer
-    // For now, just a placeholder
-    std::cout << "Window drag: " << deltaX << ", " << deltaY << std::endl;
+    if (windowHandle_) {
+        int x, y;
+        windowHandle_->getPosition(x, y);
+        windowHandle_->setPosition(x + deltaX, y + deltaY);
+    }
 }
 
 void NUICustomWindow::handleWindowMinimize() {
     if (windowHandle_) {
-        // This would need to be implemented in the window platform layer
-        std::cout << "Minimize window" << std::endl;
+        windowHandle_->minimize();
     }
 }
 
 void NUICustomWindow::handleWindowMaximize() {
     if (windowHandle_) {
-        // This would need to be implemented in the window platform layer
-        std::cout << "Maximize window" << std::endl;
+        windowHandle_->maximize();
+        // Update title bar state
+        titleBar_->setMaximized(windowHandle_->isMaximized());
+        setDirty(true);
     }
 }
 
 void NUICustomWindow::handleWindowClose() {
     if (windowHandle_) {
-        // This would need to be implemented in the window platform layer
-        std::cout << "Close window" << std::endl;
+        // Trigger the window close event
+        PostMessageW(static_cast<HWND>(windowHandle_->getNativeHandle()), WM_CLOSE, 0, 0);
     }
 }
 
