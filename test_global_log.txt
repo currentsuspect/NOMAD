@@ -1,0 +1,10 @@
+[2025-10-21 17:49:12] [DEBUG] Global debug message
+[2025-10-21 17:49:12] [INFO]  Global info message
+[2025-10-21 17:49:12] [WARN]  Global warning message
+[2025-10-21 17:49:12] [ERROR] Global error message
+[2025-10-21 17:49:12] [DEBUG] Macro debug message
+[2025-10-21 17:49:12] [INFO]  Macro info message
+[2025-10-21 17:49:12] [WARN]  Macro warning message
+[2025-10-21 17:49:12] [ERROR] Macro error message
+[2025-10-21 17:49:12] [INFO]  Stream info: 42 3.14
+[2025-10-21 17:49:12] [WARN]  Stream warning: test

@@ -1,0 +1,4 @@
+[2025-10-21 17:49:12] [DEBUG] Multi-logger debug message
+[2025-10-21 17:49:12] [INFO]  Multi-logger info message
+[2025-10-21 17:49:12] [WARN]  Multi-logger warning message
+[2025-10-21 17:49:12] [ERROR] Multi-logger error message
