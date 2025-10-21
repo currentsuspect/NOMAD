@@ -1,10 +1,12 @@
 # NOMAD DAW Licensing
 
-NOMAD DAW is **proprietary commercial software**. All rights reserved.
+NOMAD DAW is **proprietary commercial software** developed by Dylan Makori in Kenya.  
+All rights reserved.
 
 ## 💼 Commercial License (Required for All Use)
 
-**NOMAD DAW requires a paid commercial license for any use.**
+**NOMAD DAW is currently in development.** Commercial licensing will be available
+upon official release.
 
 ### What's Included with Your License:
 - ✅ **Full DAW Application** - Complete digital audio workstation
@@ -16,11 +18,13 @@ NOMAD DAW is **proprietary commercial software**. All rights reserved.
 - ✅ **Priority Support** - Direct access to development team
 - ✅ **Commercial Rights** - Use for commercial music production
 
-### License Tiers (Coming Soon):
+### Planned License Tiers:
 - **Personal License** - Individual producers and hobbyists
 - **Professional License** - Professional studios and producers
 - **Enterprise License** - Large organizations and institutions
 - **Educational License** - Students and educational institutions (discounted)
+
+*Pricing and availability will be announced upon official release.*
 
 See [LICENSE](LICENSE) for full legal terms.
 
@@ -73,30 +77,29 @@ While NOMAD is proprietary, we welcome community contributions:
 
 ### Contributor License Agreement:
 By submitting a pull request, you agree that:
-- All contributed code becomes property of NOMAD DAW
-- NOMAD DAW has full rights to use, modify, and distribute your contributions
+- All contributed code becomes property of Dylan Makori / NOMAD DAW
+- Dylan Makori has full rights to use, modify, and distribute your contributions
 - You waive all ownership claims to your contributions
-- You grant NOMAD DAW a perpetual, worldwide, exclusive license
+- You grant Dylan Makori a perpetual, worldwide, exclusive license
 
-## 📧 Licensing Inquiries
+## 📧 Contact & Inquiries
 
-### Purchase a License:
-- **Website**: [Coming Soon]
-- **Email**: [your-email@example.com]
-- **Pricing**: [Coming Soon]
+### For Licensing, Partnerships, or General Inquiries:
+- **Email**: makoridylan@gmail.com
+- **GitHub**: [Technical questions & bug reports](https://github.com/***REMOVED***/NOMAD/issues)
+- **Website**: Coming Soon
 
-### Questions?
-- **Sales**: [sales-email@example.com]
-- **Support**: [support-email@example.com]
-- **GitHub Issues**: [Technical questions](https://github.com/***REMOVED***/NOMAD/issues)
+### Early Access:
+Interested in early access or beta testing? Reach out via email with your use case
+and background. Priority will be given to musicians and audio professionals.
 
 ## ⚖️ Legal
 
-- **Copyright**: © 2025 NOMAD DAW. All rights reserved.
-- **Trademarks**: NOMAD DAW and the NOMAD logo are trademarks of NOMAD DAW
-- **Jurisdiction**: [Your Jurisdiction]
+- **Copyright**: © 2024-2025 Dylan Makori. All rights reserved.
+- **Trademarks**: NOMAD DAW and the NOMAD logo are trademarks of Dylan Makori
+- **Jurisdiction**: Republic of Kenya
 - **Enforcement**: Unauthorized use will be prosecuted to the fullest extent of the law
 
 ---
 
-**NOMAD DAW is built by musicians, for musicians. Support independent development. 🎵**
+**NOMAD DAW is built by musicians, for musicians. Crafted with intention.**

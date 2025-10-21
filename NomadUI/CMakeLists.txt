@@ -187,41 +187,22 @@ if(NOMADUI_BUILD_VULKAN)
 endif()
 
 # ============================================================================
-# Platform Layer
+# Platform Layer (Now uses NomadPlat!)
 # ============================================================================
 
+# NomadPlat bridge - unified platform layer
+set(NOMADUI_PLATFORM_SOURCES
+    Platform/NUIPlatformBridge.h
+    Platform/NUIPlatformBridge.cpp
+)
+
+# Platform name for logging
 if(WIN32)
-    # Ensure 64-bit build
-    if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-        message(FATAL_ERROR "Nomad UI requires 64-bit Windows (x64)")
-    endif()
-    
-    set(NOMADUI_PLATFORM_SOURCES
-        Platform/Windows/NUIPlatformWindows.h
-        Platform/Windows/NUIWindowWin32.h
-        Platform/Windows/NUIWindowWin32.cpp
-        # Platform/Windows/NUIPlatformWindows.cpp  # TODO: Implement
-    )
     set(PLATFORM_NAME "Windows x64")
 elseif(APPLE)
-    # Universal binary (ARM64 + x64)
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
-    
-    set(NOMADUI_PLATFORM_SOURCES
-        Platform/macOS/NUIPlatformMacOS.h
-        # Platform/macOS/NUIPlatformMacOS.mm  # TODO: Implement
-    )
     set(PLATFORM_NAME "macOS Universal (ARM64 + x64)")
 elseif(UNIX)
-    # Ensure 64-bit build
-    if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-        message(FATAL_ERROR "Nomad UI requires 64-bit Linux (x64)")
-    endif()
-    
-    set(NOMADUI_PLATFORM_SOURCES
-        Platform/Linux/NUIPlatformLinux.h
-        # Platform/Linux/NUIPlatformLinux.cpp  # TODO: Implement
-    )
     set(PLATFORM_NAME "Linux x64")
 endif()
 
@@ -236,6 +217,7 @@ target_include_directories(NomadUI_Platform PUBLIC
 
 target_link_libraries(NomadUI_Platform PUBLIC
     NomadUI_Core
+    NomadPlat  # Now using unified platform layer!
 )
 
 # ============================================================================
@@ -341,7 +323,6 @@ if(NOMADUI_BUILD_EXAMPLES)
     if(WIN32 AND NOMADUI_BUILD_OPENGL)
         add_executable(NomadUI_WindowDemo
             Examples/WindowDemo.cpp
-            Platform/Windows/NUIWindowWin32.cpp
             Core/NUIComponent.cpp
             Core/NUITheme.cpp
             Graphics/NUIRenderer.cpp
@@ -359,6 +340,7 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
 
         target_link_libraries(NomadUI_WindowDemo PRIVATE 
+            NomadUI_Platform
             opengl32
             freetype
         )
@@ -372,7 +354,6 @@ if(NOMADUI_BUILD_EXAMPLES)
     if(WIN32 AND NOMADUI_BUILD_OPENGL)
         add_executable(NomadUI_ButtonLabelDemo
             Examples/ButtonLabelDemo.cpp
-            Platform/Windows/NUIWindowWin32.cpp
             Core/NUIComponent.cpp
             Core/NUITheme.cpp
             Core/NUIAnimation.cpp
@@ -394,6 +375,7 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
 
         target_link_libraries(NomadUI_ButtonLabelDemo PRIVATE 
+            NomadUI_Platform
             opengl32
             freetype
         )
@@ -407,7 +389,6 @@ if(NOMADUI_BUILD_EXAMPLES)
     if(WIN32 AND NOMADUI_BUILD_OPENGL)
         add_executable(NomadUI_NewComponentsDemo
             Examples/NewComponentsDemo.cpp
-            Platform/Windows/NUIWindowWin32.cpp
             Core/NUIComponent.cpp
             Core/NUITheme.cpp
             Core/NUIAnimation.cpp
@@ -438,6 +419,7 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
 
         target_link_libraries(NomadUI_NewComponentsDemo PRIVATE 
+            NomadUI_Platform
             opengl32
             freetype
         )
@@ -449,7 +431,6 @@ if(NOMADUI_BUILD_EXAMPLES)
         # Custom Window Demo (Windows only, requires OpenGL + Win32)
         add_executable(NomadUI_CustomWindowDemo
             Examples/CustomWindowDemo.cpp
-            Platform/Windows/NUIWindowWin32.cpp
             Core/NUIComponent.cpp
             Core/NUITheme.cpp
             Core/NUIAnimation.cpp
@@ -474,6 +455,7 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
         
         target_link_libraries(NomadUI_CustomWindowDemo PRIVATE 
+            NomadUI_Platform
             opengl32
             freetype
         )
@@ -485,7 +467,6 @@ if(NOMADUI_BUILD_EXAMPLES)
         # Full Screen Demo (Windows only, requires OpenGL + Win32)
         add_executable(NomadUI_FullScreenDemo
             Examples/FullScreenDemo.cpp
-            Platform/Windows/NUIWindowWin32.cpp
             Core/NUIComponent.cpp
             Core/NUITheme.cpp
             Core/NUIAnimation.cpp
@@ -504,6 +485,7 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
         
         target_link_libraries(NomadUI_FullScreenDemo PRIVATE 
+            NomadUI_Platform
             opengl32
             freetype
         )
@@ -515,7 +497,6 @@ if(NOMADUI_BUILD_EXAMPLES)
         # Icon Demo (Windows only, requires OpenGL + Win32)
         add_executable(NomadUI_IconDemo
             Examples/IconDemo.cpp
-            Platform/Windows/NUIWindowWin32.cpp
             Core/NUIComponent.cpp
             Core/NUITheme.cpp
             Core/NUIAnimation.cpp
@@ -537,6 +518,7 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
         
         target_link_libraries(NomadUI_IconDemo PRIVATE 
+            NomadUI_Platform
             opengl32
             freetype
         )

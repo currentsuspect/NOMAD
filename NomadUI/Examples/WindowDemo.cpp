@@ -1,5 +1,6 @@
 #include <glad/glad.h>  // MUST be first to avoid conflicts
-#include "../Platform/Windows/NUIWindowWin32.h"
+#include "../Platform/NUIPlatformBridge.h"
+using NUIWindowWin32 = NomadUI::NUIPlatformBridge;
 #include <Windows.h>  // For Sleep()
 #include <iostream>
 #include <chrono>

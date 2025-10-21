@@ -2,7 +2,8 @@
 #include "../Core/NUIThemeSystem.h"
 #include "../Graphics/NUIRenderer.h"
 #include "../Graphics/OpenGL/NUIRendererGL.h"
-#include "../Platform/Windows/NUIWindowWin32.h"
+#include "../Platform/NUIPlatformBridge.h"
+using NUIWindowWin32 = NomadUI::NUIPlatformBridge;
 #include "../External/glad/include/glad/glad.h"
 #include <iostream>
 #include <memory>
