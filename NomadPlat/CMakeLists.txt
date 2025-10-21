@@ -23,10 +23,12 @@ if(WIN32)
     list(APPEND NOMAD_PLAT_SOURCES
         src/Win32/PlatformWindowWin32.cpp
         src/Win32/PlatformUtilsWin32.cpp
+        src/Win32/PlatformDPIWin32.cpp
     )
     list(APPEND NOMAD_PLAT_HEADERS
         src/Win32/PlatformWindowWin32.h
         src/Win32/PlatformUtilsWin32.h
+        src/Win32/PlatformDPIWin32.h
     )
 elseif(UNIX AND NOT APPLE)
     # TODO: Linux X11 implementation
@@ -72,8 +74,13 @@ if(NOMAD_BUILD_PLAT_TESTS)
     add_executable(PlatformWindowTest src/Tests/PlatformWindowTest.cpp)
     target_link_libraries(PlatformWindowTest PRIVATE NomadPlat)
     
+    # Platform DPI Test
+    add_executable(PlatformDPITest src/Tests/PlatformDPITest.cpp)
+    target_link_libraries(PlatformDPITest PRIVATE NomadPlat)
+    
     enable_testing()
     add_test(NAME PlatformWindowTest COMMAND PlatformWindowTest)
+    add_test(NAME PlatformDPITest COMMAND PlatformDPITest)
 endif()
 
 message(STATUS "NomadPlat configured for ${CMAKE_SYSTEM_NAME}")

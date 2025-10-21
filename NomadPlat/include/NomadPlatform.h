@@ -113,6 +113,9 @@ public:
     virtual void* getNativeHandle() const = 0;
     virtual void* getNativeDisplayHandle() const = 0;
 
+    // DPI support
+    virtual float getDPIScale() const = 0;
+
     // Event callbacks
     virtual void setMouseMoveCallback(std::function<void(int x, int y)> callback) = 0;
     virtual void setMouseButtonCallback(std::function<void(MouseButton button, bool pressed, int x, int y)> callback) = 0;
@@ -122,6 +125,7 @@ public:
     virtual void setResizeCallback(std::function<void(int width, int height)> callback) = 0;
     virtual void setCloseCallback(std::function<void()> callback) = 0;
     virtual void setFocusCallback(std::function<void(bool focused)> callback) = 0;
+    virtual void setDPIChangeCallback(std::function<void(float dpiScale)> callback) = 0;
 };
 
 // =============================================================================

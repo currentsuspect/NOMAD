@@ -1,5 +1,5 @@
 #include "NUICustomWindow.h"
-#include "../Platform/Windows/NUIWindowWin32.h"
+#include "../Platform/NUIPlatformBridge.h"
 #include "../Graphics/NUIRenderer.h"
 #include "../Core/NUIThemeSystem.h"
 #include <iostream>
@@ -190,7 +190,12 @@ void NUICustomWindow::handleWindowMinimize() {
 
 void NUICustomWindow::handleWindowMaximize() {
     if (windowHandle_) {
-        windowHandle_->maximize();
+        // Toggle between maximize and restore
+        if (windowHandle_->isMaximized()) {
+            windowHandle_->restore();
+        } else {
+            windowHandle_->maximize();
+        }
         // Update title bar state
         titleBar_->setMaximized(windowHandle_->isMaximized());
         setDirty(true);

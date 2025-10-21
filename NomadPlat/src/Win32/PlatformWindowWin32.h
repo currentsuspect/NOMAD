@@ -42,6 +42,8 @@ public:
     void* getNativeHandle() const override { return m_hwnd; }
     void* getNativeDisplayHandle() const override { return m_hdc; }
 
+    float getDPIScale() const override { return m_dpiScale; }
+
     void setMouseMoveCallback(std::function<void(int, int)> callback) override { m_mouseMoveCallback = callback; }
     void setMouseButtonCallback(std::function<void(MouseButton, bool, int, int)> callback) override { m_mouseButtonCallback = callback; }
     void setMouseWheelCallback(std::function<void(float)> callback) override { m_mouseWheelCallback = callback; }
@@ -50,6 +52,7 @@ public:
     void setResizeCallback(std::function<void(int, int)> callback) override { m_resizeCallback = callback; }
     void setCloseCallback(std::function<void()> callback) override { m_closeCallback = callback; }
     void setFocusCallback(std::function<void(bool)> callback) override { m_focusCallback = callback; }
+    void setDPIChangeCallback(std::function<void(float)> callback) override { m_dpiChangeCallback = callback; }
 
 private:
     // Window procedure
@@ -73,6 +76,7 @@ private:
     int m_height;
     bool m_shouldClose;
     bool m_isFullscreen;
+    float m_dpiScale;
 
     // Fullscreen restore state
     WINDOWPLACEMENT m_wpPrev;
@@ -87,6 +91,7 @@ private:
     std::function<void(int, int)> m_resizeCallback;
     std::function<void()> m_closeCallback;
     std::function<void(bool)> m_focusCallback;
+    std::function<void(float)> m_dpiChangeCallback;
 
     // Static members
     static const wchar_t* WINDOW_CLASS_NAME;
