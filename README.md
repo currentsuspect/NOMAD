@@ -52,11 +52,32 @@ NOMAD is a fully self-authored DAW with zero borrowed parts. Every layer — fro
 
 ---
 
+## Project Structure
+
+```
+Nomad/
+├── NomadCore/      # Base utilities (math, I/O, threading)
+├── NomadPlat/      # Platform abstraction (Win32, X11, Cocoa)
+├── NomadUI/        # Rendering engine (OpenGL, Vulkan)
+├── NomadAudio/     # Audio engine (RtAudio + DSP)
+├── NomadSDK/       # Plugin system (v3.0)
+├── NomadAssets/    # Fonts, icons, shaders, sounds
+└── NomadDocs/      # Documentation and philosophy
+```
+
 ## Documentation
 
-- **[NOMAD_AI_BRIEF.md](NOMAD_AI_BRIEF.md)** - Architectural source of truth
-- **[BRANCHING_STRATEGY.md](BRANCHING_STRATEGY.md)** - Git workflow and philosophy
-- **[BUILD_STATUS.md](BUILD_STATUS.md)** - Current build state
+- **[NomadDocs/NOMAD_AI_BRIEF.md](NomadDocs/NOMAD_AI_BRIEF.md)** - Architectural source of truth
+- **[NomadDocs/BRANCHING_STRATEGY.md](NomadDocs/BRANCHING_STRATEGY.md)** - Git workflow and philosophy
+- **[NomadDocs/BUILD_STATUS.md](NomadDocs/BUILD_STATUS.md)** - Current build state
+
+Each subsystem has its own README:
+- [NomadCore/README.md](NomadCore/README.md)
+- [NomadPlat/README.md](NomadPlat/README.md)
+- [NomadUI/README.md](NomadUI/README.md)
+- [NomadAudio/README.md](NomadAudio/README.md)
+- [NomadSDK/README.md](NomadSDK/README.md)
+- [NomadAssets/README.md](NomadAssets/README.md)
 
 ---
 
