@@ -1,6 +1,6 @@
 # NOMAD Build Script
 Write-Host "`n==================================" -ForegroundColor Cyan
-Write-Host "  NOMAD DAW - Clean Build" -ForegroundColor Cyan
+Write-Host "  NOMAD DAW - Build System" -ForegroundColor Cyan
 Write-Host "==================================" -ForegroundColor Cyan
 
 # Step 1: Clone FreeType if needed
