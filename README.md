@@ -12,8 +12,6 @@
 [![CMake](https://img.shields.io/badge/CMake-3.22%2B-064F8C.svg?logo=cmake)](https://cmake.org/)
 [![Status](https://img.shields.io/badge/Status-v1.0%20Foundation%20Complete-success.svg)](#roadmap)
 
-*Crafted with intention in Kenya 🇰🇪*
-
 </div>
 
 ---
@@ -43,11 +41,11 @@ NOMAD is a fully self-authored DAW with **zero borrowed frameworks**. Every laye
 ┌─────────────────────────────────────────────────────────────┐
 │                    NOMAD Creative System                    │
 ├─────────────────────────────────────────────────────────────┤
-│  NomadUI      │  Custom OpenGL Renderer + Component System │
-│  NomadPlat    │  Platform Abstraction (Win32/X11/Cocoa)    │
-│  NomadAudio   │  RtAudio + DSP Engine (Planned)            │
-│  NomadCore    │  Base Utilities (Math, I/O, Threading)     │
-│  NomadSDK     │  Plugin System (Planned)                   │
+│  NomadUI      │  Custom OpenGL Renderer + Component System  │
+│  NomadPlat    │  Platform Abstraction (Win32/X11/Cocoa)     │
+│  NomadAudio   │  RtAudio + DSP Engine (Planned)             │
+│  NomadCore    │  Base Utilities (Math, I/O, Threading)      │
+│  NomadSDK     │  Plugin System (Planned)                    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -429,7 +427,7 @@ See [LICENSING.md](LICENSING.md) for details.
 
 **Proprietary Commercial License**
 
-Copyright © 2024-2025 Dylan Makori. All rights reserved.
+Copyright © 2025 Dylan Makori. All rights reserved.
 
 NOMAD DAW is proprietary software. The source code is publicly visible for
 transparency and educational purposes, but **use requires permission**.
@@ -482,12 +480,12 @@ License:          Proprietary
 
 *Built from scratch. Perfected with intention.*
 
-*Crafted with ❤️ in Kenya 🇰🇪*
+*Crafted with ❤️ in 🇰🇪*
 
 [Documentation](NomadDocs/README.md) • [License](LICENSE) • [Contact](mailto:makoridylan@gmail.com)
 
 ---
 
-*"Build like silence is watching."*
+*"Create like silence is watching."*
 
 </div>
