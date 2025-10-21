@@ -133,9 +133,10 @@ if(NOMADUI_BUILD_OPENGL)
         ${NOMADUI_OPENGL_SOURCES}
     )
     
+    # Link only GLAD for OpenGL - do NOT link OpenGL::GL (opengl32.lib)
+    # GLAD provides dynamic loading of all OpenGL functions
     target_link_libraries(NomadUI_OpenGL PUBLIC
         NomadUI_Core
-        OpenGL::GL
         glad
         freetype
     )

@@ -50,6 +50,9 @@ target_link_libraries(NomadPlat PUBLIC NomadCore)
 
 # Platform-specific libraries
 if(WIN32)
+    # Link opengl32 as PRIVATE for WGL functions (wglCreateContext, wglMakeCurrent, etc.)
+    # This is needed for OpenGL context creation on Windows
+    # Applications using GLAD will get GL functions from GLAD, not from this
     target_link_libraries(NomadPlat PRIVATE
         opengl32
         gdi32
