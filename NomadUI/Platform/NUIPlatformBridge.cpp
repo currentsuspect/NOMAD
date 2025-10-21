@@ -1,0 +1,257 @@
+#include "NUIPlatformBridge.h"
+#include "../../NomadCore/include/NomadLog.h"
+
+namespace NomadUI {
+
+NUIPlatformBridge::NUIPlatformBridge()
+    : m_window(nullptr)
+    , m_rootComponent(nullptr)
+    , m_renderer(nullptr)
+{
+    // Initialize NomadPlat if not already done
+    Nomad::Platform::initialize();
+    
+    // Create platform window
+    m_window = Nomad::Platform::createWindow();
+}
+
+NUIPlatformBridge::~NUIPlatformBridge() {
+    destroy();
+    if (m_window) {
+        delete m_window;
+        m_window = nullptr;
+    }
+}
+
+// =============================================================================
+// Window Creation
+// =============================================================================
+
+bool NUIPlatformBridge::create(const std::string& title, int width, int height, bool startMaximized) {
+    if (!m_window) return false;
+
+    Nomad::WindowDesc desc;
+    desc.title = title;
+    desc.width = width;
+    desc.height = height;
+    desc.startMaximized = startMaximized;
+
+    if (!m_window->create(desc)) {
+        return false;
+    }
+
+    setupEventBridges();
+    return true;
+}
+
+void NUIPlatformBridge::destroy() {
+    if (m_window) {
+        m_window->destroy();
+    }
+}
+
+// =============================================================================
+// Event Bridges
+// =============================================================================
+
+void NUIPlatformBridge::setupEventBridges() {
+    // Mouse move
+    m_window->setMouseMoveCallback([this](int x, int y) {
+        if (m_mouseMoveCallback) {
+            m_mouseMoveCallback(x, y);
+        }
+    });
+
+    // Mouse button
+    m_window->setMouseButtonCallback([this](Nomad::MouseButton button, bool pressed, int x, int y) {
+        if (m_mouseButtonCallback) {
+            m_mouseButtonCallback(convertMouseButton(button), pressed);
+        }
+    });
+
+    // Mouse wheel
+    m_window->setMouseWheelCallback([this](float delta) {
+        if (m_mouseWheelCallback) {
+            m_mouseWheelCallback(delta);
+        }
+    });
+
+    // Key
+    m_window->setKeyCallback([this](Nomad::KeyCode key, bool pressed, const Nomad::KeyModifiers& mods) {
+        if (m_keyCallback) {
+            m_keyCallback(convertKeyCode(key), pressed);
+        }
+    });
+
+    // Resize
+    m_window->setResizeCallback([this](int width, int height) {
+        if (m_resizeCallback) {
+            m_resizeCallback(width, height);
+        }
+    });
+
+    // Close
+    m_window->setCloseCallback([this]() {
+        if (m_closeCallback) {
+            m_closeCallback();
+        }
+    });
+}
+
+// =============================================================================
+// Event Conversion
+// =============================================================================
+
+int NUIPlatformBridge::convertMouseButton(Nomad::MouseButton button) {
+    return static_cast<int>(button);
+}
+
+int NUIPlatformBridge::convertKeyCode(Nomad::KeyCode key) {
+    return static_cast<int>(key);
+}
+
+// =============================================================================
+// Window Management
+// =============================================================================
+
+void NUIPlatformBridge::show() {
+    if (m_window) m_window->show();
+}
+
+void NUIPlatformBridge::hide() {
+    if (m_window) m_window->hide();
+}
+
+bool NUIPlatformBridge::processEvents() {
+    return m_window ? m_window->pollEvents() : false;
+}
+
+void NUIPlatformBridge::swapBuffers() {
+    if (m_window) m_window->swapBuffers();
+}
+
+// =============================================================================
+// Window Properties
+// =============================================================================
+
+void NUIPlatformBridge::setTitle(const std::string& title) {
+    if (m_window) m_window->setTitle(title);
+}
+
+void NUIPlatformBridge::setSize(int width, int height) {
+    if (m_window) m_window->setSize(width, height);
+}
+
+void NUIPlatformBridge::getSize(int& width, int& height) const {
+    if (m_window) m_window->getSize(width, height);
+}
+
+void NUIPlatformBridge::setPosition(int x, int y) {
+    if (m_window) m_window->setPosition(x, y);
+}
+
+void NUIPlatformBridge::getPosition(int& x, int& y) const {
+    if (m_window) m_window->getPosition(x, y);
+}
+
+// =============================================================================
+// Window Controls
+// =============================================================================
+
+void NUIPlatformBridge::minimize() {
+    if (m_window) m_window->minimize();
+}
+
+void NUIPlatformBridge::maximize() {
+    if (m_window) m_window->maximize();
+}
+
+void NUIPlatformBridge::restore() {
+    if (m_window) m_window->restore();
+}
+
+bool NUIPlatformBridge::isMaximized() const {
+    return m_window ? m_window->isMaximized() : false;
+}
+
+// =============================================================================
+// Fullscreen
+// =============================================================================
+
+void NUIPlatformBridge::toggleFullScreen() {
+    if (m_window) {
+        m_window->setFullscreen(!m_window->isFullscreen());
+    }
+}
+
+bool NUIPlatformBridge::isFullScreen() const {
+    return m_window ? m_window->isFullscreen() : false;
+}
+
+void NUIPlatformBridge::enterFullScreen() {
+    if (m_window) m_window->setFullscreen(true);
+}
+
+void NUIPlatformBridge::exitFullScreen() {
+    if (m_window) m_window->setFullscreen(false);
+}
+
+// =============================================================================
+// OpenGL Context
+// =============================================================================
+
+bool NUIPlatformBridge::createGLContext() {
+    return m_window ? m_window->createGLContext() : false;
+}
+
+bool NUIPlatformBridge::makeContextCurrent() {
+    return m_window ? m_window->makeContextCurrent() : false;
+}
+
+// =============================================================================
+// Event Callbacks
+// =============================================================================
+
+void NUIPlatformBridge::setMouseMoveCallback(std::function<void(int, int)> callback) {
+    m_mouseMoveCallback = callback;
+}
+
+void NUIPlatformBridge::setMouseButtonCallback(std::function<void(int, bool)> callback) {
+    m_mouseButtonCallback = callback;
+}
+
+void NUIPlatformBridge::setMouseWheelCallback(std::function<void(float)> callback) {
+    m_mouseWheelCallback = callback;
+}
+
+void NUIPlatformBridge::setKeyCallback(std::function<void(int, bool)> callback) {
+    m_keyCallback = callback;
+}
+
+void NUIPlatformBridge::setResizeCallback(std::function<void(int, int)> callback) {
+    m_resizeCallback = callback;
+}
+
+void NUIPlatformBridge::setCloseCallback(std::function<void()> callback) {
+    m_closeCallback = callback;
+}
+
+// =============================================================================
+// Native Handles
+// =============================================================================
+
+void* NUIPlatformBridge::getNativeHandle() const {
+    return m_window ? m_window->getNativeHandle() : nullptr;
+}
+
+void* NUIPlatformBridge::getNativeDeviceContext() const {
+    return m_window ? m_window->getNativeDisplayHandle() : nullptr;
+}
+
+void* NUIPlatformBridge::getNativeGLContext() const {
+    // Note: NomadPlat doesn't expose GL context handle directly
+    // This is fine - NomadUI doesn't actually need it
+    return nullptr;
+}
+
+} // namespace NomadUI
