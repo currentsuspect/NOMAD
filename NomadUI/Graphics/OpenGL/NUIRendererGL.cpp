@@ -57,6 +57,8 @@ out vec4 FragColor;
 uniform int uPrimitiveType;
 uniform float uRadius;
 uniform vec2 uSize;
+uniform sampler2D uTexture;
+uniform bool uUseTexture;
 
 float sdRoundedRect(vec2 p, vec2 size, float radius) {
     vec2 d = abs(p) - size + radius;
@@ -65,6 +67,12 @@ float sdRoundedRect(vec2 p, vec2 size, float radius) {
 
 void main() {
     vec4 color = vColor;
+    
+    // Apply texture if enabled
+    if (uUseTexture) {
+        vec4 texColor = texture(uTexture, vTexCoord);
+        color *= texColor;
+    }
     
     if (uPrimitiveType == 1) {
         // Rounded rectangle
@@ -1334,6 +1342,92 @@ void NUIRendererGL::drawTexture(uint32_t textureId, const NUIRect& destRect, con
     // Texture drawing implementation
 }
 
+void NUIRendererGL::drawTexture(const NUIRect& bounds, const unsigned char* rgba, 
+                                int width, int height) {
+    // Validate input parameters
+    if (!rgba || width <= 0 || height <= 0) {
+        std::cerr << "OpenGL: Invalid texture data (rgba=" << (void*)rgba 
+                  << ", width=" << width << ", height=" << height << ")" << std::endl;
+        return;
+    }
+    
+    // Flush any pending batched geometry before texture rendering
+    flush();
+    
+    // 1. Create OpenGL texture from RGBA data
+    GLuint texture;
+    glGenTextures(1, &texture);
+    
+    if (texture == 0) {
+        std::cerr << "OpenGL: Failed to generate texture" << std::endl;
+        return;
+    }
+    
+    glBindTexture(GL_TEXTURE_2D, texture);
+    
+    // 2. Upload RGBA data to GPU
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, 
+                 GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+    
+    // 3. Configure texture parameters for linear filtering (smooth scaling)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    // 4. Set texture wrapping to clamp to edge (prevents border artifacts)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    // 5. Render textured quad at specified bounds
+    // Create a quad with proper texture coordinates
+    NUIColor white(1.0f, 1.0f, 1.0f, 1.0f); // Use white to preserve texture colors
+    
+    // Add vertices for textured quad (applying current transform and opacity)
+    addVertex(bounds.x, bounds.y, 0.0f, 0.0f, white);
+    addVertex(bounds.right(), bounds.y, 1.0f, 0.0f, white);
+    addVertex(bounds.right(), bounds.bottom(), 1.0f, 1.0f, white);
+    addVertex(bounds.x, bounds.bottom(), 0.0f, 1.0f, white);
+    
+    uint32_t base = static_cast<uint32_t>(vertices_.size()) - 4;
+    indices_.push_back(base + 0);
+    indices_.push_back(base + 1);
+    indices_.push_back(base + 2);
+    indices_.push_back(base + 0);
+    indices_.push_back(base + 2);
+    indices_.push_back(base + 3);
+    
+    // Upload and render the textured quad
+    glBindVertexArray(vao_);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+    glBufferData(GL_ARRAY_BUFFER, vertices_.size() * sizeof(Vertex), 
+                 vertices_.data(), GL_DYNAMIC_DRAW);
+    
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_.size() * sizeof(uint32_t), 
+                 indices_.data(), GL_DYNAMIC_DRAW);
+    
+    // Use shader and bind texture
+    glUseProgram(primitiveShader_.id);
+    glUniformMatrix4fv(primitiveShader_.projectionLoc, 1, GL_FALSE, projectionMatrix_);
+    glUniform1i(primitiveShader_.primitiveTypeLoc, 0); // Simple textured quad
+    
+    // Enable texturing
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glUniform1i(primitiveShader_.textureLoc, 0); // Texture unit 0
+    glUniform1i(primitiveShader_.useTextureLoc, 1); // Enable texture sampling
+    
+    // Draw the textured quad
+    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices_.size()), 
+                   GL_UNSIGNED_INT, 0);
+    
+    // Clear vertex buffers for next draw call
+    vertices_.clear();
+    indices_.clear();
+    
+    // 6. Clean up texture immediately (one-time use)
+    glDeleteTextures(1, &texture);
+}
+
 // ============================================================================
 // Texture/Image Drawing (Stub implementations)
 // ============================================================================
@@ -1381,6 +1475,7 @@ void NUIRendererGL::flush() {
     glUniformMatrix4fv(primitiveShader_.projectionLoc, 1, GL_FALSE, projectionMatrix_);
     // Note: opacity is already in vertex colors
     glUniform1i(primitiveShader_.primitiveTypeLoc, 0); // Simple rect
+    glUniform1i(primitiveShader_.useTextureLoc, 0); // Disable texture sampling for regular geometry
     
     // Draw
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices_.size()), GL_UNSIGNED_INT, 0);
@@ -1428,6 +1523,8 @@ bool NUIRendererGL::loadShaders() {
     primitiveShader_.primitiveTypeLoc = glGetUniformLocation(primitiveShader_.id, "uPrimitiveType");
     primitiveShader_.radiusLoc = glGetUniformLocation(primitiveShader_.id, "uRadius");
     primitiveShader_.sizeLoc = glGetUniformLocation(primitiveShader_.id, "uSize");
+    primitiveShader_.textureLoc = glGetUniformLocation(primitiveShader_.id, "uTexture");
+    primitiveShader_.useTextureLoc = glGetUniformLocation(primitiveShader_.id, "uUseTexture");
     
     return true;
 }

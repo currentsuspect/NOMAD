@@ -45,6 +45,8 @@ set(NOMADUI_CORE_SOURCES
     Core/NUICustomTitleBar.cpp
     Core/NUICustomWindow.h
     Core/NUICustomWindow.cpp
+    Core/NUIIcon.h
+    Core/NUIIcon.cpp
     # Core/NUIApp.h  # Requires renderer
     # Core/NUIApp.cpp
 )
@@ -52,6 +54,10 @@ set(NOMADUI_CORE_SOURCES
 set(NOMADUI_GRAPHICS_SOURCES
     Graphics/NUIRenderer.h
     Graphics/NUIRenderer.cpp
+    Graphics/NUISVGParser.h
+    Graphics/NUISVGParser.cpp
+    Graphics/NUISVGCache.h
+    Graphics/NUISVGCache.cpp
 )
 
 # Text rendering removed - using external MSDF text renderer
@@ -414,7 +420,10 @@ if(NOMADUI_BUILD_EXAMPLES)
             Core/NUIProgressBar.cpp
             Core/NUIScrollbar.cpp
             Core/NUIContextMenu.cpp
+            Core/NUIIcon.cpp
             Graphics/NUIRenderer.cpp
+            Graphics/NUISVGParser.cpp
+            Graphics/NUISVGCache.cpp
             Graphics/OpenGL/NUIRendererGL.cpp
             ${NOMADUI_TEXT_SOURCES}
         )
@@ -448,7 +457,10 @@ if(NOMADUI_BUILD_EXAMPLES)
             Core/NUICustomTitleBar.cpp
             Core/NUICustomWindow.cpp
             Core/NUIContextMenu.cpp
+            Core/NUIIcon.cpp
             Graphics/NUIRenderer.cpp
+            Graphics/NUISVGParser.cpp
+            Graphics/NUISVGCache.cpp
             Graphics/OpenGL/NUIRendererGL.cpp
             ${NOMADUI_TEXT_SOURCES}
         )
@@ -497,6 +509,79 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
         
         set_target_properties(NomadUI_FullScreenDemo PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
+        
+        # Icon Demo (Windows only, requires OpenGL + Win32)
+        add_executable(NomadUI_IconDemo
+            Examples/IconDemo.cpp
+            Platform/Windows/NUIWindowWin32.cpp
+            Core/NUIComponent.cpp
+            Core/NUITheme.cpp
+            Core/NUIAnimation.cpp
+            Core/NUIThemeSystem.cpp
+            Core/NUIIcon.cpp
+            Graphics/NUIRenderer.cpp
+            Graphics/NUISVGParser.cpp
+            Graphics/NUISVGCache.cpp
+            Graphics/OpenGL/NUIRendererGL.cpp
+            ${NOMADUI_TEXT_SOURCES}
+        )
+        
+        # Add glad.c as a separate C file
+        target_sources(NomadUI_IconDemo PRIVATE External/glad/src/glad.c)
+        set_source_files_properties(External/glad/src/glad.c PROPERTIES LANGUAGE C)
+        
+        target_include_directories(NomadUI_IconDemo PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/External/glad/include
+        )
+        
+        target_link_libraries(NomadUI_IconDemo PRIVATE 
+            opengl32
+            freetype
+        )
+        
+        set_target_properties(NomadUI_IconDemo PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
+        
+        # Custom SVG Loading Test (Windows only, console test)
+        add_executable(NomadUI_CustomSVGTest
+            test_custom_svg_loading.cpp
+            Core/NUIComponent.cpp
+            Core/NUIIcon.cpp
+            Core/NUITheme.cpp
+            Core/NUIAnimation.cpp
+            Core/NUIThemeSystem.cpp
+            Graphics/NUISVGParser.cpp
+            Graphics/NUISVGCache.cpp
+        )
+        
+        target_include_directories(NomadUI_CustomSVGTest PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+        )
+        
+        set_target_properties(NomadUI_CustomSVGTest PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
+        
+        # Color Tinting Test (Windows only, console test)
+        add_executable(NomadUI_ColorTintingTest
+            test_color_tinting.cpp
+            Core/NUIComponent.cpp
+            Core/NUIIcon.cpp
+            Core/NUITheme.cpp
+            Core/NUIAnimation.cpp
+            Core/NUIThemeSystem.cpp
+            Graphics/NUISVGParser.cpp
+            Graphics/NUISVGCache.cpp
+        )
+        
+        target_include_directories(NomadUI_ColorTintingTest PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+        )
+        
+        set_target_properties(NomadUI_ColorTintingTest PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
         )
     endif()

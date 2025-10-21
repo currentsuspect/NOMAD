@@ -184,6 +184,25 @@ public:
     virtual void drawTexture(uint32_t textureId, const NUIRect& destRect, const NUIRect& sourceRect) = 0;
     
     /**
+     * Draw a texture from raw RGBA pixel data.
+     * 
+     * This method creates a temporary OpenGL texture from the provided RGBA data,
+     * renders it to the specified bounds, and cleans up the texture immediately.
+     * It's designed for one-time rendering of rasterized content (e.g., SVG icons).
+     * 
+     * @param bounds The target rectangle where the texture should be rendered
+     * @param rgba Pointer to RGBA pixel data (4 bytes per pixel: R, G, B, A)
+     * @param width Width of the source image in pixels
+     * @param height Height of the source image in pixels
+     * 
+     * @note The texture is created and destroyed within this call. For frequently
+     *       rendered textures, consider using createTexture() + drawTexture() instead.
+     * @note The current transform and opacity state will be applied to the rendering.
+     */
+    virtual void drawTexture(const NUIRect& bounds, const unsigned char* rgba, 
+                            int width, int height) = 0;
+    
+    /**
      * Load a texture from file.
      */
     virtual uint32_t loadTexture(const std::string& filepath) = 0;

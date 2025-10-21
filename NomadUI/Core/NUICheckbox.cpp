@@ -10,6 +10,10 @@ NUICheckbox::NUICheckbox(const std::string& text)
     , text_(text)
 {
     setSize(100, 20); // Default size
+    
+    // Create checkmark icon
+    checkIcon_ = NUIIcon::createCheckIcon();
+    checkIcon_->setIconSize(12.0f, 12.0f); // Smaller checkmark for checkbox
 }
 
 void NUICheckbox::onRender(NUIRenderer& renderer)
@@ -296,7 +300,13 @@ void NUICheckbox::drawCheckbox(NUIRenderer& renderer)
     NUIColor bgColor = backgroundColor_;
     NUIColor borderColor = borderColor_;
     
-    if (isPressed_)
+    // When checked, use accent color for background
+    if (state_ == State::Checked)
+    {
+        bgColor = checkColor_; // Use accent color for checked background
+        borderColor = checkColor_;
+    }
+    else if (isPressed_)
     {
         bgColor = pressedColor_;
     }
@@ -514,24 +524,19 @@ void NUICheckbox::triggerClick()
 
 void NUICheckbox::drawCheckmark(NUIRenderer& renderer, const NUIRect& rect)
 {
-    // Enhanced checkmark with better styling
+    // Use NUIIcon for crisp, scalable checkmark
     float centerX = rect.x + rect.width * 0.5f;
     float centerY = rect.y + rect.height * 0.5f;
-    float size = std::min(rect.width, rect.height) * 0.5f;
+    float iconSize = std::min(rect.width, rect.height) * 0.75f;
     
-    // Checkmark points for a more elegant check
-    NUIPoint p1(centerX - size * 0.25f, centerY);
-    NUIPoint p2(centerX - size * 0.05f, centerY + size * 0.15f);
-    NUIPoint p3(centerX + size * 0.25f, centerY - size * 0.15f);
+    // Position the checkmark icon
+    checkIcon_->setIconSize(iconSize, iconSize);
+    checkIcon_->setPosition(centerX - iconSize * 0.5f, centerY - iconSize * 0.5f);
+    // Use white/primary color for checkmark to contrast with accent background
+    checkIcon_->setColor(NUIColor(1.0f, 1.0f, 1.0f, 1.0f));
     
-    // Draw checkmark with shadow effect
-    NUIPoint shadowOffset(1, 1);
-    renderer.drawLine(p1 + shadowOffset, p2 + shadowOffset, 3.0f, NUIColor(0, 0, 0, 0.3f));
-    renderer.drawLine(p2 + shadowOffset, p3 + shadowOffset, 3.0f, NUIColor(0, 0, 0, 0.3f));
-    
-    // Main checkmark
-    renderer.drawLine(p1, p2, 2.5f, checkColor_.lightened(0.2f));
-    renderer.drawLine(p2, p3, 2.5f, checkColor_.lightened(0.2f));
+    // Render the checkmark
+    checkIcon_->onRender(renderer);
 }
 
 void NUICheckbox::drawIndeterminate(NUIRenderer& renderer, const NUIRect& rect)
@@ -558,7 +563,13 @@ void NUICheckbox::drawEnhancedCheckbox(NUIRenderer& renderer, const NUIRect& bou
     NUIColor bgColor = backgroundColor_;
     NUIColor borderColor = borderColor_;
     
-    if (isPressed_)
+    // When checked, use accent color for background
+    if (state_ == State::Checked)
+    {
+        bgColor = checkColor_; // Use accent color for checked background
+        borderColor = checkColor_;
+    }
+    else if (isPressed_)
     {
         bgColor = pressedColor_;
     }
@@ -570,7 +581,7 @@ void NUICheckbox::drawEnhancedCheckbox(NUIRenderer& renderer, const NUIRect& bou
     // Pulse effect when checked
     if (state_ == State::Checked)
     {
-        // Draw pulse rings
+        // Draw pulse rings with accent color
         for (int i = 3; i >= 1; --i)
         {
             NUIRect pulseRect = checkboxRect;
@@ -738,29 +749,19 @@ void NUICheckbox::drawEnhancedRadio(NUIRenderer& renderer, const NUIRect& bounds
 
 void NUICheckbox::drawGlowingCheckmark(NUIRenderer& renderer, const NUIRect& rect)
 {
-    // Enhanced checkmark with glow effect
+    // Use NUIIcon for crisp, scalable checkmark
     float centerX = rect.x + rect.width * 0.5f;
     float centerY = rect.y + rect.height * 0.5f;
-    float size = std::min(rect.width, rect.height) * 0.5f;
+    float iconSize = std::min(rect.width, rect.height) * 0.75f;
     
-    // Checkmark points for a more elegant check
-    NUIPoint p1(centerX - size * 0.25f, centerY);
-    NUIPoint p2(centerX - size * 0.05f, centerY + size * 0.15f);
-    NUIPoint p3(centerX + size * 0.25f, centerY - size * 0.15f);
+    // Position the checkmark icon
+    checkIcon_->setIconSize(iconSize, iconSize);
+    checkIcon_->setPosition(centerX - iconSize * 0.5f, centerY - iconSize * 0.5f);
+    // Use white/primary color for checkmark to contrast with accent background
+    checkIcon_->setColor(NUIColor(1.0f, 1.0f, 1.0f, 1.0f));
     
-    // Glow effect (multiple layers)
-    for (int i = 3; i >= 1; --i)
-    {
-        NUIPoint glowOffset(i, i);
-        NUIColor glowColor = checkColor_.withAlpha(0.3f / i);
-        renderer.drawLine(p1 + glowOffset, p2 + glowOffset, 3.0f + i, glowColor);
-        renderer.drawLine(p2 + glowOffset, p3 + glowOffset, 3.0f + i, glowColor);
-    }
-    
-    // Main checkmark with enhanced color
-    NUIColor brightCheck = checkColor_.lightened(0.3f);
-    renderer.drawLine(p1, p2, 2.5f, brightCheck);
-    renderer.drawLine(p2, p3, 2.5f, brightCheck);
+    // Render the checkmark
+    checkIcon_->onRender(renderer);
 }
 
 } // namespace NomadUI

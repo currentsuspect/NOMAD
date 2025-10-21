@@ -95,6 +95,8 @@ public:
     // ========================================================================
     
     void drawTexture(uint32_t textureId, const NUIRect& destRect, const NUIRect& sourceRect) override;
+    void drawTexture(const NUIRect& bounds, const unsigned char* rgba, 
+                    int width, int height) override;
     uint32_t loadTexture(const std::string& filepath) override;
     uint32_t createTexture(const uint8_t* data, int width, int height) override;
     void deleteTexture(uint32_t textureId) override;
@@ -132,6 +134,8 @@ private:
         int32_t primitiveTypeLoc = -1;
         int32_t radiusLoc = -1;
         int32_t sizeLoc = -1;
+        int32_t textureLoc = -1;
+        int32_t useTextureLoc = -1;
     };
     
     // Transform stack
