@@ -2,8 +2,10 @@
 
 #include "NUIComponent.h"
 #include "NUITypes.h"
+#include "NUIIcon.h"
 #include <functional>
 #include <string>
+#include <memory>
 
 namespace NomadUI {
 
@@ -179,6 +181,9 @@ private:
     std::function<void(State)> onStateChangeCallback_;
     std::function<void(bool)> onCheckedChangeCallback_;
     std::function<void()> onClickCallback_;
+    
+    // Icon for checkmark
+    std::shared_ptr<NUIIcon> checkIcon_;
 };
 
 } // namespace NomadUI
