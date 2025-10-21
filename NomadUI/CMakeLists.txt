@@ -187,41 +187,26 @@ if(NOMADUI_BUILD_VULKAN)
 endif()
 
 # ============================================================================
-# Platform Layer
+# Platform Layer (Now uses NomadPlat!)
 # ============================================================================
 
+# NomadPlat bridge - unified platform layer
+set(NOMADUI_PLATFORM_SOURCES
+    Platform/NUIPlatformBridge.h
+    Platform/NUIPlatformBridge.cpp
+)
+
+# Keep old Windows implementation for reference (will be removed later)
 if(WIN32)
-    # Ensure 64-bit build
-    if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-        message(FATAL_ERROR "Nomad UI requires 64-bit Windows (x64)")
-    endif()
-    
-    set(NOMADUI_PLATFORM_SOURCES
-        Platform/Windows/NUIPlatformWindows.h
+    list(APPEND NOMADUI_PLATFORM_SOURCES
         Platform/Windows/NUIWindowWin32.h
         Platform/Windows/NUIWindowWin32.cpp
-        # Platform/Windows/NUIPlatformWindows.cpp  # TODO: Implement
     )
     set(PLATFORM_NAME "Windows x64")
 elseif(APPLE)
-    # Universal binary (ARM64 + x64)
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
-    
-    set(NOMADUI_PLATFORM_SOURCES
-        Platform/macOS/NUIPlatformMacOS.h
-        # Platform/macOS/NUIPlatformMacOS.mm  # TODO: Implement
-    )
     set(PLATFORM_NAME "macOS Universal (ARM64 + x64)")
 elseif(UNIX)
-    # Ensure 64-bit build
-    if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-        message(FATAL_ERROR "Nomad UI requires 64-bit Linux (x64)")
-    endif()
-    
-    set(NOMADUI_PLATFORM_SOURCES
-        Platform/Linux/NUIPlatformLinux.h
-        # Platform/Linux/NUIPlatformLinux.cpp  # TODO: Implement
-    )
     set(PLATFORM_NAME "Linux x64")
 endif()
 
@@ -236,6 +221,7 @@ target_include_directories(NomadUI_Platform PUBLIC
 
 target_link_libraries(NomadUI_Platform PUBLIC
     NomadUI_Core
+    NomadPlat  # Now using unified platform layer!
 )
 
 # ============================================================================
