@@ -1,9 +1,20 @@
-# NOMAD Git Branching Strategy
+# NOMAD Git Branching Strategy v1.0
+
+**Maintained by:** Nomad Development Team  
+**Last Updated:** October 2025
 
 ## Philosophy
 "Branches are intentions. Commits are promises. Merges are rituals."
 
 ## Branch Structure
+
+```
+main ────────●───────●───────●───────▶
+              ╲
+develop ───────●─────●─────●────────▶
+                 ╲
+feature/audio ────●──●────▶
+```
 
 ### `main` - The Sacred Branch
 - **Purpose:** Production-ready, documented, stable releases only
@@ -49,6 +60,26 @@
 - **Dependencies:** All core systems
 - **Merge to:** `develop` for v3.0
 
+### Hotfix Branches - The Emergency Channel
+
+#### `hotfix/*`
+- **Purpose:** Critical production fixes only
+- **Base:** `main`
+- **Merge to:** Both `main` AND `develop`
+- **Rule:** Use sparingly, document thoroughly
+
+**Hotfix Workflow:**
+```bash
+git checkout main
+git checkout -b hotfix/critical-bug
+# Fix, test, commit
+git checkout main
+git merge hotfix/critical-bug --no-ff
+git checkout develop
+git merge hotfix/critical-bug --no-ff
+git branch -d hotfix/critical-bug
+```
+
 ## Workflow
 
 ### Starting New Work
@@ -68,6 +99,15 @@ git commit -m "feat: describe what you built
 
 Architecture: which layers affected"
 ```
+
+### Before Merging a Feature
+
+**Completion Checklist:**
+- [ ] Code compiles without warnings
+- [ ] No regression in previous modules
+- [ ] Architecture notes updated
+- [ ] Documentation or demo added
+- [ ] Self review complete
 
 ### Merging to Develop
 ```bash
@@ -104,7 +144,9 @@ Architecture: <affected layers>
 - `test`: Adding tests
 - `chore`: Build/tooling changes
 
-### Example
+### Examples
+
+**Feature:**
 ```
 feat: implement RtAudio backend for NomadAudio
 
@@ -114,6 +156,28 @@ feat: implement RtAudio backend for NomadAudio
 - Add audio callback with <10ms latency
 
 Architecture: NomadAudio, NomadCore (threading)
+```
+
+**Fix:**
+```
+fix: resolve OpenGL texture leak in NUIRendererGL
+
+- Add glDeleteTextures cleanup in drawTexture
+- Validate data pointer before upload
+- Add memory profiling test
+
+Architecture: NomadUI, NomadRenderer
+```
+
+**Refactor:**
+```
+refactor: extract platform window code to NomadPlat
+
+- Move Win32 window creation from NomadUI to NomadPlat
+- Create platform abstraction interface
+- No behavior changes, pure architectural cleanup
+
+Architecture: NomadPlat, NomadUI
 ```
 
 ## Current State
