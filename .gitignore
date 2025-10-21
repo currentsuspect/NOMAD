@@ -42,4 +42,7 @@ desktop.ini
 *.temp
 *~
 # AI TOOLS
-.kiro
+.kiro/
+
+# GitHub setup instructions (temporary)
+GITHUB_SETUP.md
