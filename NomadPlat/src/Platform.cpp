@@ -6,6 +6,7 @@
 #if NOMAD_PLATFORM_WINDOWS
     #include "Win32/PlatformWindowWin32.h"
     #include "Win32/PlatformUtilsWin32.h"
+    #include "Win32/PlatformDPIWin32.h"
 #elif NOMAD_PLATFORM_LINUX
     // TODO: Linux implementation
     #error "Linux platform not yet implemented"
@@ -46,6 +47,9 @@ bool Platform::initialize() {
     }
 
 #if NOMAD_PLATFORM_WINDOWS
+    // Initialize DPI awareness first (must be done before creating windows)
+    PlatformDPI::initialize();
+    
     s_utils = new PlatformUtilsWin32();
     NOMAD_LOG_INFO("Windows platform initialized");
 #elif NOMAD_PLATFORM_LINUX

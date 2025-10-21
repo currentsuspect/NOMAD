@@ -21,6 +21,7 @@ public:
 
     // Window creation and management (NomadUI-compatible API)
     bool create(const std::string& title, int width, int height, bool startMaximized = false);
+    bool create(const Nomad::WindowDesc& desc);  // Full control version
     void destroy();
     void show();
     void hide();
@@ -59,6 +60,7 @@ public:
     void setKeyCallback(std::function<void(int, bool)> callback);
     void setResizeCallback(std::function<void(int, int)> callback);
     void setCloseCallback(std::function<void()> callback);
+    void setDPIChangeCallback(std::function<void(float)> callback);
     
     // NomadUI-specific: Root component
     void setRootComponent(NUIComponent* root) { m_rootComponent = root; }
@@ -72,6 +74,9 @@ public:
     void* getNativeHandle() const;
     void* getNativeDeviceContext() const;
     void* getNativeGLContext() const;
+
+    // DPI support
+    float getDPIScale() const;
 
 private:
     // Convert NomadPlat events to NomadUI events
@@ -93,6 +98,7 @@ private:
     std::function<void(int, bool)> m_keyCallback;
     std::function<void(int, int)> m_resizeCallback;
     std::function<void()> m_closeCallback;
+    std::function<void(float)> m_dpiChangeCallback;
 };
 
 } // namespace NomadUI

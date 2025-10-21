@@ -2,19 +2,20 @@
 
 #include <Windows.h>
 
-namespace NomadUI {
+namespace Nomad {
 
 /**
- * Helper for handling High DPI on Windows.
- * Call initializeDPI() at application startup before creating any windows.
+ * DPI Awareness Helper for Windows
+ * Handles high-DPI displays and scaling
  */
-class NUIDPIHelper {
+class PlatformDPI {
 public:
     /**
      * Initialize DPI awareness for the application.
      * Must be called before creating any windows.
+     * Returns true if DPI awareness was set successfully.
      */
-    static bool initializeDPI();
+    static bool initialize();
     
     /**
      * Get DPI scale factor for a window.
@@ -33,12 +34,12 @@ public:
     /**
      * Scale a value by DPI.
      */
-    static int scaleToDPI(int value, float dpiScale);
+    static int scale(int value, float dpiScale);
     
     /**
-     * Scale a value from DPI.
+     * Unscale a value by DPI.
      */
-    static int scaleFromDPI(int value, float dpiScale);
+    static int unscale(int value, float dpiScale);
 };
 
-} // namespace NomadUI
+} // namespace Nomad

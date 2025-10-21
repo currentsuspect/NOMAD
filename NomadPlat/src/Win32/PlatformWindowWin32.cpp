@@ -1,4 +1,5 @@
 #include "PlatformWindowWin32.h"
+#include "PlatformDPIWin32.h"
 #include "../../../NomadCore/include/NomadLog.h"
 #include "../../../NomadCore/include/NomadAssert.h"
 #include <windowsx.h>
@@ -22,6 +23,7 @@ PlatformWindowWin32::PlatformWindowWin32()
     , m_shouldClose(false)
     , m_isFullscreen(false)
     , m_styleBackup(0)
+    , m_dpiScale(1.0f)
 {
     m_wpPrev = {};
     m_wpPrev.length = sizeof(WINDOWPLACEMENT);
@@ -112,6 +114,10 @@ bool PlatformWindowWin32::create(const WindowDesc& desc) {
         destroy();
         return false;
     }
+
+    // Get initial DPI scale
+    m_dpiScale = PlatformDPI::getDPIScale(m_hwnd);
+    NOMAD_LOG_INFO("Window DPI scale: " + std::to_string(m_dpiScale));
 
     // Show window
     if (desc.startMaximized) {
@@ -280,6 +286,51 @@ LRESULT CALLBACK PlatformWindowWin32::WindowProc(HWND hwnd, UINT msg, WPARAM wPa
 
 LRESULT PlatformWindowWin32::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
+        case WM_NCHITTEST: {
+            // For borderless windows, we need to handle hit testing manually
+            // This allows the window to be dragged and resized
+            DWORD style = GetWindowLong(m_hwnd, GWL_STYLE);
+            if (!(style & WS_CAPTION)) {
+                // Borderless window - enable dragging from the top area
+                POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+                ScreenToClient(m_hwnd, &pt);
+                
+                // Don't allow resizing when maximized
+                if (!isMaximized()) {
+                    // Handle resize borders (8 pixel border)
+                    const int borderSize = 8;
+                    RECT rect;
+                    GetClientRect(m_hwnd, &rect);
+                    
+                    bool onLeft = pt.x < borderSize;
+                    bool onRight = pt.x >= rect.right - borderSize;
+                    bool onTop = pt.y < borderSize;
+                    bool onBottom = pt.y >= rect.bottom - borderSize;
+                    
+                    // Corners
+                    if (onTop && onLeft) return HTTOPLEFT;
+                    if (onTop && onRight) return HTTOPRIGHT;
+                    if (onBottom && onLeft) return HTBOTTOMLEFT;
+                    if (onBottom && onRight) return HTBOTTOMRIGHT;
+                    
+                    // Edges
+                    if (onLeft) return HTLEFT;
+                    if (onRight) return HTRIGHT;
+                    if (onTop) return HTTOP;
+                    if (onBottom) return HTBOTTOM;
+                }
+                
+                // Top 32 pixels are the title bar drag area
+                // BUT exclude the right 150 pixels for window control buttons
+                if (pt.y >= 0 && pt.y < 32 && pt.x < m_width - 150) {
+                    return HTCAPTION;  // Allow dragging
+                }
+                
+                return HTCLIENT;
+            }
+            break;
+        }
+        
         case WM_CLOSE:
             m_shouldClose = true;
             if (m_closeCallback) {
@@ -385,6 +436,30 @@ LRESULT PlatformWindowWin32::handleMessage(UINT msg, WPARAM wParam, LPARAM lPara
                 m_focusCallback(false);
             }
             return 0;
+
+        case WM_DPICHANGED: {
+            // Update DPI scale
+            float oldScale = m_dpiScale;
+            m_dpiScale = PlatformDPI::getDPIScale(m_hwnd);
+            
+            NOMAD_LOG_INFO("DPI changed: " + std::to_string(oldScale) + " -> " + std::to_string(m_dpiScale));
+            
+            // Notify callback
+            if (m_dpiChangeCallback) {
+                m_dpiChangeCallback(m_dpiScale);
+            }
+            
+            // Windows suggests a new window size/position in lParam
+            RECT* suggestedRect = reinterpret_cast<RECT*>(lParam);
+            SetWindowPos(m_hwnd, nullptr,
+                        suggestedRect->left,
+                        suggestedRect->top,
+                        suggestedRect->right - suggestedRect->left,
+                        suggestedRect->bottom - suggestedRect->top,
+                        SWP_NOZORDER | SWP_NOACTIVATE);
+            
+            return 0;
+        }
     }
 
     return DefWindowProcW(m_hwnd, msg, wParam, lParam);

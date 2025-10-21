@@ -4,8 +4,11 @@
 #include "../Core/NUIThemeSystem.h"
 #include "../Graphics/NUIRenderer.h"
 #include "../Graphics/OpenGL/NUIRendererGL.h"
-#include "../Platform/Windows/NUIWindowWin32.h"
+#include "../Platform/NUIPlatformBridge.h"
 #include "../External/glad/include/glad/glad.h"
+
+// Compatibility typedef for existing code
+using NUIWindowWin32 = NomadUI::NUIPlatformBridge;
 #include <iostream>
 #include <memory>
 
@@ -326,10 +329,17 @@ int main() {
     std::cout << "  - Status colors (success, warning, error, info)" << std::endl;
     std::cout << std::endl;
     
-    // Create window with exact content dimensions (1000x700)
+    // Create borderless window for custom title bar
     // The custom window will handle the title bar internally
     NUIWindowWin32 window;
-    if (!window.create("Nomad Custom Window Demo", 1000, 700)) {
+    Nomad::WindowDesc desc;
+    desc.title = "Nomad Custom Window Demo";
+    desc.width = 1000;
+    desc.height = 700;
+    desc.decorated = false;  // Borderless for custom title bar!
+    desc.resizable = true;
+    
+    if (!window.create(desc)) {
         std::cerr << "Failed to create window" << std::endl;
         return -1;
     }

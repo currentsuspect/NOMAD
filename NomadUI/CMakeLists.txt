@@ -196,12 +196,8 @@ set(NOMADUI_PLATFORM_SOURCES
     Platform/NUIPlatformBridge.cpp
 )
 
-# Keep old Windows implementation for reference (will be removed later)
+# Platform name for logging
 if(WIN32)
-    list(APPEND NOMADUI_PLATFORM_SOURCES
-        Platform/Windows/NUIWindowWin32.h
-        Platform/Windows/NUIWindowWin32.cpp
-    )
     set(PLATFORM_NAME "Windows x64")
 elseif(APPLE)
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
@@ -327,7 +323,6 @@ if(NOMADUI_BUILD_EXAMPLES)
     if(WIN32 AND NOMADUI_BUILD_OPENGL)
         add_executable(NomadUI_WindowDemo
             Examples/WindowDemo.cpp
-            Platform/Windows/NUIWindowWin32.cpp
             Core/NUIComponent.cpp
             Core/NUITheme.cpp
             Graphics/NUIRenderer.cpp
@@ -345,6 +340,7 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
 
         target_link_libraries(NomadUI_WindowDemo PRIVATE 
+            NomadUI_Platform
             opengl32
             freetype
         )
@@ -358,7 +354,6 @@ if(NOMADUI_BUILD_EXAMPLES)
     if(WIN32 AND NOMADUI_BUILD_OPENGL)
         add_executable(NomadUI_ButtonLabelDemo
             Examples/ButtonLabelDemo.cpp
-            Platform/Windows/NUIWindowWin32.cpp
             Core/NUIComponent.cpp
             Core/NUITheme.cpp
             Core/NUIAnimation.cpp
@@ -380,6 +375,7 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
 
         target_link_libraries(NomadUI_ButtonLabelDemo PRIVATE 
+            NomadUI_Platform
             opengl32
             freetype
         )
@@ -393,7 +389,6 @@ if(NOMADUI_BUILD_EXAMPLES)
     if(WIN32 AND NOMADUI_BUILD_OPENGL)
         add_executable(NomadUI_NewComponentsDemo
             Examples/NewComponentsDemo.cpp
-            Platform/Windows/NUIWindowWin32.cpp
             Core/NUIComponent.cpp
             Core/NUITheme.cpp
             Core/NUIAnimation.cpp
@@ -424,6 +419,7 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
 
         target_link_libraries(NomadUI_NewComponentsDemo PRIVATE 
+            NomadUI_Platform
             opengl32
             freetype
         )
@@ -435,7 +431,6 @@ if(NOMADUI_BUILD_EXAMPLES)
         # Custom Window Demo (Windows only, requires OpenGL + Win32)
         add_executable(NomadUI_CustomWindowDemo
             Examples/CustomWindowDemo.cpp
-            Platform/Windows/NUIWindowWin32.cpp
             Core/NUIComponent.cpp
             Core/NUITheme.cpp
             Core/NUIAnimation.cpp
@@ -460,6 +455,7 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
         
         target_link_libraries(NomadUI_CustomWindowDemo PRIVATE 
+            NomadUI_Platform
             opengl32
             freetype
         )
@@ -471,7 +467,6 @@ if(NOMADUI_BUILD_EXAMPLES)
         # Full Screen Demo (Windows only, requires OpenGL + Win32)
         add_executable(NomadUI_FullScreenDemo
             Examples/FullScreenDemo.cpp
-            Platform/Windows/NUIWindowWin32.cpp
             Core/NUIComponent.cpp
             Core/NUITheme.cpp
             Core/NUIAnimation.cpp
@@ -490,6 +485,7 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
         
         target_link_libraries(NomadUI_FullScreenDemo PRIVATE 
+            NomadUI_Platform
             opengl32
             freetype
         )
@@ -501,7 +497,6 @@ if(NOMADUI_BUILD_EXAMPLES)
         # Icon Demo (Windows only, requires OpenGL + Win32)
         add_executable(NomadUI_IconDemo
             Examples/IconDemo.cpp
-            Platform/Windows/NUIWindowWin32.cpp
             Core/NUIComponent.cpp
             Core/NUITheme.cpp
             Core/NUIAnimation.cpp
@@ -523,6 +518,7 @@ if(NOMADUI_BUILD_EXAMPLES)
         )
         
         target_link_libraries(NomadUI_IconDemo PRIVATE 
+            NomadUI_Platform
             opengl32
             freetype
         )
