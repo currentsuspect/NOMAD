@@ -197,7 +197,7 @@ bool testThreadSafety() {
     for (int t = 0; t < numThreads; ++t) {
         threads.emplace_back([t, messagesPerThread]() {
             for (int i = 0; i < messagesPerThread; ++i) {
-                NOMAD_INFO << "Thread " << t << " message " << i;
+                NOMAD_LOG_STREAM_INFO << "Thread " << t << " message " << i;
             }
         });
     }
