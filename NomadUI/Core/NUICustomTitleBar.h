@@ -2,8 +2,10 @@
 
 #include "NUIComponent.h"
 #include "NUITypes.h"
+#include "NUIIcon.h"
 #include <string>
 #include <functional>
+#include <memory>
 
 namespace NomadUI {
 
@@ -30,7 +32,7 @@ public:
     void setOnDrag(std::function<void(int, int)> callback) { onDrag_ = callback; }
     
     // Window state
-    void setMaximized(bool maximized) { isMaximized_ = maximized; }
+    void setMaximized(bool maximized);
     bool isMaximized() const { return isMaximized_; }
 
     // Component overrides
@@ -48,6 +50,12 @@ private:
     NUIRect minimizeButtonRect_;
     NUIRect maximizeButtonRect_;
     NUIRect closeButtonRect_;
+    
+    // Window control icons
+    std::shared_ptr<NUIIcon> minimizeIcon_;
+    std::shared_ptr<NUIIcon> maximizeIcon_;
+    std::shared_ptr<NUIIcon> restoreIcon_;
+    std::shared_ptr<NUIIcon> closeIcon_;
     
     // Hover states
     enum class HoverButton {
@@ -74,6 +82,7 @@ private:
     void drawWindowControls(NUIRenderer& renderer);
     bool isPointInButton(const NUIPoint& point, const NUIRect& buttonRect);
     void handleButtonClick(const NUIRect& buttonRect);
+    void createIcons();
 };
 
 } // namespace NomadUI

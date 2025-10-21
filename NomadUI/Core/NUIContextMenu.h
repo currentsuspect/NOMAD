@@ -2,6 +2,7 @@
 
 #include "NUIComponent.h"
 #include "NUITypes.h"
+#include "NUIIcon.h"
 #include <functional>
 #include <string>
 #include <vector>
@@ -51,6 +52,9 @@ public:
 
     void setIcon(const std::string& iconPath);
     const std::string& getIcon() const { return iconPath_; }
+    
+    void setIconObject(std::shared_ptr<NUIIcon> icon);
+    std::shared_ptr<NUIIcon> getIconObject() const { return icon_; }
 
     // Submenu
     void setSubmenu(std::shared_ptr<NUIContextMenu> submenu);
@@ -72,6 +76,7 @@ private:
     bool checked_ = false;
     std::string shortcut_;
     std::string iconPath_;
+    std::shared_ptr<NUIIcon> icon_;
     std::shared_ptr<NUIContextMenu> submenu_;
     std::function<void()> onClickCallback_;
     std::string radioGroup_;

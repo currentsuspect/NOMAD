@@ -56,6 +56,11 @@ void NUIContextMenuItem::setIcon(const std::string& iconPath)
     iconPath_ = iconPath;
 }
 
+void NUIContextMenuItem::setIconObject(std::shared_ptr<NUIIcon> icon)
+{
+    icon_ = icon;
+}
+
 void NUIContextMenuItem::setSubmenu(std::shared_ptr<NUIContextMenu> submenu)
 {
     submenu_ = submenu;
@@ -477,6 +482,16 @@ void NUIContextMenu::drawItem(NUIRenderer& renderer, std::shared_ptr<NUIContextM
     float x = itemRect.x + itemPadding_ + 4.0f;
     float y = itemRect.y + (itemRect.height * 0.5f) + 5.0f; // Vertically center text
     
+    // Draw icon if present
+    if (item->getIconObject())
+    {
+        float iconY = itemRect.y + (itemRect.height - iconSize_) * 0.5f;
+        item->getIconObject()->setPosition(x, iconY);
+        item->getIconObject()->setIconSize(iconSize_, iconSize_);
+        item->getIconObject()->onRender(renderer);
+        x += iconSize_ + itemPadding_ * 0.5f;
+    }
+    
     // Draw checkbox/radio indicator
     if (item->getType() == NUIContextMenuItem::Type::Checkbox || 
         item->getType() == NUIContextMenuItem::Type::Radio)
@@ -497,14 +512,13 @@ void NUIContextMenu::drawItem(NUIRenderer& renderer, std::shared_ptr<NUIContextM
                 // Fill with purple
                 renderer.fillRoundedRect(indicatorRect, 3.0f, themeManager.getColor("primary"));
                 
-                // Draw checkmark
+                // Use NUIIcon for checkmark
+                auto checkIcon = NUIIcon::createCheckIcon();
+                checkIcon->setIconSize(indicatorSize * 0.8f, indicatorSize * 0.8f);
+                checkIcon->setColor(NUIColor(1.0f, 1.0f, 1.0f, 1.0f));
                 NUIPoint center = indicatorRect.center();
-                float size = indicatorSize * 0.5f;
-                NUIPoint p1(center.x - size * 0.4f, center.y);
-                NUIPoint p2(center.x - size * 0.1f, center.y + size * 0.3f);
-                NUIPoint p3(center.x + size * 0.4f, center.y - size * 0.3f);
-                renderer.drawLine(p1, p2, 2.0f, NUIColor(1.0f, 1.0f, 1.0f, 1.0f));
-                renderer.drawLine(p2, p3, 2.0f, NUIColor(1.0f, 1.0f, 1.0f, 1.0f));
+                checkIcon->setPosition(center.x - indicatorSize * 0.4f, center.y - indicatorSize * 0.4f);
+                checkIcon->onRender(renderer);
             }
         }
         else
@@ -535,7 +549,7 @@ void NUIContextMenu::drawItem(NUIRenderer& renderer, std::shared_ptr<NUIContextM
         renderer.drawText(item->getShortcut(), NUIPoint(shortcutX, y), 12.0f, themeManager.getColor("textSecondary"));
     }
     
-    // Draw submenu arrow
+    // Draw submenu arrow using NUIIcon
     if (item->getType() == NUIContextMenuItem::Type::Submenu)
     {
         drawSubmenuArrow(renderer, index);
@@ -557,16 +571,16 @@ void NUIContextMenu::drawSeparator(NUIRenderer& renderer, int index)
 void NUIContextMenu::drawSubmenuArrow(NUIRenderer& renderer, int index)
 {
     NUIRect itemRect = getItemRect(index);
-    float arrowX = itemRect.x + itemRect.width - itemPadding_ - 8.0f;
-    float arrowY = itemRect.y + itemRect.height * 0.5f;
+    float arrowSize = 12.0f;
+    float arrowX = itemRect.x + itemRect.width - itemPadding_ - arrowSize - 4.0f;
+    float arrowY = itemRect.y + (itemRect.height - arrowSize) * 0.5f;
     
-    // Draw right-pointing arrow
-    NUIPoint p1(arrowX, arrowY - 3.0f);
-    NUIPoint p2(arrowX + 6.0f, arrowY);
-    NUIPoint p3(arrowX, arrowY + 3.0f);
-    
-    renderer.drawLine(p1, p2, 1.0f, textColor_);
-    renderer.drawLine(p2, p3, 1.0f, textColor_);
+    // Use chevron right icon for submenu arrow
+    auto chevronIcon = NUIIcon::createChevronRightIcon();
+    chevronIcon->setIconSize(arrowSize, arrowSize);
+    chevronIcon->setColor(textColor_);
+    chevronIcon->setPosition(arrowX, arrowY);
+    chevronIcon->onRender(renderer);
 }
 
 void NUIContextMenu::updateLayout()

@@ -17,7 +17,36 @@ NUICustomTitleBar::NUICustomTitleBar()
 {
     setId("titleBar"); // Set ID for debugging
     setSize(800, height_); // Default width, will be updated by parent
+    createIcons();
     updateButtonRects();
+}
+
+void NUICustomTitleBar::createIcons() {
+    // Create window control icons using the NUIIcon system
+    minimizeIcon_ = NUIIcon::createMinimizeIcon();
+    minimizeIcon_->setIconSize(NUIIconSize::Small);
+    
+    maximizeIcon_ = NUIIcon::createMaximizeIcon();
+    maximizeIcon_->setIconSize(NUIIconSize::Small);
+    
+    // Create a restore icon (two overlapping squares)
+    const char* restoreSvg = R"(
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="8" y="8" width="13" height="13" rx="2" ry="2"/>
+            <path d="M3 16V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+    )";
+    restoreIcon_ = std::make_shared<NUIIcon>(restoreSvg);
+    restoreIcon_->setIconSize(NUIIconSize::Small);
+    restoreIcon_->setColorFromTheme("textPrimary");
+    
+    closeIcon_ = NUIIcon::createCloseIcon();
+    closeIcon_->setIconSize(NUIIconSize::Small);
+}
+
+void NUICustomTitleBar::setMaximized(bool maximized) {
+    isMaximized_ = maximized;
+    setDirty(true);
 }
 
 void NUICustomTitleBar::setTitle(const std::string& title) {
@@ -60,13 +89,8 @@ void NUICustomTitleBar::onRender(NUIRenderer& renderer) {
 
 void NUICustomTitleBar::drawWindowControls(NUIRenderer& renderer) {
     auto& themeManager = NUIThemeManager::getInstance();
-    NUIColor textColor = themeManager.getColor("text");
     NUIColor hoverBgColor = NUIColor(1.0f, 1.0f, 1.0f, 0.1f); // Subtle white overlay
     NUIColor closeHoverBg = NUIColor(0.9f, 0.2f, 0.2f, 1.0f); // Red for close button
-    
-    // Modern crisp icons - smaller size, thinner lines for high-DPI displays
-    float iconSize = std::min(minimizeButtonRect_.width, minimizeButtonRect_.height) * 0.35f;
-    float lineThickness = 1.0f; // Thinner lines look crisper on modern displays
     
     // Draw minimize button
     if (hoveredButton_ == HoverButton::Minimize) {
@@ -74,9 +98,9 @@ void NUICustomTitleBar::drawWindowControls(NUIRenderer& renderer) {
     }
     NUIPoint minCenter(minimizeButtonRect_.x + minimizeButtonRect_.width * 0.5f,
                        minimizeButtonRect_.y + minimizeButtonRect_.height * 0.5f);
-    NUIPoint minStart(minCenter.x - iconSize * 0.5f, minCenter.y);
-    NUIPoint minEnd(minCenter.x + iconSize * 0.5f, minCenter.y);
-    renderer.drawLine(minStart, minEnd, lineThickness, textColor);
+    float iconOffset = 8.0f; // Center the 16px icon
+    minimizeIcon_->setPosition(minCenter.x - iconOffset, minCenter.y - iconOffset);
+    minimizeIcon_->onRender(renderer);
     
     // Draw maximize/restore button
     if (hoveredButton_ == HoverButton::Maximize) {
@@ -85,39 +109,22 @@ void NUICustomTitleBar::drawWindowControls(NUIRenderer& renderer) {
     NUIPoint maxCenter(maximizeButtonRect_.x + maximizeButtonRect_.width * 0.5f,
                        maximizeButtonRect_.y + maximizeButtonRect_.height * 0.5f);
     
-    if (isMaximized_) {
-        // Restore icon - two overlapping squares (Telegram style)
-        float offset = iconSize * 0.15f;
-        NUIRect backSquare(maxCenter.x - iconSize * 0.35f + offset, 
-                          maxCenter.y - iconSize * 0.35f - offset, 
-                          iconSize * 0.7f, iconSize * 0.7f);
-        NUIRect frontSquare(maxCenter.x - iconSize * 0.35f - offset, 
-                           maxCenter.y - iconSize * 0.35f + offset, 
-                           iconSize * 0.7f, iconSize * 0.7f);
-        renderer.strokeRect(backSquare, lineThickness, textColor);
-        renderer.strokeRect(frontSquare, lineThickness, textColor);
-    } else {
-        // Maximize icon - single square
-        NUIRect maxSquare(maxCenter.x - iconSize * 0.5f, 
-                         maxCenter.y - iconSize * 0.5f, 
-                         iconSize, iconSize);
-        renderer.strokeRect(maxSquare, lineThickness, textColor);
-    }
+    // Use appropriate icon based on maximized state
+    auto& maxIcon = isMaximized_ ? restoreIcon_ : maximizeIcon_;
+    maxIcon->setPosition(maxCenter.x - iconOffset, maxCenter.y - iconOffset);
+    maxIcon->onRender(renderer);
     
     // Draw close button with red hover
     if (hoveredButton_ == HoverButton::Close) {
         renderer.fillRect(closeButtonRect_, closeHoverBg);
+        closeIcon_->setColor(NUIColor(1.0f, 1.0f, 1.0f, 1.0f)); // White on red
+    } else {
+        closeIcon_->setColorFromTheme("textPrimary");
     }
     NUIPoint closeCenter(closeButtonRect_.x + closeButtonRect_.width * 0.5f,
                          closeButtonRect_.y + closeButtonRect_.height * 0.5f);
-    float closeSize = iconSize * 0.8f;
-    NUIPoint closeTL(closeCenter.x - closeSize * 0.5f, closeCenter.y - closeSize * 0.5f);
-    NUIPoint closeTR(closeCenter.x + closeSize * 0.5f, closeCenter.y - closeSize * 0.5f);
-    NUIPoint closeBL(closeCenter.x - closeSize * 0.5f, closeCenter.y + closeSize * 0.5f);
-    NUIPoint closeBR(closeCenter.x + closeSize * 0.5f, closeCenter.y + closeSize * 0.5f);
-    NUIColor closeIconColor = (hoveredButton_ == HoverButton::Close) ? NUIColor(1.0f, 1.0f, 1.0f, 1.0f) : textColor;
-    renderer.drawLine(closeTL, closeBR, lineThickness, closeIconColor);
-    renderer.drawLine(closeTR, closeBL, lineThickness, closeIconColor);
+    closeIcon_->setPosition(closeCenter.x - iconOffset, closeCenter.y - iconOffset);
+    closeIcon_->onRender(renderer);
 }
 
 bool NUICustomTitleBar::onMouseEvent(const NUIMouseEvent& event) {
