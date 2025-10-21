@@ -67,7 +67,7 @@ Nomad/
 
 ## Documentation
 
-- **[NomadDocs/NOMAD_AI_BRIEF.md](NomadDocs/NOMAD_AI_BRIEF.md)** - Architectural source of truth
+- **[NomadDocs/DEVELOPER_GUIDE.md](NomadDocs/DEVELOPER_GUIDE.md)** - Complete developer guide
 - **[NomadDocs/BRANCHING_STRATEGY.md](NomadDocs/BRANCHING_STRATEGY.md)** - Git workflow and philosophy
 - **[NomadDocs/BUILD_STATUS.md](NomadDocs/BUILD_STATUS.md)** - Current build state
 
