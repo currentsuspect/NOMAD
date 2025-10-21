@@ -36,6 +36,8 @@ desktop.ini
 
 # Logs
 *.log
+test_*.txt
+test_*.log
 
 # Temporary files
 *.tmp

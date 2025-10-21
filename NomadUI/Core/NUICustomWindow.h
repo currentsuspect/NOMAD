@@ -9,7 +9,8 @@
 namespace NomadUI {
 
 // Forward declarations
-class NUIWindowWin32;
+class NUIPlatformBridge;
+using NUIWindowWin32 = NUIPlatformBridge;  // Compatibility typedef
 
 /**
  * Custom window component that provides full screen and custom title bar functionality

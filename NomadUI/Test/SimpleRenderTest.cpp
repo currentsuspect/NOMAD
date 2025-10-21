@@ -29,9 +29,10 @@
 // NomadUI includes
 #include "Core/NUIComponent.h"
 #include "Graphics/OpenGL/NUIRendererGL.h"
-#include "Platform/Windows/NUIWindowWin32.h"
+#include "Platform/NUIPlatformBridge.h"
 
 using namespace NomadUI;
+using NUIWindowWin32 = NUIPlatformBridge;  // Compatibility typedef
 
 class SimpleRenderTest : public NUIComponent
 {

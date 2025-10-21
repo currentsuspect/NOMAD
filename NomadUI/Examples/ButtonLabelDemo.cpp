@@ -36,7 +36,8 @@
 #include "Core/NUIButton.h"
 #include "Core/NUILabel.h"
 #include "Graphics/OpenGL/NUIRendererGL.h"
-#include "Platform/Windows/NUIWindowWin32.h"
+#include "Platform/NUIPlatformBridge.h"
+using NUIWindowWin32 = NomadUI::NUIPlatformBridge;
 
 using namespace NomadUI;
 
