@@ -12,6 +12,18 @@ class NUITheme;
 class NUIFont;
 
 /**
+ * Render layers for proper Z-order management
+ */
+enum class NUILayer {
+    Background = 0,
+    Content = 1,
+    Overlay = 2,
+    Dropdown = 3,
+    Tooltip = 4,
+    Modal = 5
+};
+
+/**
  * Base class for all UI components in the Nomad UI framework.
  * 
  * Design principles:
@@ -19,6 +31,18 @@ class NUIFont;
  * - GPU-accelerated rendering
  * - Event-driven architecture
  * - Composable hierarchy
+ * 
+ * ⚠️ CRITICAL COORDINATE SYSTEM WARNING:
+ * NomadUI uses ABSOLUTE screen coordinates for all components.
+ * Child components are NOT automatically positioned relative to their parent.
+ * 
+ * When positioning children:
+ * 1. Always add parent's X,Y offset: child->setBounds(parentX + offsetX, parentY + offsetY, w, h)
+ * 2. Never reset to (0,0) in onResize() - preserve the X,Y position
+ * 3. Use getBounds() to get current absolute position
+ * 
+ * See docs/COORDINATE_SYSTEM_QUICK_REF.md for quick reference
+ * See NomadDocs/NOMADUI_COORDINATE_SYSTEM.md for full documentation
  */
 class NUIComponent : public std::enable_shared_from_this<NUIComponent> {
 public:
@@ -90,6 +114,7 @@ public:
     void setBounds(float x, float y, float width, float height);
     void setBounds(const NUIRect& bounds);
     NUIRect getBounds() const { return bounds_; }
+    NUIRect getGlobalBounds() const;
     
     void setPosition(float x, float y);
     NUIPoint getPosition() const { return {bounds_.x, bounds_.y}; }
@@ -146,6 +171,9 @@ public:
     
     void setId(const std::string& id) { id_ = id; }
     std::string getId() const { return id_; }
+    
+    void setLayer(NUILayer layer) { layer_ = layer; }
+    NUILayer getLayer() const { return layer_; }
     
     // ========================================================================
     // Rendering State
@@ -223,6 +251,7 @@ private:
     bool hovered_ = false;
     bool dirty_ = true;
     float opacity_ = 1.0f;
+    NUILayer layer_ = NUILayer::Content;
     
     // Theme
     std::shared_ptr<NUITheme> theme_;

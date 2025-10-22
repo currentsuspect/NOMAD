@@ -216,7 +216,9 @@ void NUIButton::onRender(NUIRenderer& renderer)
     {
         // TODO: Get font from theme
         // renderer.setFont(NUITheme::getDefaultFont());
-        renderer.drawTextCentered(text_, scaledBounds, 24.0f, textColor);
+        // Use smaller font size for compact buttons
+        float fontSize = std::min(14.0f, scaledBounds.height * 0.5f);
+        renderer.drawTextCentered(text_, scaledBounds, fontSize, textColor);
     }
 }
 
