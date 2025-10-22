@@ -7,6 +7,10 @@ cmake_minimum_required(VERSION 3.22)
 # Create executable
 add_executable(NOMAD_DAW
     Main.cpp
+    TransportBar.h
+    TransportBar.cpp
+    AudioSettingsDialog.h
+    AudioSettingsDialog.cpp
 )
 
 # Set C++ standard
