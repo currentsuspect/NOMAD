@@ -21,6 +21,8 @@
 #include "../NomadUI/Platform/NUIPlatformBridge.h"
 #include "../NomadAudio/include/NomadAudio.h"
 #include "../NomadCore/include/NomadLog.h"
+#include "TransportBar.h"
+#include "AudioSettingsDialog.h"
 
 #include <memory>
 #include <iostream>
@@ -39,10 +41,18 @@ using namespace Nomad::Audio;
  */
 class NomadContent : public NomadUI::NUIComponent {
 public:
-    NomadContent() = default;
+    NomadContent() {
+        // Create transport bar
+        m_transportBar = std::make_shared<TransportBar>();
+        addChild(m_transportBar);
+    }
     
     void setAudioStatus(bool active) {
         m_audioActive = active;
+    }
+    
+    TransportBar* getTransportBar() const {
+        return m_transportBar.get();
     }
     
     void onRender(NomadUI::NUIRenderer& renderer) override {
@@ -51,26 +61,28 @@ public:
         float width = bounds.width;
         float height = bounds.height;
         
+        // Transport bar height
+        float transportHeight = 60.0f;
+        
+        // Render children first (transport bar at top)
+        renderChildren(renderer);
+
         // Get theme colors
         auto& themeManager = NomadUI::NUIThemeManager::getInstance();
-        // Use same background as title bar for flush, seamless appearance
-        NomadUI::NUIColor contentBg = themeManager.getColor("background");
         NomadUI::NUIColor textColor = themeManager.getColor("textPrimary");
         NomadUI::NUIColor accentColor = themeManager.getColor("primary");
         NomadUI::NUIColor statusColor = m_audioActive ? 
             themeManager.getColor("success") : themeManager.getColor("error");
         
-        // Don't draw content background - let window background show through for flush look
-        // renderer.fillRect(bounds, contentBg);
-        
-        // Draw center panel with padding
-        NomadUI::NUIRect centerPanel(bounds.x + 20, bounds.y + 20, 
-                                     width - 40, height - 40);
+        // Draw center panel with padding (below transport bar)
+        // Use absolute coordinates since NUIComponent doesn't transform child coordinates
+        NomadUI::NUIRect centerPanel(bounds.x + 20, bounds.y + transportHeight + 20, 
+                                     width - 40, height - transportHeight - 40);
         renderer.fillRoundedRect(centerPanel, 8, themeManager.getColor("surfaceRaised"));
         
-        // Calculate center position within content area
+        // Calculate center position using absolute coordinates
         float centerX = bounds.x + (width / 2.0f);
-        float centerY = bounds.y + (height / 2.0f);
+        float centerY = bounds.y + transportHeight + ((height - transportHeight) / 2.0f);
         
         // Draw welcome message
         std::string welcomeMsg = "NOMAD DAW - Ready";
@@ -88,14 +100,30 @@ public:
                          16, statusColor);
         
         // Draw instructions
-        std::string infoText = "Press ESC to exit | F11 for fullscreen | Drag title bar to move";
+        std::string infoText = "Press SPACE to play/pause | ESC to exit | F11 for fullscreen";
         auto infoSize = renderer.measureText(infoText, 14);
         renderer.drawText(infoText, 
                          NomadUI::NUIPoint(centerX - infoSize.width / 2.0f, centerY + 70), 
                          14, themeManager.getColor("textSecondary"));
     }
     
+    void onResize(int width, int height) override {
+        // Update transport bar bounds
+        // Since NUIComponent doesn't transform child coordinates, we need to position
+        // the transport bar at the absolute position (content area Y offset + 0)
+        if (m_transportBar) {
+            float transportHeight = 60.0f;
+            // Get our bounds to find the Y offset (should be 32 for title bar height)
+            NomadUI::NUIRect contentBounds = getBounds();
+            m_transportBar->setBounds(NomadUI::NUIRect(contentBounds.x, contentBounds.y, 
+                                                       static_cast<float>(width), transportHeight));
+            m_transportBar->onResize(width, static_cast<int>(transportHeight));
+        }
+        NomadUI::NUIComponent::onResize(width, height);
+    }
+    
 private:
+    std::shared_ptr<TransportBar> m_transportBar;
     bool m_audioActive = false;
 };
 
@@ -111,6 +139,11 @@ public:
         addChild(m_customWindow);
     }
     
+    void setAudioSettingsDialog(std::shared_ptr<AudioSettingsDialog> dialog) {
+        // Store reference to dialog for debugging
+        m_audioSettingsDialog = dialog;
+    }
+    
     void onRender(NUIRenderer& renderer) override {
         // Debug output
         static bool firstRender = true;
@@ -123,19 +156,30 @@ public:
         }
         
         // Don't draw background here - let custom window handle it
-        // Just render children (custom window)
+        // Just render children (custom window and audio settings dialog)
         renderChildren(renderer);
+        
+        // Audio settings dialog is handled by its own render method
     }
     
     void onResize(int width, int height) override {
         if (m_customWindow) {
             m_customWindow->setBounds(NUIRect(0, 0, width, height));
         }
+        
+        // Resize all children (including audio settings dialog)
+        for (auto& child : getChildren()) {
+            if (child) {
+                child->onResize(width, height);
+            }
+        }
+        
         NUIComponent::onResize(width, height);
     }
     
 private:
     std::shared_ptr<NUICustomWindow> m_customWindow;
+    std::shared_ptr<AudioSettingsDialog> m_audioSettingsDialog;
 };
 
 /**
@@ -277,8 +321,60 @@ public:
         m_content->setAudioStatus(m_audioInitialized);
         m_customWindow->setContent(m_content.get());
         
+        // Wire up transport bar callbacks
+        if (m_content->getTransportBar()) {
+            auto* transport = m_content->getTransportBar();
+            
+            transport->setOnPlay([this]() {
+                Log::info("Transport: Play");
+                // TODO: Start audio playback
+            });
+            
+            transport->setOnPause([this]() {
+                Log::info("Transport: Pause");
+                // TODO: Pause audio playback
+            });
+            
+            transport->setOnStop([this]() {
+                Log::info("Transport: Stop");
+                // TODO: Stop audio playback and reset position
+            });
+            
+            transport->setOnTempoChange([this](float bpm) {
+                std::stringstream ss;
+                ss << "Transport: Tempo changed to " << bpm << " BPM";
+                Log::info(ss.str());
+                // TODO: Update audio engine tempo
+            });
+        }
+        
+        // Create audio settings dialog
+        m_audioSettingsDialog = std::make_shared<AudioSettingsDialog>(m_audioManager.get());
+        m_audioSettingsDialog->setBounds(NUIRect(0, 0, desc.width, desc.height));
+        m_audioSettingsDialog->setOnApply([this]() {
+            Log::info("Audio settings applied");
+            // Update audio status
+            if (m_content) {
+                m_content->setAudioStatus(m_audioManager->isStreamRunning());
+            }
+        });
+        m_audioSettingsDialog->setOnCancel([this]() {
+            Log::info("Audio settings cancelled");
+        });
+        // Add dialog to root component AFTER custom window so it renders on top
+        Log::info("Audio settings dialog created");
+        
         // Add custom window to root component
         m_rootComponent->setCustomWindow(m_customWindow);
+        
+        // Add audio settings dialog to root component (after custom window for proper z-ordering)
+        m_rootComponent->addChild(m_audioSettingsDialog);
+        m_rootComponent->setAudioSettingsDialog(m_audioSettingsDialog);
+        
+        // Debug: Verify dialog was added
+        std::stringstream ss2;
+        ss2 << "Dialog added to root component, pointer: " << m_audioSettingsDialog.get();
+        Log::info(ss2.str());
         
         // Connect window and renderer to bridge
         m_window->setRootComponent(m_rootComponent.get());
@@ -378,9 +474,6 @@ private:
             if (m_renderer) {
                 m_renderer->resize(width, height);
             }
-            if (m_rootComponent) {
-                m_rootComponent->onResize(width, height);
-            }
             std::stringstream ss;
             ss << "Window resized: " << width << "x" << height;
             Log::info(ss.str());
@@ -394,8 +487,37 @@ private:
 
         // Key callback
         m_window->setKeyCallback([this](int key, bool pressed) {
+            // Debug: Log key presses
+            if (pressed) {
+                std::stringstream ss;
+                ss << "Key pressed: " << key;
+                Log::info(ss.str());
+                std::cout << "Key pressed: " << key << " (P should be 80)" << std::endl;
+            }
+            
+            // First, try to handle key events in the audio settings dialog if it's visible
+            if (m_audioSettingsDialog && m_audioSettingsDialog->isVisible()) {
+                NomadUI::NUIKeyEvent event;
+                event.keyCode = static_cast<NomadUI::NUIKeyCode>(key);
+                event.pressed = pressed;
+                event.released = !pressed;
+                
+                if (m_audioSettingsDialog->onKeyEvent(event)) {
+                    return; // Dialog handled the event
+                }
+            }
+            
+            // Handle global key shortcuts
+            // Debug: Log all key presses
+            if (pressed) {
+                std::cout << "Key pressed: " << key << " (P should be 80)" << std::endl;
+            }
+            
             if (key == static_cast<int>(KeyCode::Escape) && pressed) {
-                if (m_customWindow && m_customWindow->isFullScreen()) {
+                // If audio settings dialog is open, close it
+                if (m_audioSettingsDialog && m_audioSettingsDialog->isVisible()) {
+                    m_audioSettingsDialog->hide();
+                } else if (m_customWindow && m_customWindow->isFullScreen()) {
                     Log::info("Escape key pressed - exiting fullscreen");
                     m_customWindow->exitFullScreen();
                 } else {
@@ -407,18 +529,27 @@ private:
                     Log::info("F11 pressed - toggling fullscreen");
                     m_customWindow->toggleFullScreen();
                 }
+            } else if (key == static_cast<int>(KeyCode::Space) && pressed) {
+                // Space bar to play/pause
+                if (m_content && m_content->getTransportBar()) {
+                    m_content->getTransportBar()->togglePlayPause();
+                }
+            } else if (key == static_cast<int>(KeyCode::P) && pressed) {
+                // P key to open audio settings (Preferences)
+                Log::info("===== P KEY HANDLER START =====");
+                if (m_audioSettingsDialog) {
+                    Log::info("Dialog pointer is valid, calling show()");
+                    m_audioSettingsDialog->show();
+                    Log::info("show() method called successfully");
+                } else {
+                    Log::info("ERROR: m_audioSettingsDialog is NULL!");
+                }
+                Log::info("===== P KEY HANDLER END =====");
             }
         });
         
-        // Mouse button callback for custom window interaction
-        m_window->setMouseButtonCallback([this](int button, bool pressed) {
-            // NUIPlatformBridge will handle forwarding to root component
-        });
-        
-        // Mouse move callback for custom window interaction
-        m_window->setMouseMoveCallback([this](int x, int y) {
-            // NUIPlatformBridge will handle forwarding to root component
-        });
+        // Mouse button and move callbacks are handled by NUIPlatformBridge
+        // Events will be forwarded to root component and its children
 
         // DPI change callback
         m_window->setDPIChangeCallback([this](float dpiScale) {
@@ -478,6 +609,7 @@ private:
     std::shared_ptr<NomadRootComponent> m_rootComponent;
     std::shared_ptr<NUICustomWindow> m_customWindow;
     std::shared_ptr<NomadContent> m_content;
+    std::shared_ptr<AudioSettingsDialog> m_audioSettingsDialog;
     bool m_running;
     bool m_audioInitialized;
 };

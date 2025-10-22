@@ -395,4 +395,90 @@ using NUIResizeCallback = std::function<void(const NUIResizeEvent&)>;
 using NUIUpdateCallback = std::function<void(double deltaTime)>;
 using NUIRenderCallback = std::function<void()>;
 
+// ============================================================================
+// Coordinate System Utilities
+// ============================================================================
+
+/**
+ * @brief Create an absolute NUIRect from a parent rect and relative offsets
+ * 
+ * This utility helps with NomadUI's absolute coordinate system by automatically
+ * calculating absolute positions from parent bounds and relative offsets.
+ * 
+ * @param parent The parent component's bounds (absolute coordinates)
+ * @param offsetX Relative X offset from parent's left edge
+ * @param offsetY Relative Y offset from parent's top edge
+ * @param width Width of the child component
+ * @param height Height of the child component
+ * @return NUIRect with absolute screen coordinates
+ * 
+ * @example
+ * // Instead of manually calculating:
+ * NUIRect parentBounds = getBounds();
+ * child->setBounds(NUIRect(parentBounds.x + 10, parentBounds.y + 20, 100, 50));
+ * 
+ * // Use the helper:
+ * child->setBounds(NUIAbsolute(getBounds(), 10, 20, 100, 50));
+ */
+inline NUIRect NUIAbsolute(const NUIRect& parent, float offsetX, float offsetY, float width, float height) {
+    return NUIRect(parent.x + offsetX, parent.y + offsetY, width, height);
+}
+
+/**
+ * @brief Create an absolute NUIPoint from a parent rect and relative offsets
+ * 
+ * @param parent The parent component's bounds (absolute coordinates)
+ * @param offsetX Relative X offset from parent's left edge
+ * @param offsetY Relative Y offset from parent's top edge
+ * @return NUIPoint with absolute screen coordinates
+ * 
+ * @example
+ * renderer.drawText("Hello", NUIAbsolutePoint(getBounds(), 10, 20), 16, color);
+ */
+inline NUIPoint NUIAbsolutePoint(const NUIRect& parent, float offsetX, float offsetY) {
+    return NUIPoint(parent.x + offsetX, parent.y + offsetY);
+}
+
+/**
+ * @brief Create a centered absolute NUIRect within a parent rect
+ * 
+ * @param parent The parent component's bounds (absolute coordinates)
+ * @param width Width of the child component
+ * @param height Height of the child component
+ * @return NUIRect centered within parent, with absolute screen coordinates
+ * 
+ * @example
+ * child->setBounds(NUICentered(getBounds(), 200, 100));
+ */
+inline NUIRect NUICentered(const NUIRect& parent, float width, float height) {
+    float x = parent.x + (parent.width - width) * 0.5f;
+    float y = parent.y + (parent.height - height) * 0.5f;
+    return NUIRect(x, y, width, height);
+}
+
+/**
+ * @brief Create an absolute NUIRect aligned to parent's edges
+ * 
+ * @param parent The parent component's bounds (absolute coordinates)
+ * @param left Left margin (or -1 to stretch to parent's left edge)
+ * @param top Top margin (or -1 to stretch to parent's top edge)
+ * @param right Right margin (or -1 to stretch to parent's right edge)
+ * @param bottom Bottom margin (or -1 to stretch to parent's bottom edge)
+ * @return NUIRect with absolute screen coordinates
+ * 
+ * @example
+ * // Fill parent with 10px margins on all sides
+ * child->setBounds(NUIAligned(getBounds(), 10, 10, 10, 10));
+ * 
+ * // Dock to top with 10px margins
+ * child->setBounds(NUIAligned(getBounds(), 10, 10, 10, -1));
+ */
+inline NUIRect NUIAligned(const NUIRect& parent, float left, float top, float right, float bottom) {
+    float x = parent.x + left;
+    float y = parent.y + top;
+    float width = parent.width - left - right;
+    float height = parent.height - top - bottom;
+    return NUIRect(x, y, width, height);
+}
+
 } // namespace NomadUI

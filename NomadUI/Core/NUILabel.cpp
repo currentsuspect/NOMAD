@@ -30,28 +30,30 @@ void NUILabel::onRender(NUIRenderer& renderer)
     // Draw text
     if (!text_.empty())
     {
-        // TODO: Set font when renderer supports it
-        // renderer.setFont(font_);
+        float fontSize = 14.0f;
+        auto textSize = renderer.measureText(text_, fontSize);
         
-        // Convert alignment
-        NUITextAlignment textAlign;
+        // Calculate text position based on alignment
+        float textX = bounds.x;
+        float textY = bounds.y + (bounds.height - textSize.height) / 2.0f;
+        
         switch (alignment_)
         {
             case Alignment::Left:
-                textAlign = NUITextAlignment::Left;
+                textX = bounds.x + 4.0f; // Small padding from left edge
                 break;
             case Alignment::Center:
-                textAlign = NUITextAlignment::Center;
+                textX = bounds.x + (bounds.width - textSize.width) / 2.0f;
                 break;
             case Alignment::Right:
-                textAlign = NUITextAlignment::Right;
+                textX = bounds.x + bounds.width - textSize.width - 4.0f; // Small padding from right edge
                 break;
             case Alignment::Justified:
-                textAlign = NUITextAlignment::Justified;
+                textX = bounds.x + (bounds.width - textSize.width) / 2.0f; // Center for now
                 break;
         }
         
-        renderer.drawTextCentered(text_, bounds, 14.0f, textColor_);
+        renderer.drawText(text_, NUIPoint(textX, textY), fontSize, textColor_);
     }
 }
 

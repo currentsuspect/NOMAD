@@ -145,6 +145,24 @@ void NUIComponent::setSize(float width, float height) {
     setBounds(bounds_.x, bounds_.y, width, height);
 }
 
+NUIRect NUIComponent::getGlobalBounds() const {
+    NUIRect r = getBounds();
+    std::cout << "[getGlobalBounds] Starting with local bounds: (" << r.x << "," << r.y << "," << r.width << "," << r.height << ")" << std::endl;
+    const NUIComponent* p = getParent();
+    int depth = 0;
+    while (p) {
+        const NUIRect& pb = p->getBounds();
+        std::cout << "[getGlobalBounds] Depth " << depth << " - Parent bounds: (" << pb.x << "," << pb.y << "," << pb.width << "," << pb.height << ")" << std::endl;
+        r.x += pb.x;
+        r.y += pb.y;
+        std::cout << "[getGlobalBounds] After adding parent, global so far: (" << r.x << "," << r.y << ")" << std::endl;
+        p = p->getParent();
+        depth++;
+    }
+    std::cout << "[getGlobalBounds] Final global bounds: (" << r.x << "," << r.y << "," << r.width << "," << r.height << ")" << std::endl;
+    return r;
+}
+
 // ============================================================================
 // Hierarchy
 // ============================================================================
