@@ -1,58 +1,38 @@
 #pragma once
 
-#include "NUIComponent.h"
-#include "NUIDropdown.h"
+#include "NUITypes.h"
 #include <memory>
 #include <vector>
 
 namespace NomadUI {
 
-/**
- * Global dropdown manager that ensures only one dropdown is open at a time
- * and handles proper Z-ordering and positioning to prevent clashing.
- */
+class NUIDropdown;
+class NUIDropdownContainer;
+class NUIComponent;
+
 class NUIDropdownManager {
 public:
     static NUIDropdownManager& getInstance();
-    
-    // ========================================================================
-    // Dropdown Registration
-    // ========================================================================
-    
-    void registerDropdown(std::shared_ptr<NUIDropdown> dropdown);
-    void unregisterDropdown(std::shared_ptr<NUIDropdown> dropdown);
-    
-    // ========================================================================
-    // Dropdown Control
-    // ========================================================================
-    
-    void openDropdown(std::shared_ptr<NUIDropdown> dropdown);
+
+    void registerDropdown(const std::shared_ptr<NUIDropdown>& dropdown);
+    void unregisterDropdown(const std::shared_ptr<NUIDropdown>& dropdown);
+
+    void openDropdown(const std::shared_ptr<NUIDropdown>& dropdown);
+    void closeDropdown(const std::shared_ptr<NUIDropdown>& dropdown);
     void closeAllDropdowns();
-    void closeDropdown(std::shared_ptr<NUIDropdown> dropdown);
-    
-    // ========================================================================
-    // State Management
-    // ========================================================================
-    
-    bool isAnyDropdownOpen() const;
-    std::shared_ptr<NUIDropdown> getOpenDropdown() const;
-    
-    // ========================================================================
-    // Positioning & Z-Order
-    // ========================================================================
-    
-    void updateDropdownPositions();
-    void setAvailableSpace(const NUIRect& space);
-    
+    void refreshOpenDropdown();
+
 private:
     NUIDropdownManager() = default;
-    ~NUIDropdownManager() = default;
-    
-    std::vector<std::weak_ptr<NUIDropdown>> registeredDropdowns_;
-    std::shared_ptr<NUIDropdown> openDropdown_;
-    NUIRect availableSpace_ = {0, 0, 1280, 720};
-    
-    void closeOtherDropdowns(std::shared_ptr<NUIDropdown> currentDropdown);
+
+    void pruneExpired();
+    std::shared_ptr<NUIComponent> resolveRoot(const std::shared_ptr<NUIDropdown>& dropdown) const;
+    NUIRect computeGlobalBounds(const NUIDropdown& dropdown) const;
+    NUIRect computeViewportBounds(const std::shared_ptr<NUIComponent>& root) const;
+
+    std::vector<std::weak_ptr<NUIDropdown>> dropdowns_;
+    std::weak_ptr<NUIDropdown> openDropdown_;
 };
 
 } // namespace NomadUI
+
