@@ -33,7 +33,7 @@ TransportBar::TransportBar()
 }
 
 void TransportBar::createIcons() {
-    // Play icon (triangle)
+    // Play icon (triangle) - Liminal Dark v2.0
     const char* playSvg = R"(
         <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M8 5v14l11-7z"/>
@@ -41,7 +41,7 @@ void TransportBar::createIcons() {
     )";
     m_playIcon = std::make_shared<NomadUI::NUIIcon>(playSvg);
     m_playIcon->setIconSize(NomadUI::NUIIconSize::Medium);
-    m_playIcon->setColorFromTheme("textPrimary");
+    m_playIcon->setColorFromTheme("accentCyan");  // #00bcd4 - Playful but professional blue
     
     // Pause icon (two bars)
     const char* pauseSvg = R"(
@@ -51,7 +51,7 @@ void TransportBar::createIcons() {
     )";
     m_pauseIcon = std::make_shared<NomadUI::NUIIcon>(pauseSvg);
     m_pauseIcon->setIconSize(NomadUI::NUIIconSize::Medium);
-    m_pauseIcon->setColorFromTheme("textPrimary");
+    m_pauseIcon->setColorFromTheme("accentCyan");  // #00bcd4 - Same as play
     
     // Stop icon (square)
     const char* stopSvg = R"(
@@ -61,9 +61,9 @@ void TransportBar::createIcons() {
     )";
     m_stopIcon = std::make_shared<NomadUI::NUIIcon>(stopSvg);
     m_stopIcon->setIconSize(NomadUI::NUIIconSize::Medium);
-    m_stopIcon->setColorFromTheme("textPrimary");
+    m_stopIcon->setColorFromTheme("textSecondary");  // #9a9aa3 - Inactive labels
     
-    // Record icon (circle)
+    // Record icon (circle) - Liminal Dark v2.0
     const char* recordSvg = R"(
         <svg viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="12" r="8"/>
@@ -71,14 +71,16 @@ void TransportBar::createIcons() {
     )";
     m_recordIcon = std::make_shared<NomadUI::NUIIcon>(recordSvg);
     m_recordIcon->setIconSize(NomadUI::NUIIconSize::Medium);
-    m_recordIcon->setColor(NomadUI::NUIColor(0.9f, 0.2f, 0.2f, 1.0f)); // Red
+    m_recordIcon->setColorFromTheme("error");  // #ff4d4d - Clear red for recording
 }
 
 void TransportBar::createButtons() {
     // Play/Pause button
     m_playButton = std::make_shared<NomadUI::NUIButton>();
     m_playButton->setText("");
+    m_playButton->setStyle(NomadUI::NUIButton::Style::Icon);
     m_playButton->setSize(40, 40);
+    m_playButton->setBackgroundColor(NomadUI::NUIColor(0.145f, 0.145f, 0.165f, 1.0f)); // #25252a - Grey button background
     m_playButton->setOnClick([this]() {
         togglePlayPause();
     });
@@ -87,7 +89,9 @@ void TransportBar::createButtons() {
     // Stop button
     m_stopButton = std::make_shared<NomadUI::NUIButton>();
     m_stopButton->setText("");
+    m_stopButton->setStyle(NomadUI::NUIButton::Style::Icon);
     m_stopButton->setSize(40, 40);
+    m_stopButton->setBackgroundColor(NomadUI::NUIColor(0.145f, 0.145f, 0.165f, 1.0f)); // #25252a - Grey button background
     m_stopButton->setOnClick([this]() {
         stop();
     });
@@ -96,7 +100,9 @@ void TransportBar::createButtons() {
     // Record button (for future use)
     m_recordButton = std::make_shared<NomadUI::NUIButton>();
     m_recordButton->setText("");
+    m_recordButton->setStyle(NomadUI::NUIButton::Style::Icon);
     m_recordButton->setSize(40, 40);
+    m_recordButton->setBackgroundColor(NomadUI::NUIColor(0.145f, 0.145f, 0.165f, 1.0f)); // #25252a - Grey button background
     m_recordButton->setEnabled(false); // Disabled for now
     addChild(m_recordButton);
 }
@@ -155,7 +161,7 @@ void TransportBar::setPosition(double seconds) {
 }
 
 void TransportBar::updateButtonStates() {
-    // Update play button text based on state
+    // Update play button text based on state (using text for now)
     if (m_state == TransportState::Playing) {
         m_playButton->setText("||"); // Pause symbol
     } else {
@@ -193,6 +199,46 @@ std::string TransportBar::formatTime(double seconds) const {
     return ss.str();
 }
 
+void TransportBar::renderButtonIcons(NomadUI::NUIRenderer& renderer) {
+    NomadUI::NUIRect bounds = getBounds();
+    
+    // Calculate button positions (same as layoutComponents)
+    float padding = 8.0f;
+    float buttonSize = 40.0f;
+    float spacing = 8.0f;
+    float centerOffsetY = (bounds.height - buttonSize) / 2.0f;
+    float x = padding;
+    
+    // Play/Pause button icon
+    if (m_playButton && m_playIcon && m_pauseIcon) {
+        NomadUI::NUIRect buttonRect(x, bounds.y + centerOffsetY, buttonSize, buttonSize);
+        auto icon = (m_state == TransportState::Playing) ? m_pauseIcon : m_playIcon;
+        if (icon) {
+            NomadUI::NUIRect iconRect(buttonRect.x + 8, buttonRect.y + 8, 24, 24);
+            icon->setBounds(iconRect);
+            icon->onRender(renderer);
+        }
+    }
+    x += buttonSize + spacing;
+    
+    // Stop button icon
+    if (m_stopButton && m_stopIcon) {
+        NomadUI::NUIRect buttonRect(x, bounds.y + centerOffsetY, buttonSize, buttonSize);
+        NomadUI::NUIRect iconRect(buttonRect.x + 8, buttonRect.y + 8, 24, 24);
+        m_stopIcon->setBounds(iconRect);
+        m_stopIcon->onRender(renderer);
+    }
+    x += buttonSize + spacing;
+    
+    // Record button icon
+    if (m_recordButton && m_recordIcon) {
+        NomadUI::NUIRect buttonRect(x, bounds.y + centerOffsetY, buttonSize, buttonSize);
+        NomadUI::NUIRect iconRect(buttonRect.x + 8, buttonRect.y + 8, 24, 24);
+        m_recordIcon->setBounds(iconRect);
+        m_recordIcon->onRender(renderer);
+    }
+}
+
 void TransportBar::layoutComponents() {
     NomadUI::NUIRect bounds = getBounds();
     float padding = 8.0f;
@@ -217,42 +263,71 @@ void TransportBar::layoutComponents() {
     m_recordButton->setBounds(NomadUI::NUIAbsolute(bounds, x, centerOffsetY, buttonSize, buttonSize));
     x += buttonSize + spacing * 2;
     
-    // Position label (larger, centered)
+    // Position label (left side) - improved vertical alignment
     float positionWidth = 120.0f;
     float positionHeight = 30.0f;
-    float positionOffsetY = (bounds.height - positionHeight) / 2.0f;
-    m_positionLabel->setBounds(NomadUI::NUIAbsolute(bounds, x, positionOffsetY, positionWidth, positionHeight));
+    float positionOffsetY = bounds.height / 2.0f - 15.0f; // Center for 30px height
+    m_positionLabel->setBounds(NomadUI::NUIRect(bounds.x + x, bounds.y + positionOffsetY, positionWidth, positionHeight));
     x += positionWidth + spacing * 2;
     
-    // Tempo label (right side)
+    // Tempo label (center) - improved vertical alignment
     float tempoWidth = 100.0f;
     float tempoHeight = 24.0f;
-    float tempoOffsetY = (bounds.height - tempoHeight) / 2.0f;
-    float tempoOffsetX = bounds.width - tempoWidth - padding;
-    m_tempoLabel->setBounds(NomadUI::NUIAbsolute(bounds, tempoOffsetX, tempoOffsetY, tempoWidth, tempoHeight));
+    float tempoOffsetY = bounds.height / 2.0f - 12.0f; // Center for 24px height
+    float tempoOffsetX = (bounds.width - tempoWidth) / 2.0f; // Center horizontally
+    m_tempoLabel->setBounds(NomadUI::NUIRect(bounds.x + tempoOffsetX, bounds.y + tempoOffsetY, tempoWidth, tempoHeight));
 }
 
 void TransportBar::onRender(NomadUI::NUIRenderer& renderer) {
     NomadUI::NUIRect bounds = getBounds();
     
-    // Get theme colors
+    // Get Liminal Dark v2.0 theme colors
     auto& themeManager = NomadUI::NUIThemeManager::getInstance();
-    NomadUI::NUIColor bgColor = themeManager.getColor("surfaceTertiary");
-    NomadUI::NUIColor borderColor = themeManager.getColor("borderSubtle");
+    NomadUI::NUIColor bgColor = themeManager.getColor("backgroundSecondary");  // #1b1b1f - Panels, sidebars
+    NomadUI::NUIColor borderColor = themeManager.getColor("border");           // #2e2e35 - Subtle separation lines
+    NomadUI::NUIColor accentCyan = themeManager.getColor("accentCyan");        // #00bcd4 - Accent cyan
+    NomadUI::NUIColor accentMagenta = themeManager.getColor("accentMagenta");  // #ff4081 - Accent magenta
     
-    // Draw background
-    renderer.fillRect(bounds, bgColor);
+    // Enhanced background with subtle gradient
+    NomadUI::NUIColor topBg = bgColor.darkened(0.02f);
+    NomadUI::NUIColor bottomBg = bgColor.lightened(0.01f);
+    for (int i = 0; i < static_cast<int>(bounds.height); ++i) {
+        float t = static_cast<float>(i) / bounds.height;
+        NomadUI::NUIColor gradientColor = NomadUI::NUIColor::lerp(topBg, bottomBg, t);
+        NomadUI::NUIRect lineRect(bounds.x, bounds.y + i, bounds.width, 1);
+        renderer.fillRect(lineRect, gradientColor);
+    }
     
-    // Draw top border
+    // Ambient glow bar at bottom - 1-2px neon gradient strip
+    NomadUI::NUIRect glowRect(bounds.x, bounds.y + bounds.height - 2, bounds.width, 2);
+    for (int i = 0; i < static_cast<int>(glowRect.width); ++i) {
+        float t = static_cast<float>(i) / glowRect.width;
+        NomadUI::NUIColor glowColor = NomadUI::NUIColor::lerp(accentCyan, accentMagenta, t);
+        NomadUI::NUIRect lineRect(glowRect.x + i, glowRect.y, 1, glowRect.height);
+        renderer.fillRect(lineRect, glowColor.withAlpha(0.8f));
+    }
+    
+    // Enhanced border with subtle glow
     renderer.drawLine(
         NomadUI::NUIPoint(bounds.x, bounds.y),
         NomadUI::NUIPoint(bounds.x + bounds.width, bounds.y),
         1.0f,
-        borderColor
+        borderColor.withAlpha(0.6f)
+    );
+    
+    // Add subtle inner highlight
+    renderer.drawLine(
+        NomadUI::NUIPoint(bounds.x, bounds.y + 1),
+        NomadUI::NUIPoint(bounds.x + bounds.width, bounds.y + 1),
+        1.0f,
+        NomadUI::NUIColor::white().withAlpha(0.05f)
     );
     
     // Render children (buttons and labels)
     renderChildren(renderer);
+    
+    // Render custom icons on top of buttons
+    renderButtonIcons(renderer);
 }
 
 void TransportBar::onResize(int width, int height) {

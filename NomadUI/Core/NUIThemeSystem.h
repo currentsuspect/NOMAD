@@ -43,6 +43,13 @@ struct NUIThemeProperties {
     NUIColor error;                  // #FF5E5E
     NUIColor info;                   // #6BCBFF
     
+    // Liminal Dark v2.0 Accent Colors
+    NUIColor accentCyan;             // #00bcd4 - Playful but professional blue
+    NUIColor accentMagenta;          // #ff4081 - Passion, energy - stereo right
+    NUIColor accentLime;             // #9eff61 - Active/Connected indicators
+    NUIColor accentPrimary;          // #00bcd4 - Primary accent (cyan)
+    NUIColor accentSecondary;        // #ff4081 - Secondary accent (magenta)
+    
     NUIColor onBackground;
     NUIColor onSurface;
     NUIColor onPrimary;

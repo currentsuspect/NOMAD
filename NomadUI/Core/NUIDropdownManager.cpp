@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <iostream>
 
 namespace NomadUI {
 
@@ -52,6 +53,9 @@ void NUIDropdownManager::openDropdown(const std::shared_ptr<NUIDropdown>& dropdo
         return;
     }
 
+    std::cout << "===== NUIDropdownManager::openDropdown =====" << std::endl;
+    std::cout << "Dropdown ID: " << dropdown->getId() << std::endl;
+
     pruneExpired();
 
     if (auto current = openDropdown_.lock()) {
@@ -62,25 +66,40 @@ void NUIDropdownManager::openDropdown(const std::shared_ptr<NUIDropdown>& dropdo
 
     auto container = dropdown->getContainer();
     if (!container) {
+        std::cout << "ERROR: No container found!" << std::endl;
         return;
     }
 
     auto root = resolveRoot(dropdown);
     if (!root) {
+        std::cout << "ERROR: No root found!" << std::endl;
         return;
     }
 
+    std::cout << "Root ID: " << root->getId() << std::endl;
+
     if (container->getParent() != root.get()) {
+        std::cout << "Adding container to root" << std::endl;
         root->addChild(container);
+    } else {
+        std::cout << "Container already in root" << std::endl;
     }
 
     NUIRect viewport = computeViewportBounds(root);
     NUIRect anchor = computeGlobalBounds(*dropdown);
 
+    std::cout << "Viewport: (" << viewport.x << "," << viewport.y << "," << viewport.width << "," << viewport.height << ")" << std::endl;
+    std::cout << "Anchor: (" << anchor.x << "," << anchor.y << "," << anchor.width << "," << anchor.height << ")" << std::endl;
+    std::cout << "Items count: " << dropdown->items_.size() << std::endl;
+
     container->show(dropdown, &dropdown->items_, dropdown->selectedIndex_, dropdown->maxVisibleItems_, anchor, viewport);
     dropdown->applyOpenState(true);
 
+    std::cout << "Container visible after show: " << container->isVisible() << std::endl;
+    std::cout << "Container enabled after show: " << container->isEnabled() << std::endl;
+
     openDropdown_ = dropdown;
+    std::cout << "===== NUIDropdownManager::openDropdown completed =====" << std::endl;
 }
 
 void NUIDropdownManager::closeDropdown(const std::shared_ptr<NUIDropdown>& dropdown) {

@@ -11,6 +11,10 @@ add_executable(NOMAD_DAW
     TransportBar.cpp
     AudioSettingsDialog.h
     AudioSettingsDialog.cpp
+    FileBrowser.h
+    FileBrowser.cpp
+    AudioVisualizer.h
+    AudioVisualizer.cpp
 )
 
 # Set C++ standard

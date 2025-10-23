@@ -57,7 +57,6 @@ void AudioSettingsDialog::createUI() {
         std::cout << "Selected device: " << text << " (ID: " << value << ")" << std::endl;
     });
     addChild(m_deviceDropdown);
-    m_deviceDropdown->registerWithManager();
     
     m_sampleRateDropdown = std::make_shared<NomadUI::NUIDropdown>();
     m_sampleRateDropdown->setId("sample_rate_dropdown");
@@ -68,7 +67,6 @@ void AudioSettingsDialog::createUI() {
         std::cout << "Selected sample rate: " << text << " Hz" << std::endl;
     });
     addChild(m_sampleRateDropdown);
-    m_sampleRateDropdown->registerWithManager();
     
     m_bufferSizeDropdown = std::make_shared<NomadUI::NUIDropdown>();
     m_bufferSizeDropdown->setId("buffer_size_dropdown");
@@ -79,7 +77,6 @@ void AudioSettingsDialog::createUI() {
         std::cout << "Selected buffer size: " << text << " samples" << std::endl;
     });
     addChild(m_bufferSizeDropdown);
-    m_bufferSizeDropdown->registerWithManager();
     
     // Create buttons
     m_applyButton = std::make_shared<NomadUI::NUIButton>();
@@ -462,6 +459,8 @@ bool AudioSettingsDialog::onMouseEvent(const NomadUI::NUIMouseEvent& event) {
     // Dropdown debugging only
     std::cout << "===== AudioSettingsDialog::onMouseEvent =====" << std::endl;
     std::cout << "Mouse position: (" << event.position.x << ", " << event.position.y << ")" << std::endl;
+    std::cout << "Dialog bounds: (" << m_dialogBounds.x << ", " << m_dialogBounds.y << ", " << m_dialogBounds.width << ", " << m_dialogBounds.height << ")" << std::endl;
+    std::cout << "Component bounds: (" << getBounds().x << ", " << getBounds().y << ", " << getBounds().width << ", " << getBounds().height << ")" << std::endl;
     
     // Check if click is outside dialog (close on background click)
     if (event.pressed && event.button == NomadUI::NUIMouseButton::Left) {

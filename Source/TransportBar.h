@@ -101,6 +101,7 @@ private:
     void updateButtonStates();
     void updateLabels();
     void layoutComponents();
+    void renderButtonIcons(NomadUI::NUIRenderer& renderer);
     std::string formatTime(double seconds) const;
 };
 
