@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 
 namespace NomadUI {
 namespace {
@@ -74,7 +75,20 @@ void NUIDropdownContainer::show(const std::shared_ptr<NUIDropdown>& owner,
     anchorBounds_ = anchorBounds;
     viewportBounds_ = viewportBounds;
 
-    setBounds(viewportBounds_);
+    // Calculate basic dropdown list bounds based on anchor position
+    // This will be refined in computeListBounds() during rendering
+    float spaceBelow = viewportBounds_.y + viewportBounds_.height - (anchorBounds_.y + anchorBounds_.height);
+    float spaceAbove = anchorBounds_.y - viewportBounds_.y;
+    bool openBelow = (spaceBelow >= 200.0f) || (spaceBelow >= spaceAbove); // Use reasonable default height
+    
+    float x = anchorBounds_.x;
+    float y = openBelow ? anchorBounds_.y + anchorBounds_.height + 2.0f
+                       : anchorBounds_.y - 200.0f - 2.0f; // Use reasonable default height
+    float width = anchorBounds_.width;
+    float height = 200.0f; // Use reasonable default height
+    
+    // Set bounds to calculated position, not the full viewport
+    setBounds(NUIRect(x, y, width, height));
     updateThemeColors();
 
     scrollOffset_ = 0.0f;
@@ -121,7 +135,12 @@ void NUIDropdownContainer::requestRelayout() {
 }
 
 void NUIDropdownContainer::onRender(NUIRenderer& renderer) {
+    std::cout << "===== NUIDropdownContainer::onRender =====" << std::endl;
+    std::cout << "Visible: " << isVisible() << ", Items: " << (items_ ? items_->size() : 0) << std::endl;
+    std::cout << "Bounds: (" << getBounds().x << "," << getBounds().y << "," << getBounds().width << "," << getBounds().height << ")" << std::endl;
+    
     if (!isVisible() || !items_ || items_->empty()) {
+        std::cout << "Container not rendering - visible:" << isVisible() << " items:" << (items_ ? items_->size() : 0) << std::endl;
         return;
     }
 

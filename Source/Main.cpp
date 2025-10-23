@@ -23,6 +23,8 @@
 #include "../NomadCore/include/NomadLog.h"
 #include "TransportBar.h"
 #include "AudioSettingsDialog.h"
+#include "FileBrowser.h"
+#include "AudioVisualizer.h"
 
 #include <memory>
 #include <iostream>
@@ -45,6 +47,23 @@ public:
         // Create transport bar
         m_transportBar = std::make_shared<TransportBar>();
         addChild(m_transportBar);
+        
+        // Create file browser - starts right below transport bar accent strip
+        m_fileBrowser = std::make_shared<NomadUI::FileBrowser>();
+        // Initial positioning - will be updated in onResize
+        m_fileBrowser->setBounds(NomadUI::NUIRect(0, 62, 280, 620)); // Right below transport bar (Y=62), no gap
+        m_fileBrowser->setOnFileOpened([this](const NomadUI::FileItem& file) {
+            Log::info("File opened: " + file.path);
+            // TODO: Load audio file or project
+        });
+        addChild(m_fileBrowser);
+        
+        // Create compact audio meter - positioned inside transport bar (right side)
+        m_audioVisualizer = std::make_shared<NomadUI::AudioVisualizer>();
+        m_audioVisualizer->setBounds(NomadUI::NUIRect(1100, 46, 80, 40)); // Inside transport bar (Y=46, height=40) - centered
+        m_audioVisualizer->setMode(NomadUI::AudioVisualizationMode::CompactMeter);
+        m_audioVisualizer->setShowStereo(true);
+        addChild(m_audioVisualizer);
     }
     
     void setAudioStatus(bool active) {
@@ -55,6 +74,11 @@ public:
         return m_transportBar.get();
     }
     
+    std::shared_ptr<NomadUI::AudioVisualizer> getAudioVisualizer() const {
+        return m_audioVisualizer;
+    }
+    
+    
     void onRender(NomadUI::NUIRenderer& renderer) override {
         // Note: bounds are set by parent (NUICustomWindow) to be below the title bar
         NomadUI::NUIRect bounds = getBounds();
@@ -64,46 +88,48 @@ public:
         // Transport bar height
         float transportHeight = 60.0f;
         
-        // Render children first (transport bar at top)
-        renderChildren(renderer);
-
-        // Get theme colors
+        // Get Liminal Dark v2.0 theme colors
         auto& themeManager = NomadUI::NUIThemeManager::getInstance();
-        NomadUI::NUIColor textColor = themeManager.getColor("textPrimary");
-        NomadUI::NUIColor accentColor = themeManager.getColor("primary");
+        NomadUI::NUIColor textColor = themeManager.getColor("textPrimary");        // #e6e6eb - Soft white
+        NomadUI::NUIColor accentColor = themeManager.getColor("accentCyan");       // #00bcd4 - Accent cyan
         NomadUI::NUIColor statusColor = m_audioActive ? 
-            themeManager.getColor("success") : themeManager.getColor("error");
+            themeManager.getColor("accentLime") : themeManager.getColor("error");  // #9eff61 for active, #ff4d4d for error
         
-        // Draw center panel with padding (below transport bar)
+        // Draw center panel with padding (below transport bar) - BACKGROUND FIRST
         // Use absolute coordinates since NUIComponent doesn't transform child coordinates
         NomadUI::NUIRect centerPanel(bounds.x + 20, bounds.y + transportHeight + 20, 
                                      width - 40, height - transportHeight - 40);
-        renderer.fillRoundedRect(centerPanel, 8, themeManager.getColor("surfaceRaised"));
+        renderer.fillRoundedRect(centerPanel, 8, themeManager.getColor("surfaceTertiary"));  // #25252a - Popups, transport bar, VU meter surface
+        
+        // Render children AFTER background (transport bar and other components on top)
+        renderChildren(renderer);
         
         // Calculate center position using absolute coordinates
         float centerX = bounds.x + (width / 2.0f);
         float centerY = bounds.y + transportHeight + ((height - transportHeight) / 2.0f);
         
-        // Draw welcome message
+        // Draw welcome message with enhanced styling
         std::string welcomeMsg = "NOMAD DAW - Ready";
         auto welcomeSize = renderer.measureText(welcomeMsg, 32);
+        float welcomeY = centerY - welcomeSize.height / 2.0f - 20; // Perfect vertical centering
         renderer.drawText(welcomeMsg, 
-                         NomadUI::NUIPoint(centerX - welcomeSize.width / 2.0f, 
-                                          centerY - welcomeSize.height / 2.0f), 
+                         NomadUI::NUIPoint(centerX - welcomeSize.width / 2.0f, welcomeY), 
                          32, textColor);
         
-        // Draw audio status
+        // Draw audio status with perfect alignment
         std::string statusText = m_audioActive ? "Audio: Active" : "Audio: Inactive";
         auto statusSize = renderer.measureText(statusText, 16);
+        float statusY = centerY + 20; // Perfect spacing from welcome message
         renderer.drawText(statusText, 
-                         NomadUI::NUIPoint(centerX - statusSize.width / 2.0f, centerY + 40), 
+                         NomadUI::NUIPoint(centerX - statusSize.width / 2.0f, statusY), 
                          16, statusColor);
         
-        // Draw instructions
+        // Draw instructions with perfect alignment
         std::string infoText = "Press SPACE to play/pause | ESC to exit | F11 for fullscreen";
         auto infoSize = renderer.measureText(infoText, 14);
+        float infoY = centerY + 50; // Perfect spacing from status
         renderer.drawText(infoText, 
-                         NomadUI::NUIPoint(centerX - infoSize.width / 2.0f, centerY + 70), 
+                         NomadUI::NUIPoint(centerX - infoSize.width / 2.0f, infoY), 
                          14, themeManager.getColor("textSecondary"));
     }
     
@@ -119,11 +145,30 @@ public:
                                                        static_cast<float>(width), transportHeight));
             m_transportBar->onResize(width, static_cast<int>(transportHeight));
         }
+        
+        // Update file browser bounds to be responsive
+        if (m_fileBrowser) {
+            float fileBrowserWidth = std::min(280.0f, width * 0.25f); // 25% of width or max 280px
+            float fileBrowserHeight = height - 62; // Full height minus transport bar (60px) + 2px gap
+            NomadUI::NUIRect contentBounds = getBounds();
+            m_fileBrowser->setBounds(NomadUI::NUIRect(contentBounds.x, contentBounds.y + 62, 
+                                                      fileBrowserWidth, fileBrowserHeight));
+        }
+        
+        // Update audio visualizer position
+        if (m_audioVisualizer) {
+            NomadUI::NUIRect contentBounds = getBounds();
+            m_audioVisualizer->setBounds(NomadUI::NUIRect(contentBounds.x + width - 100, 
+                                                          contentBounds.y + 10, 80, 40));
+        }
+        
         NomadUI::NUIComponent::onResize(width, height);
     }
     
 private:
     std::shared_ptr<TransportBar> m_transportBar;
+    std::shared_ptr<NomadUI::FileBrowser> m_fileBrowser;
+    std::shared_ptr<NomadUI::AudioVisualizer> m_audioVisualizer;
     bool m_audioActive = false;
 };
 
@@ -327,17 +372,25 @@ public:
             
             transport->setOnPlay([this]() {
                 Log::info("Transport: Play");
-                // TODO: Start audio playback
+                if (m_audioManager) {
+                    m_audioManager->startStream();
+                }
             });
             
             transport->setOnPause([this]() {
                 Log::info("Transport: Pause");
-                // TODO: Pause audio playback
+                if (m_audioManager) {
+                    m_audioManager->stopStream();
+                }
             });
             
-            transport->setOnStop([this]() {
+            transport->setOnStop([this, transport]() {
                 Log::info("Transport: Stop");
-                // TODO: Stop audio playback and reset position
+                if (m_audioManager) {
+                    m_audioManager->stopStream();
+                }
+                // Reset position to 0
+                transport->setPosition(0.0);
             });
             
             transport->setOnTempoChange([this](float bpm) {
@@ -530,9 +583,14 @@ private:
                     m_customWindow->toggleFullScreen();
                 }
             } else if (key == static_cast<int>(KeyCode::Space) && pressed) {
-                // Space bar to play/pause
+                // Space bar to play/stop (not pause)
                 if (m_content && m_content->getTransportBar()) {
-                    m_content->getTransportBar()->togglePlayPause();
+                    auto* transport = m_content->getTransportBar();
+                    if (transport->getState() == TransportState::Playing) {
+                        transport->stop();
+                    } else {
+                        transport->play();
+                    }
                 }
             } else if (key == static_cast<int>(KeyCode::P) && pressed) {
                 // P key to open audio settings (Preferences)
@@ -595,10 +653,43 @@ private:
      */
     static int audioCallback(float* outputBuffer, const float* inputBuffer, 
                             uint32_t nFrames, double streamTime, void* userData) {
-        // For now, just output silence
-        for (uint32_t i = 0; i < nFrames * 2; ++i) {
-            outputBuffer[i] = 0.0f;
+        NomadApp* app = static_cast<NomadApp*>(userData);
+        
+        // Generate a more dynamic test tone for visualization
+        static double phase = 0.0;
+        static double phase2 = 0.0;
+        double frequency = 440.0; // A4 note
+        double frequency2 = 880.0; // A5 note for stereo effect
+        double sampleRate = 48000.0;
+        double phaseIncrement = 2.0 * 3.14159265359 * frequency / sampleRate;
+        double phaseIncrement2 = 2.0 * 3.14159265359 * frequency2 / sampleRate;
+        
+        // Add some variation to make it more interesting
+        double time = streamTime;
+        double amplitude = 0.3f + 0.2f * std::sin(time * 2.0); // Varying amplitude
+        double stereoOffset = 0.1f * std::sin(time * 0.5); // Stereo movement
+        
+        for (uint32_t i = 0; i < nFrames; ++i) {
+            float leftSample = static_cast<float>(std::sin(phase) * amplitude);
+            float rightSample = static_cast<float>(std::sin(phase2 + stereoOffset) * amplitude);
+            
+            outputBuffer[i * 2] = leftSample;     // Left channel
+            outputBuffer[i * 2 + 1] = rightSample; // Right channel
+            
+            phase += phaseIncrement;
+            phase2 += phaseIncrement2;
         }
+        
+        // Send audio data to visualizer if available
+        if (app && app->m_content) {
+            // Get the audio visualizer from the content
+            auto visualizer = app->m_content->getAudioVisualizer();
+            if (visualizer) {
+                visualizer->setAudioData(
+                    outputBuffer, outputBuffer + 1, nFrames, sampleRate);
+            }
+        }
+        
         return 0;
     }
 
