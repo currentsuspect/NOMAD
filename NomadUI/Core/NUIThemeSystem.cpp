@@ -165,6 +165,13 @@ NUIColor NUIThemeManager::getColor(const std::string& colorName) const {
     if (colorName == "error") return theme.error;
     if (colorName == "info") return theme.info;
     
+    // Liminal Dark v2.0 Accent Colors
+    if (colorName == "accentCyan") return theme.accentCyan;
+    if (colorName == "accentMagenta") return theme.accentMagenta;
+    if (colorName == "accentLime") return theme.accentLime;
+    if (colorName == "accentPrimary") return theme.accentPrimary;
+    if (colorName == "accentSecondary") return theme.accentSecondary;
+    
     // Text
     if (colorName == "text") return theme.textPrimary;
     if (colorName == "textPrimary") return theme.textPrimary;
@@ -363,69 +370,76 @@ float NUIThemedComponent::getThemeFontSize(const std::string& fontSizeName) cons
 NUIThemeProperties NUIThemePresets::createNomadDark() {
     NUIThemeProperties theme;
     
-    // 🧱 1. Core Structure - Layered backgrounds
-    theme.backgroundPrimary = NUIColor(0.094f, 0.094f, 0.098f, 1.0f);    // #181819 - Deep matte black
-    theme.backgroundSecondary = NUIColor(0.118f, 0.118f, 0.122f, 1.0f);  // #1e1e1f - Panels, sidebars
-    theme.surfaceTertiary = NUIColor(0.141f, 0.141f, 0.157f, 1.0f);      // #242428 - Dialogs, popups
-    theme.surfaceRaised = NUIColor(0.173f, 0.173f, 0.192f, 1.0f);        // #2c2c31 - Cards, containers
+    // 🌌 Liminal Dark v2.0 - Core Structure
+    theme.backgroundPrimary = NUIColor(0.071f, 0.071f, 0.078f, 1.0f);    // #121214 - Deep charcoal, slightly cool-toned
+    theme.backgroundSecondary = NUIColor(0.106f, 0.106f, 0.122f, 1.0f);  // #1b1b1f - Panels, sidebars, file browser
+    theme.surfaceTertiary = NUIColor(0.145f, 0.145f, 0.165f, 1.0f);      // #25252a - Popups, transport bar, VU meter
+    theme.surfaceRaised = NUIColor(0.196f, 0.196f, 0.227f, 1.0f);        // #32323a - Cards, hover surface
     
     // Legacy compatibility
     theme.background = theme.backgroundPrimary;
     theme.surface = theme.backgroundSecondary;
     theme.surfaceVariant = theme.surfaceTertiary;
     
-    // 💡 2. Accent & Branding
-    theme.primary = NUIColor(0.545f, 0.498f, 1.0f, 1.0f);                // #8B7FFF - Core Nomad purple
-    theme.primaryHover = NUIColor(0.655f, 0.620f, 1.0f, 1.0f);           // #A79EFF - Hover variant
-    theme.primaryPressed = NUIColor(0.400f, 0.353f, 0.851f, 1.0f);       // #665AD9 - Pressed state
+    // 💡 2. Accent & Branding - Liminal Dark v2.0
+    theme.primary = NUIColor(0.0f, 0.737f, 0.831f, 1.0f);                // #00bcd4 - Accent Cyan
+    theme.primaryHover = NUIColor(0.2f, 0.8f, 0.9f, 1.0f);               // Lightened cyan for hover
+    theme.primaryPressed = NUIColor(0.0f, 0.6f, 0.7f, 1.0f);             // Darkened cyan for pressed
     theme.primaryVariant = theme.primaryPressed;
     
-    theme.secondary = theme.backgroundSecondary;
-    theme.secondaryVariant = NUIColor(0.5f, 0.5f, 0.6f, 1.0f);
+    theme.secondary = NUIColor(1.0f, 0.251f, 0.506f, 1.0f);              // #ff4081 - Accent Magenta
+    theme.secondaryVariant = NUIColor(0.8f, 0.2f, 0.4f, 1.0f);           // Darkened magenta
     
-    // 🌈 6. Functional Colors (Status Feedback)
-    theme.success = NUIColor(0.357f, 0.847f, 0.588f, 1.0f);              // #5BD896 - Green
-    theme.warning = NUIColor(1.0f, 0.847f, 0.420f, 1.0f);                // #FFD86B - Amber
-    theme.error = NUIColor(1.0f, 0.369f, 0.369f, 1.0f);                  // #FF5E5E - Red
-    theme.info = NUIColor(0.420f, 0.796f, 1.0f, 1.0f);                   // #6BCBFF - Cyan-blue
+    // Liminal Dark v2.0 Accent Colors
+    theme.accentCyan = NUIColor(0.0f, 0.737f, 0.831f, 1.0f);             // #00bcd4
+    theme.accentMagenta = NUIColor(1.0f, 0.251f, 0.506f, 1.0f);          // #ff4081
+    theme.accentLime = NUIColor(0.620f, 1.0f, 0.380f, 1.0f);             // #9eff61
+    theme.accentPrimary = theme.accentCyan;
+    theme.accentSecondary = theme.accentMagenta;
     
-    // 🧭 3. Text & Typography
-    theme.textPrimary = NUIColor(0.898f, 0.898f, 0.910f, 1.0f);          // #E5E5E8 - Main text
-    theme.textSecondary = NUIColor(0.651f, 0.651f, 0.667f, 1.0f);        // #A6A6AA - Subtext
-    theme.textDisabled = NUIColor(0.353f, 0.353f, 0.365f, 1.0f);         // #5A5A5D - Inactive
+    // 🌈 6. Functional Colors - Liminal Dark v2.0
+    theme.success = NUIColor(0.620f, 1.0f, 0.380f, 1.0f);                // #9eff61 - Lime for Active/Connected
+    theme.warning = NUIColor(1.0f, 0.847f, 0.420f, 1.0f);                // #FFD86B - Amber (unchanged)
+    theme.error = NUIColor(1.0f, 0.302f, 0.302f, 1.0f);                  // #ff4d4d - Clear red for recording/warnings
+    theme.info = NUIColor(0.0f, 0.737f, 0.831f, 1.0f);                   // #00bcd4 - Cyan (matches accent)
+    
+    // 🧭 3. Text & Typography - Liminal Dark v2.0
+    theme.textPrimary = NUIColor(0.902f, 0.902f, 0.922f, 1.0f);          // #e6e6eb - Soft white with no harsh contrast
+    theme.textSecondary = NUIColor(0.604f, 0.604f, 0.639f, 1.0f);        // #9a9aa3 - Inactive labels or details
+    theme.textDisabled = NUIColor(0.478f, 0.478f, 0.518f, 1.0f);         // #7a7a84 - Inactive text
     theme.textLink = theme.primary;                                       // #8B7FFF - Links/actions
     theme.textCritical = theme.error;                                     // #FF5E5E - Errors
     
-    // 🪞 5. Borders & Highlights
-    theme.borderSubtle = NUIColor(0.173f, 0.173f, 0.184f, 1.0f);         // #2c2c2f - Divider lines
-    theme.borderActive = theme.primary;                                   // #8B7FFF - Selected/focused
+    // 🪞 5. Borders & Highlights - Liminal Dark v2.0
+    theme.borderSubtle = NUIColor(0.180f, 0.180f, 0.208f, 1.0f);         // #2e2e35 - Subtle separation lines
+    theme.borderActive = theme.primary;                                   // #00bcd4 - Selected/focused (cyan)
     theme.border = theme.borderSubtle;
-    theme.divider = NUIColor(0.2f, 0.2f, 0.25f, 1.0f);
+    theme.divider = NUIColor(0.180f, 0.180f, 0.208f, 1.0f);              // #2e2e35 - Same as border
     theme.outline = NUIColor(0.4f, 0.4f, 0.45f, 1.0f);
     theme.outlineVariant = NUIColor(0.25f, 0.25f, 0.3f, 1.0f);
     
-    // 🖱️ 4. Interactive Elements - Buttons
-    theme.buttonBgDefault = theme.surfaceTertiary;                        // #242428
-    theme.buttonBgHover = NUIColor(0.180f, 0.180f, 0.200f, 1.0f);        // #2e2e33
-    theme.buttonBgActive = theme.primary;                                 // #8B7FFF
-    theme.buttonTextDefault = theme.textPrimary;                          // #E5E5E8
-    theme.buttonTextActive = NUIColor(1.0f, 1.0f, 1.0f, 1.0f);          // #ffffff
+    // 🖱️ 4. Interactive Elements - Buttons (Liminal Dark v2.0)
+    theme.buttonBgDefault = theme.surfaceTertiary;                        // #25252a - Transport bar, VU meter surface
+    theme.buttonBgHover = NUIColor(0.196f, 0.196f, 0.227f, 1.0f);        // #32323a - Hovered buttons, focused areas
+    theme.buttonBgActive = theme.primary;                                 // #00bcd4 - Active state (cyan)
+    theme.buttonTextDefault = theme.textPrimary;                          // #e6e6eb - Soft white
+    theme.buttonTextActive = NUIColor(1.0f, 1.0f, 1.0f, 1.0f);          // #ffffff - Bright white for active
     
-    // Toggle / Switch
-    theme.toggleDefault = NUIColor(0.227f, 0.227f, 0.247f, 1.0f);        // #3a3a3f
-    theme.toggleHover = NUIColor(0.290f, 0.290f, 0.314f, 1.0f);          // #4a4a50
-    theme.toggleActive = theme.primary;                                   // #8B7FFF
+    // Toggle / Switch (Liminal Dark v2.0)
+    theme.toggleDefault = NUIColor(0.227f, 0.227f, 0.247f, 1.0f);        // #3a3a3f - Unchanged
+    theme.toggleHover = NUIColor(0.290f, 0.290f, 0.314f, 1.0f);          // #4a4a50 - Unchanged
+    theme.toggleActive = theme.primary;                                   // #00bcd4 - Cyan active state
     
-    // Input Fields
-    theme.inputBgDefault = NUIColor(0.106f, 0.106f, 0.110f, 1.0f);       // #1b1b1c
-    theme.inputBgHover = NUIColor(0.122f, 0.122f, 0.125f, 1.0f);         // #1f1f20
-    theme.inputBorderFocus = theme.primary;                               // #8B7FFF
+    // Input Fields (Liminal Dark v2.0)
+    theme.inputBgDefault = NUIColor(0.106f, 0.106f, 0.122f, 1.0f);       // #1b1b1f - Secondary background
+    theme.inputBgHover = NUIColor(0.196f, 0.196f, 0.227f, 1.0f);         // #32323a - Hover surface
+    theme.inputBorderFocus = theme.primary;                               // #00bcd4 - Cyan focus
     
-    // Sliders
-    theme.sliderTrack = NUIColor(0.165f, 0.165f, 0.180f, 1.0f);          // #2a2a2e
-    theme.sliderHandle = theme.primary;                                   // #8B7FFF
-    theme.sliderHandleHover = theme.primaryHover;                         // #A79EFF
-    theme.sliderHandlePressed = theme.primaryPressed;                     // #665AD9
+    // Sliders (Liminal Dark v2.0)
+    theme.sliderTrack = NUIColor(0.165f, 0.165f, 0.180f, 1.0f);          // #2a2a2e - Unchanged
+    theme.sliderHandle = theme.primary;                                   // #00bcd4 - Cyan handle
+    theme.sliderHandleHover = theme.primaryHover;                         // Lightened cyan for hover
+    theme.sliderHandlePressed = theme.primaryPressed;                     // Darkened cyan for pressed
     
     // Interactive states (legacy)
     theme.hover = NUIColor(1.0f, 1.0f, 1.0f, 0.08f);

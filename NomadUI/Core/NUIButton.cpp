@@ -183,30 +183,44 @@ void NUIButton::onRender(NUIRenderer& renderer)
         }
         case Style::Icon:
         {
-            // Enhanced circular background with shadow
+            // Enhanced circular background using rounded rect for better anti-aliasing
             auto center = scaledBounds.getCentre();
             float radius = std::min(scaledBounds.getWidth(), scaledBounds.getHeight()) * 0.4f;
+            float cornerRadius = radius; // Use full radius for perfect circle
             
             // Hover glow effect
             if (state_ == State::Hovered)
             {
-                renderer.fillCircle(center, radius + 3, bgColor.withAlpha(0.3f));
+                NUIRect glowRect = scaledBounds;
+                glowRect.x -= 3;
+                glowRect.y -= 3;
+                glowRect.width += 6;
+                glowRect.height += 6;
+                renderer.fillRoundedRect(glowRect, cornerRadius + 3, bgColor.withAlpha(0.3f * opacity));
             }
             
             // Shadow
-            NUIPoint shadowCenter = center;
-            shadowCenter.x += 1;
-            shadowCenter.y += 1;
-            renderer.fillCircle(shadowCenter, radius, NUIColor(0, 0, 0, 0.3f));
+            NUIRect shadowRect = scaledBounds;
+            shadowRect.x += 1;
+            shadowRect.y += 1;
+            renderer.fillRoundedRect(shadowRect, cornerRadius, NUIColor(0, 0, 0, 0.3f * opacity));
             
-            // Main circle with gradient effect
-            NUIColor topColor = bgColor.lightened(0.2f);
-            NUIColor bottomColor = bgColor.darkened(0.1f);
-            renderer.fillCircle(center, radius, topColor);
-            renderer.fillCircle(center, radius * 0.8f, bottomColor);
+            // Main circle with gradient effect using rounded rect
+            NUIColor topColor = bgColor.lightened(0.2f).withAlpha(opacity);
+            NUIColor bottomColor = bgColor.darkened(0.1f).withAlpha(opacity);
+            renderer.fillRoundedRect(scaledBounds, cornerRadius, topColor);
             
-            // Border
-            renderer.strokeCircle(center, radius, 1.0f, bgColor.lightened(0.4f));
+            // Inner circle for gradient effect
+            NUIRect innerRect = scaledBounds;
+            float innerPadding = radius * 0.2f;
+            innerRect.x += innerPadding;
+            innerRect.y += innerPadding;
+            innerRect.width -= innerPadding * 2;
+            innerRect.height -= innerPadding * 2;
+            renderer.fillRoundedRect(innerRect, cornerRadius - innerPadding, bottomColor);
+            
+            // Smooth border with anti-aliasing
+            renderer.strokeRoundedRect(scaledBounds, cornerRadius, 1.5f, bgColor.lightened(0.4f).withAlpha(opacity));
             break;
         }
     }

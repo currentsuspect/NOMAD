@@ -54,6 +54,7 @@ bool PlatformWindowWin32::create(const WindowDesc& desc) {
         style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
     }
     if (!desc.decorated) {
+        // Use WS_POPUP for truly borderless window
         style = WS_POPUP;
     }
 
@@ -80,8 +81,14 @@ bool PlatformWindowWin32::create(const WindowDesc& desc) {
     MultiByteToWideChar(CP_UTF8, 0, m_title.c_str(), -1, wideTitle, titleLen);
 
     // Create window
+    DWORD exStyle = 0;
+    if (!desc.decorated) {
+        // Use WS_EX_TOOLWINDOW to make it appear in screenshots while staying borderless
+        exStyle = WS_EX_TOOLWINDOW;
+    }
+    
     m_hwnd = CreateWindowExW(
-        0,
+        exStyle,
         WINDOW_CLASS_NAME,
         wideTitle,
         style,
@@ -327,6 +334,31 @@ LRESULT PlatformWindowWin32::handleMessage(UINT msg, WPARAM wParam, LPARAM lPara
                 }
                 
                 return HTCLIENT;
+            }
+            break;
+        }
+        
+        case WM_SYSCOMMAND: {
+            // Custom maximize/restore logic for borderless windows (FL Studio style)
+            DWORD style = GetWindowLong(m_hwnd, GWL_STYLE);
+            if (!(style & WS_CAPTION)) {
+                if ((wParam & 0xFFF0) == SC_MAXIMIZE) {
+                    MONITORINFO mi = { sizeof(mi) };
+                    GetMonitorInfo(MonitorFromWindow(m_hwnd, MONITOR_DEFAULTTONEAREST), &mi);
+                    SetWindowPos(m_hwnd, nullptr,
+                        mi.rcWork.left,
+                        mi.rcWork.top,
+                        mi.rcWork.right - mi.rcWork.left,
+                        mi.rcWork.bottom - mi.rcWork.top,
+                        SWP_NOZORDER | SWP_FRAMECHANGED);
+                    return 0;
+                }
+                else if ((wParam & 0xFFF0) == SC_RESTORE) {
+                    // Restore to previous size (you might want to store the previous size)
+                    SetWindowPos(m_hwnd, nullptr, 100, 100, 1280, 720, 
+                        SWP_NOZORDER | SWP_FRAMECHANGED);
+                    return 0;
+                }
             }
             break;
         }

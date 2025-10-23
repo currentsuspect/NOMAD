@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 
 namespace NomadUI {
 namespace {
@@ -51,7 +52,7 @@ NUIDropdown::NUIDropdown() {
 
 NUIDropdown::~NUIDropdown() {
     if (container_) {
-        container_->close();
+        container_->beginClose();
         container_.reset();
     }
 }
@@ -73,7 +74,7 @@ void NUIDropdown::addItem(const std::string& text, int value) {
 
 void NUIDropdown::addItem(const NUIDropdownItem& item) {
     items_.push_back(item);
-    setDirty(true);
+                setDirty(true);
     refreshContainerLayout();
 }
 
@@ -218,14 +219,24 @@ bool NUIDropdown::onMouseEvent(const NUIMouseEvent& event) {
     if (!isEnabled()) {
         return false;
     }
-
+    
     NUIRect bounds = getBounds();
     bool inside = bounds.contains(event.position);
     pointerInside_ = inside;
 
+    // Debug output
+    if (event.pressed && event.button == NUIMouseButton::Left) {
+        std::cout << "===== NUIDropdown mouse click =====" << std::endl;
+        std::cout << "Dropdown ID: " << getId() << std::endl;
+        std::cout << "Mouse position: (" << event.position.x << ", " << event.position.y << ")" << std::endl;
+        std::cout << "Dropdown bounds: (" << bounds.x << ", " << bounds.y << ", " << bounds.width << ", " << bounds.height << ")" << std::endl;
+        std::cout << "Contains click: " << inside << std::endl;
+    }
+
     if (event.pressed && event.button == NUIMouseButton::Left) {
         pressedInside_ = inside;
         if (inside) {
+            std::cout << "*** DROPDOWN CLICKED - TOGGLING ***" << std::endl;
             toggleDropdown();
             return true;
         }
@@ -249,8 +260,8 @@ bool NUIDropdown::onKeyEvent(const NUIKeyEvent& event) {
 
     if (event.pressed) {
         if (event.keyCode == NUIKeyCode::Escape) {
-            closeDropdown();
-            return true;
+                closeDropdown();
+                return true;
         }
     }
 
@@ -276,7 +287,17 @@ void NUIDropdown::toggleDropdown() {
 void NUIDropdown::openDropdown() {
     ensureRegistration();
     auto self = std::static_pointer_cast<NUIDropdown>(shared_from_this());
+    std::cout << "===== NUIDropdown::openDropdown =====" << std::endl;
+    std::cout << "Dropdown ID: " << getId() << std::endl;
+    std::cout << "Number of items: " << items_.size() << std::endl;
+    std::cout << "Selected index: " << selectedIndex_ << std::endl;
+    std::cout << "Container exists: " << (container_ != nullptr) << std::endl;
+    if (container_) {
+        std::cout << "Container visible: " << container_->isVisible() << std::endl;
+        std::cout << "Container enabled: " << container_->isEnabled() << std::endl;
+    }
     NUIDropdownManager::getInstance().openDropdown(self);
+    std::cout << "===== NUIDropdown::openDropdown completed =====" << std::endl;
 }
 
 void NUIDropdown::closeDropdown() {
