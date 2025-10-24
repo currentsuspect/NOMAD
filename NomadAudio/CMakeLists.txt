@@ -5,6 +5,60 @@ project(NomadAudio VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Optional ASIO SDK path (not committed to repo). If provided, RtAudio will be
+# built/compiled with ASIO support by defining __WINDOWS_ASIO__ and adding the
+# SDK include path. The ASIO SDK is proprietary and should not be checked into
+# the repository. Example: -DDASIO_SDK_ROOT="C:/ASIOSDK"
+option(ASIO_SDK_ROOT "Path to ASIO SDK root directory (optional). Defaults to NomadAudio/External/ASIOSDK if present." "${CMAKE_CURRENT_SOURCE_DIR}/External/ASIOSDK")
+
+if(ASIO_SDK_ROOT)
+    message(STATUS "ASIO SDK root provided: ${ASIO_SDK_ROOT}")
+
+    # Try to detect common SDK layouts and pick the include folder containing asio.h
+    set(ASIO_INC_DIR "${ASIO_SDK_ROOT}")
+    if(EXISTS "${ASIO_SDK_ROOT}/asio.h")
+        set(ASIO_INC_DIR "${ASIO_SDK_ROOT}")
+    elseif(EXISTS "${ASIO_SDK_ROOT}/include/asio.h")
+        set(ASIO_INC_DIR "${ASIO_SDK_ROOT}/include")
+    elseif(EXISTS "${ASIO_SDK_ROOT}/ASIOSDK/asio.h")
+        set(ASIO_INC_DIR "${ASIO_SDK_ROOT}/ASIOSDK")
+    elseif(EXISTS "${ASIO_SDK_ROOT}/ASIOSDK/include/asio.h")
+        set(ASIO_INC_DIR "${ASIO_SDK_ROOT}/ASIOSDK/include")
+    elseif(EXISTS "${ASIO_SDK_ROOT}/ASIOSDK/common/asio.h")
+        set(ASIO_INC_DIR "${ASIO_SDK_ROOT}/ASIOSDK/common")
+    elseif(EXISTS "${ASIO_SDK_ROOT}/common/asio.h")
+        set(ASIO_INC_DIR "${ASIO_SDK_ROOT}/common")
+    endif()
+
+    # Verify required ASIO headers are present (asio.h and asiodrivers.h).
+    set(ASIO_HEADERS_OK FALSE)
+
+    # Check for asiodrivers.h anywhere inside the SDK root (common SDK layouts put it under 'host' or similar).
+    file(GLOB_RECURSE ASIO_DRIVER_HDRS RELATIVE "${ASIO_SDK_ROOT}" "${ASIO_SDK_ROOT}/*/asiodrivers.h" "${ASIO_SDK_ROOT}/**/asiodrivers.h")
+
+    set(ASIO_DRIVER_DIR "")
+    if(ASIO_DRIVER_HDRS)
+        list(GET ASIO_DRIVER_HDRS 0 ASIO_DRIVER_PATH)
+        get_filename_component(ASIO_DRIVER_DIR "${ASIO_SDK_ROOT}/${ASIO_DRIVER_PATH}" DIRECTORY)
+    endif()
+
+    if(EXISTS "${ASIO_INC_DIR}/asio.h" AND ASIO_DRIVER_DIR AND EXISTS "${ASIO_DRIVER_DIR}/asiodrivers.h")
+        set(ASIO_HEADERS_OK TRUE)
+    endif()
+
+    if(ASIO_HEADERS_OK)
+        # Add both the primary include dir and the driver header dir (they may differ)
+        include_directories(${ASIO_INC_DIR} ${ASIO_DRIVER_DIR})
+        message(STATUS "ASIO include dir: ${ASIO_INC_DIR}")
+        message(STATUS "ASIO driver header dir: ${ASIO_DRIVER_DIR}")
+        add_definitions(-D__WINDOWS_ASIO__)
+    else()
+        message(WARNING "ASIO SDK found at ${ASIO_SDK_ROOT} but required headers (asio.h + asiodrivers.h) were not both located under the detected include paths. ASIO support will be disabled.")
+    endif()
+else()
+    message(STATUS "ASIO SDK not provided. ASIO support will be disabled in RtAudio unless configured externally.")
+endif()
+
 # =============================================================================
 # RtAudio Integration (MIT License)
 # =============================================================================
@@ -19,6 +73,19 @@ set(RTAUDIO_SOURCES
 set(RTAUDIO_HEADERS
     ${RTAUDIO_DIR}/RtAudio.h
 )
+
+# If the ASIO SDK was detected above (we set ASIO_INC_DIR), include the
+# IASIO thiscall resolver source so RtAudio's ASIO path can compile on
+# non-MSVC compilers. The resolver is only required when asio.h is present.
+if(DEFINED ASIO_INC_DIR AND ASIO_HEADERS_OK)
+    list(APPEND RTAUDIO_SOURCES
+        ${RTAUDIO_DIR}/iasiothiscallresolver.cpp
+    )
+    list(APPEND RTAUDIO_HEADERS
+        ${RTAUDIO_DIR}/iasiothiscallresolver.h
+    )
+    message(STATUS "Including IASIO thiscall resolver in build (ASIO SDK detected)")
+endif()
 
 # Platform-specific audio APIs
 if(WIN32)
@@ -56,6 +123,7 @@ endif()
 
 set(NOMAD_AUDIO_SOURCES
     src/AudioDeviceManager.cpp
+    src/NomadASIOBackend.cpp
     src/RtAudioBackend.cpp
     src/AudioProcessor.cpp
     src/MixerBus.cpp
@@ -66,6 +134,7 @@ set(NOMAD_AUDIO_HEADERS
     include/NomadAudio.h
     include/AudioDeviceManager.h
     include/AudioDriver.h
+    src/NomadASIOBackend.h
     include/AudioProcessor.h
     include/MixerBus.h
     include/Oscillator.h

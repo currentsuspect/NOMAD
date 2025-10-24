@@ -83,8 +83,8 @@ bool PlatformWindowWin32::create(const WindowDesc& desc) {
     // Create window
     DWORD exStyle = 0;
     if (!desc.decorated) {
-        // Use WS_EX_TOOLWINDOW to make it appear in screenshots while staying borderless
-        exStyle = WS_EX_TOOLWINDOW;
+        // Use WS_EX_APPWINDOW to make it appear in taskbar and Alt+Tab
+        exStyle = WS_EX_APPWINDOW;
     }
     
     m_hwnd = CreateWindowExW(

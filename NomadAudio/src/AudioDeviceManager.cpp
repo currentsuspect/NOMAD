@@ -1,5 +1,6 @@
 #include "AudioDeviceManager.h"
 #include "RtAudioBackend.h"
+#include "NomadASIOBackend.h"
 
 namespace Nomad {
 namespace Audio {
@@ -22,7 +23,17 @@ bool AudioDeviceManager::initialize() {
     }
 
     try {
+        // Prefer NomadASIOBackend on Windows to leverage ASIO low-latency if available.
+#if defined(_WIN32) || defined(WIN32)
+        try {
+            m_driver = std::make_unique<NomadASIOBackend>();
+        } catch (...) {
+            // Fallback to generic RtAudio backend if NomadASIOBackend cannot be constructed
+            m_driver = std::make_unique<RtAudioBackend>();
+        }
+#else
         m_driver = std::make_unique<RtAudioBackend>();
+#endif
         m_initialized = true;
         return true;
     } catch (...) {
@@ -272,6 +283,9 @@ const char* getVersion() {
 }
 
 const char* getBackendName() {
+#if defined(__WINDOWS_NOMADASIO__)
+    return "NomadASIO";
+#endif
 #if defined(__WINDOWS_WASAPI__)
     return "WASAPI";
 #elif defined(__WINDOWS_DS__)

@@ -8,7 +8,7 @@
 #include "../NomadUI/Core/NUIComponent.h"
 #include "../NomadUI/Core/NUIButton.h"
 #include "../NomadUI/Core/NUILabel.h"
-#include "../NomadUI/Core/NUIDropdown.h"
+#include "../NomadUI/Widgets/NUIDropdown.h"
 #include "../NomadAudio/include/AudioDeviceManager.h"
 #include <memory>
 #include <functional>
@@ -69,27 +69,27 @@ private:
     
     // Device list
     std::vector<Audio::AudioDeviceInfo> m_devices;
-    int m_selectedDeviceIndex;
     uint32_t m_selectedDeviceId;
     
     // Sample rate list
     std::vector<uint32_t> m_sampleRates;
-    int m_selectedSampleRateIndex;
     uint32_t m_selectedSampleRate;
     
     // Buffer size list
     std::vector<uint32_t> m_bufferSizes;
-    int m_selectedBufferSizeIndex;
     uint32_t m_selectedBufferSize;
     
-    // Buttons
+    // UI Components
     std::shared_ptr<NomadUI::NUIButton> m_applyButton;
     std::shared_ptr<NomadUI::NUIButton> m_cancelButton;
-    
-    // Dropdowns
     std::shared_ptr<NomadUI::NUIDropdown> m_deviceDropdown;
     std::shared_ptr<NomadUI::NUIDropdown> m_sampleRateDropdown;
     std::shared_ptr<NomadUI::NUIDropdown> m_bufferSizeDropdown;
+    
+    // Labels
+    std::shared_ptr<NomadUI::NUILabel> m_deviceLabel;
+    std::shared_ptr<NomadUI::NUILabel> m_sampleRateLabel;
+    std::shared_ptr<NomadUI::NUILabel> m_bufferSizeLabel;
     
     // Callbacks
     std::function<void()> m_onApply;

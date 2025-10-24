@@ -10,7 +10,7 @@ The NOMAD DAW uses a truly borderless window design (`WS_POPUP` style) for a pro
 ```cpp
 // Borderless window creation
 DWORD style = WS_POPUP;
-DWORD exStyle = WS_EX_TOOLWINDOW;
+DWORD exStyle = WS_EX_APPWINDOW;
 ```
 
 ### The Problem
@@ -88,5 +88,5 @@ This decision aligns with industry standards and provides the best user experien
 
 ---
 
-*Document created: December 2024*  
+*Document created: October 2025*  
 *Status: Accepted limitation - no further action required*
