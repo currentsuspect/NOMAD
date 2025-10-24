@@ -1,378 +1,246 @@
 #include "NUIDropdown.h"
-#include "NUIDropdownContainer.h"
-#include "NUIDropdownManager.h"
-#include "NUIThemeSystem.h"
 #include "../Graphics/NUIRenderer.h"
-
-#include <algorithm>
-#include <cmath>
-#include <iostream>
+#include "NUITheme.h"
 
 namespace NomadUI {
-namespace {
-constexpr float kArrowAnimationSpeed = 10.0f;
-constexpr float kHoverAnimationSpeed = 12.0f;
-constexpr float kButtonFontSize = 14.0f;
 
-float clamp01(float value) {
-    return std::max(0.0f, std::min(1.0f, value));
-}
-
-float approach(float current, float target, float delta) {
-    if (current < target) {
-        current = std::min(target, current + delta);
-    } else {
-        current = std::max(target, current - delta);
-    }
-    return current;
-}
-
-float easeOutCubic(float t) {
-    float inv = 1.0f - t;
-    return 1.0f - inv * inv * inv;
-}
-} // namespace
-
-NUIDropdown::NUIDropdown() {
-    setLayer(NUILayer::Content);
-
-    auto& themeManager = NUIThemeManager::getInstance();
-    backgroundColor_ = themeManager.getColor("dropdown.background");
-    borderColor_ = themeManager.getColor("dropdown.border");
-    textColor_ = themeManager.getColor("dropdown.text");
-    arrowColor_ = themeManager.getColor("dropdown.arrow");
-    hoverColor_ = themeManager.getColor("dropdown.hover");
-    focusColor_ = themeManager.getColor("dropdown.focus");
-    disabledColor_ = themeManager.getColor("textDisabled");
-
-    container_ = std::make_shared<NUIDropdownContainer>();
-    container_->setVisible(false);
-    container_->setEnabled(false);
-}
-
-NUIDropdown::~NUIDropdown() {
-    if (container_) {
-        container_->beginClose();
-        container_.reset();
-    }
-}
-
-void NUIDropdown::ensureRegistration() {
-    if (registeredWithManager_) {
-        return;
+    NUIDropdown::NUIDropdown() 
+        : selectedIndex(0)
+        , isOpen(false)
+    {
+        addChild(std::make_shared<NUILabel>(currentSelectionLabel));
+        updateCurrentSelectionLabel();
     }
 
-    if (auto self = std::static_pointer_cast<NUIDropdown>(shared_from_this())) {
-        NUIDropdownManager::getInstance().registerDropdown(self);
-        registeredWithManager_ = true;
-    }
-}
-
-void NUIDropdown::addItem(const std::string& text, int value) {
-    addItem(NUIDropdownItem{text, value, true, true});
-}
-
-void NUIDropdown::addItem(const NUIDropdownItem& item) {
-    items_.push_back(item);
-                setDirty(true);
-    refreshContainerLayout();
-}
-
-void NUIDropdown::setItems(const std::vector<NUIDropdownItem>& items) {
-    items_ = items;
-    selectedIndex_ = std::clamp(selectedIndex_, -1, static_cast<int>(items_.size()) - 1);
-    setDirty(true);
-    refreshContainerLayout();
-}
-
-void NUIDropdown::clear() {
-    items_.clear();
-    selectedIndex_ = -1;
-    hoveredIndex_ = -1;
-    setDirty(true);
-    refreshContainerLayout();
-}
-
-void NUIDropdown::setSelectedIndex(int index) {
-    if (index < 0 || index >= static_cast<int>(items_.size())) {
-        selectedIndex_ = -1;
-    } else if (items_[index].visible && items_[index].enabled) {
-        selectedIndex_ = index;
+    NUIDropdown::~NUIDropdown() {
+        items.clear();
     }
 
-    setDirty(true);
-    refreshContainerLayout();
-}
-
-void NUIDropdown::setSelectedValue(int value) {
-    for (size_t i = 0; i < items_.size(); ++i) {
-        if (items_[i].value == value && items_[i].visible && items_[i].enabled) {
-            setSelectedIndex(static_cast<int>(i));
-            return;
-        }
-    }
-}
-
-int NUIDropdown::getSelectedValue() const {
-    if (selectedIndex_ >= 0 && selectedIndex_ < static_cast<int>(items_.size())) {
-        return items_[selectedIndex_].value;
-    }
-    return 0;
-}
-
-std::string NUIDropdown::getSelectedText() const {
-    if (selectedIndex_ >= 0 && selectedIndex_ < static_cast<int>(items_.size())) {
-        return items_[selectedIndex_].text;
-    }
-    return std::string();
-}
-
-void NUIDropdown::setPlaceholderText(const std::string& text) {
-    placeholderText_ = text;
-    setDirty(true);
-}
-
-void NUIDropdown::setOnSelectionChanged(std::function<void(int, int, const std::string&)> callback) {
-    onSelectionChanged_ = std::move(callback);
-}
-
-void NUIDropdown::setMaxVisibleItems(int count) {
-    maxVisibleItems_ = std::max(1, count);
-    refreshContainerLayout();
-}
-
-void NUIDropdown::onRender(NUIRenderer& renderer) {
-    ensureRegistration();
-    updateButtonState();
-
-    NUIRect bounds = getBounds();
-
-    NUIColor baseColor = backgroundColor_;
-    NUIColor borderColor = borderColor_;
-
-    float hoverMix = easeOutCubic(clamp01(hoverProgress_));
-    if (pointerInside_) {
-        baseColor = NUIColor::lerp(baseColor, hoverColor_, hoverMix);
+    void NUIDropdown::addItem(const std::string& text) {
+        addItem(text, nullptr);
     }
 
-    if (isOpen_) {
-        baseColor = NUIColor::lerp(baseColor, focusColor_, 0.35f);
-        borderColor = focusColor_;
-    }
-
-    if (!isEnabled()) {
-        baseColor = baseColor.withAlpha(baseColor.a * 0.7f);
-        borderColor = borderColor.withAlpha(borderColor.a * 0.6f);
-    }
-
-    renderer.fillRoundedRect(bounds, cornerRadius_, baseColor);
-    renderer.strokeRoundedRect(bounds, cornerRadius_, borderThickness_, borderColor);
-
-    bool usingPlaceholder = selectedIndex_ < 0 || selectedIndex_ >= static_cast<int>(items_.size());
-    std::string displayText = usingPlaceholder ? placeholderText_ : getDisplayText();
-    NUIColor textColor = isEnabled() ? textColor_ : disabledColor_;
-    if (usingPlaceholder && !placeholderText_.empty()) {
-        textColor = textColor.withAlpha(textColor.a * 0.75f);
-    }
-
-    renderer.drawTextCentered(displayText, bounds, kButtonFontSize, textColor);
-
-    float arrowSize = 6.0f;
-    float arrowCenterX = bounds.x + bounds.width - 18.0f;
-    float arrowCenterY = bounds.y + bounds.height * 0.5f;
-    float progress = clamp01(arrowProgress_);
-
-    NUIPoint downTip(arrowCenterX, arrowCenterY + arrowSize);
-    NUIPoint downLeft(arrowCenterX - arrowSize, arrowCenterY - arrowSize);
-    NUIPoint downRight(arrowCenterX + arrowSize, arrowCenterY - arrowSize);
-
-    NUIPoint upTip(arrowCenterX, arrowCenterY - arrowSize);
-    NUIPoint upLeft(arrowCenterX - arrowSize, arrowCenterY + arrowSize);
-    NUIPoint upRight(arrowCenterX + arrowSize, arrowCenterY + arrowSize);
-
-    NUIPoint p1(
-        downLeft.x + (upLeft.x - downLeft.x) * progress,
-        downLeft.y + (upLeft.y - downLeft.y) * progress);
-    NUIPoint p2(
-        downRight.x + (upRight.x - downRight.x) * progress,
-        downRight.y + (upRight.y - downRight.y) * progress);
-    NUIPoint p3(
-        downTip.x + (upTip.x - downTip.x) * progress,
-        downTip.y + (upTip.y - downTip.y) * progress);
-
-    renderer.drawLine(p1, p2, 1.8f, arrowColor_);
-    renderer.drawLine(p2, p3, 1.8f, arrowColor_);
-    renderer.drawLine(p3, p1, 1.8f, arrowColor_);
-}
-
-void NUIDropdown::onUpdate(double deltaTime) {
-    updateArrowAnimation(deltaTime);
-
-    float targetHover = pointerInside_ ? 1.0f : 0.0f;
-    hoverProgress_ = approach(hoverProgress_, targetHover, static_cast<float>(deltaTime) * kHoverAnimationSpeed);
-
-}
-
-bool NUIDropdown::onMouseEvent(const NUIMouseEvent& event) {
-    ensureRegistration();
-
-    if (!isEnabled()) {
-        return false;
-    }
-    
-    NUIRect bounds = getBounds();
-    bool inside = bounds.contains(event.position);
-    pointerInside_ = inside;
-
-    // Debug output
-    if (event.pressed && event.button == NUIMouseButton::Left) {
-        std::cout << "===== NUIDropdown mouse click =====" << std::endl;
-        std::cout << "Dropdown ID: " << getId() << std::endl;
-        std::cout << "Mouse position: (" << event.position.x << ", " << event.position.y << ")" << std::endl;
-        std::cout << "Dropdown bounds: (" << bounds.x << ", " << bounds.y << ", " << bounds.width << ", " << bounds.height << ")" << std::endl;
-        std::cout << "Contains click: " << inside << std::endl;
-    }
-
-    if (event.pressed && event.button == NUIMouseButton::Left) {
-        pressedInside_ = inside;
-        if (inside) {
-            std::cout << "*** DROPDOWN CLICKED - TOGGLING ***" << std::endl;
-            toggleDropdown();
-            return true;
+    void NUIDropdown::addItem(const std::string& text, const std::function<void()>& callback) {
+        DropdownItem it;
+        it.text = text;
+        it.callback = callback;
+        it.value = static_cast<int>(items.size());
+        items.push_back(it);
+        
+        if (items.size() == 1) {
+            selectedIndex = 0;
+            updateCurrentSelectionLabel();
         }
     }
 
-    if (event.released && event.button == NUIMouseButton::Left) {
-        pressedInside_ = false;
+    void NUIDropdown::addItem(const std::string& text, int value) {
+        addItem(text, value, nullptr);
     }
 
-    return inside;
-}
+    void NUIDropdown::addItem(const std::string& text, int value, const std::function<void()>& callback) {
+        DropdownItem it;
+        it.text = text;
+        it.callback = callback;
+        it.value = value;
+        items.push_back(it);
 
-bool NUIDropdown::onKeyEvent(const NUIKeyEvent& event) {
-    if (!isOpen_ || !container_) {
-        return false;
+        if (items.size() == 1) {
+            selectedIndex = 0;
+            updateCurrentSelectionLabel();
+        }
     }
 
-    if (container_->onKeyEvent(event)) {
-        return true;
+    void NUIDropdown::removeItem(size_t index) {
+        if (index < items.size()) {
+            items.erase(items.begin() + index);
+            
+            if (selectedIndex >= items.size()) {
+                selectedIndex = items.empty() ? 0 : items.size() - 1;
+                updateCurrentSelectionLabel();
+            }
+        }
     }
 
-    if (event.pressed) {
-        if (event.keyCode == NUIKeyCode::Escape) {
+    void NUIDropdown::clear() {
+        items.clear();
+        selectedIndex = 0;
+        updateCurrentSelectionLabel();
+    }
+
+    void NUIDropdown::clearItems() {
+        clear();
+    }
+
+    void NUIDropdown::setSelectedIndex(size_t index) {
+        if (index < items.size() && index != selectedIndex) {
+            selectedIndex = index;
+            updateCurrentSelectionLabel();
+            
+            if (onSelectionChangedCallback) {
+                onSelectionChangedCallback(selectedIndex);
+            }
+
+            if (onSelectionChangedFullCallback) {
+                onSelectionChangedFullCallback(static_cast<int>(selectedIndex), items[selectedIndex].value, items[selectedIndex].text);
+            }
+
+            if (items[selectedIndex].callback) {
+                items[selectedIndex].callback();
+            }
+        }
+    }
+
+    void NUIDropdown::setSelectedIndex(int index) {
+        if (index < 0) return;
+        setSelectedIndex(static_cast<size_t>(index));
+    }
+
+    size_t NUIDropdown::getSelectedIndex() const {
+        return selectedIndex;
+    }
+
+    std::string NUIDropdown::getSelectedText() const {
+        if (!items.empty() && selectedIndex < items.size()) {
+            return items[selectedIndex].text;
+        }
+        return "";
+    }
+
+    int NUIDropdown::getItemCount() const {
+        return static_cast<int>(items.size());
+    }
+
+    void NUIDropdown::setPlaceholderText(const std::string& text) {
+        // For now, forward to the internal label if empty selection
+        if (items.empty()) {
+            currentSelectionLabel.setText(text);
+        }
+    }
+
+    void NUIDropdown::setOnSelectionChanged(const std::function<void(size_t)>& callback) {
+        onSelectionChangedCallback = callback;
+    }
+
+    void NUIDropdown::setOnSelectionChanged(const std::function<void(int,int,const std::string&)>& callback) {
+        onSelectionChangedFullCallback = callback;
+    }
+
+    void NUIDropdown::onMouseEnter() {
+        NUIComponent::onMouseEnter();
+    }
+
+    void NUIDropdown::onMouseLeave() {
+        NUIComponent::onMouseLeave();
+        if (!isPointInDropdownList(NUIPoint())) {
+            closeDropdown();
+        }
+    }
+
+    bool NUIDropdown::onMouseEvent(const NUIMouseEvent& event) {
+        if (event.pressed && event.button == NUIMouseButton::Left) {
+            if (!isOpen) {
+                toggleDropdown();
+                return true;
+            } else {
+                size_t clickedIndex = getItemIndexAtPoint(event.position);
+                if (clickedIndex < items.size()) {
+                    setSelectedIndex(clickedIndex);
+                }
                 closeDropdown();
                 return true;
+            }
+        }
+        return NUIComponent::onMouseEvent(event);
+    }
+
+    void NUIDropdown::onRender(NUIRenderer& renderer) {
+        // Draw main dropdown box
+        NUIRect rect = {getX(), getY(), getWidth(), getHeight()};
+        NUIColor defaultBg(0.2f, 0.2f, 0.2f, 1.0f);
+        NUIColor defaultBorder(0.4f, 0.4f, 0.4f, 1.0f);
+        renderer.fillRect(rect, getTheme()->getColor("dropdown.background", defaultBg));
+        renderer.strokeRect(rect, 1.0f, getTheme()->getColor("dropdown.border", defaultBorder));
+
+        // Draw current selection
+        currentSelectionLabel.setPosition(getX() + 5, getY() + (getHeight() - currentSelectionLabel.getHeight()) / 2);
+        currentSelectionLabel.onRender(renderer);
+
+        // Draw dropdown arrow
+        int arrowSize = 8;
+        int arrowX = getX() + getWidth() - arrowSize - 5;
+        int arrowY = getY() + (getHeight() - arrowSize) / 2;
+        
+        NUIPoint p1(arrowX, arrowY);
+        NUIPoint p2(arrowX + arrowSize, arrowY);
+        NUIPoint p3(arrowX + arrowSize/2, arrowY + arrowSize);
+        NUIColor defaultArrow(0.8f, 0.8f, 0.8f, 1.0f);
+        renderer.drawLine(p1, p2, 1.0f, getTheme()->getColor("dropdown.arrow", defaultArrow));
+        renderer.drawLine(p2, p3, 1.0f, getTheme()->getColor("dropdown.arrow", defaultArrow));
+        renderer.drawLine(p3, p1, 1.0f, getTheme()->getColor("dropdown.arrow", defaultArrow));
+
+        // Draw dropdown list if open
+        if (isOpen && !items.empty()) {
+            float itemHeight = getHeight();
+            float dropdownHeight = items.size() * itemHeight;
+            float dropdownY = getY() + getHeight();
+
+            // Draw dropdown background
+            NUIRect listRect = {getX(), dropdownY, getWidth(), dropdownHeight};
+            NUIColor defaultListBg(0.15f, 0.15f, 0.15f, 1.0f);
+            NUIColor defaultListBorder(0.3f, 0.3f, 0.3f, 1.0f);
+            renderer.fillRect(listRect, getTheme()->getColor("dropdown.list.background", defaultListBg));
+            renderer.strokeRect(listRect, 1.0f, getTheme()->getColor("dropdown.list.border", defaultListBorder));
+
+            // Draw items
+            NUIPoint mousePos = {0, 0}; // TODO: Get actual mouse position from event system
+            for (size_t i = 0; i < items.size(); i++) {
+                float itemY = dropdownY + i * itemHeight;
+                NUIRect itemRect = {getX(), itemY, getWidth(), itemHeight};
+                
+                // Highlight selected or hovered item
+                if (i == selectedIndex || (isPointInDropdownList(mousePos) && i == getItemIndexAtPoint(mousePos))) {
+                    NUIColor defaultHover(0.25f, 0.25f, 0.25f, 1.0f);
+                    renderer.fillRect(itemRect, getTheme()->getColor("dropdown.item.hover", defaultHover));
+                }
+
+                // Draw item text
+                renderer.drawText(items[i].text, 
+                                NUIPoint(getX() + 5, itemY + (itemHeight - getTheme()->getFontSizeNormal()) / 2),
+                                getTheme()->getFontSizeNormal(),
+                                getTheme()->getText());
+            }
         }
     }
 
-    return false;
-}
-
-void NUIDropdown::onFocusLost() {
-    pointerInside_ = false;
-    pressedInside_ = false;
-    if (isOpen_) {
-        closeDropdown();
-    }
-}
-
-void NUIDropdown::toggleDropdown() {
-    if (isOpen_) {
-        closeDropdown();
-    } else {
-        openDropdown();
-    }
-}
-
-void NUIDropdown::openDropdown() {
-    ensureRegistration();
-    auto self = std::static_pointer_cast<NUIDropdown>(shared_from_this());
-    std::cout << "===== NUIDropdown::openDropdown =====" << std::endl;
-    std::cout << "Dropdown ID: " << getId() << std::endl;
-    std::cout << "Number of items: " << items_.size() << std::endl;
-    std::cout << "Selected index: " << selectedIndex_ << std::endl;
-    std::cout << "Container exists: " << (container_ != nullptr) << std::endl;
-    if (container_) {
-        std::cout << "Container visible: " << container_->isVisible() << std::endl;
-        std::cout << "Container enabled: " << container_->isEnabled() << std::endl;
-    }
-    NUIDropdownManager::getInstance().openDropdown(self);
-    std::cout << "===== NUIDropdown::openDropdown completed =====" << std::endl;
-}
-
-void NUIDropdown::closeDropdown() {
-    if (!isOpen_) {
-        return;
+    void NUIDropdown::toggleDropdown() {
+        isOpen = !isOpen;
     }
 
-    if (auto self = std::static_pointer_cast<NUIDropdown>(shared_from_this())) {
-        NUIDropdownManager::getInstance().closeDropdown(self);
-    }
-}
-
-void NUIDropdown::applyOpenState(bool open) {
-    isOpen_ = open;
-    arrowTarget_ = open ? 1.0f : 0.0f;
-    setDirty(true);
-}
-
-void NUIDropdown::refreshContainerLayout() {
-    if (container_) {
-        container_->requestRelayout();
+    void NUIDropdown::closeDropdown() {
+        isOpen = false;
     }
 
-    if (isOpen_) {
-        NUIDropdownManager::getInstance().refreshOpenDropdown();
-    }
-}
+    bool NUIDropdown::isPointInDropdownList(const NUIPoint& point) const {
+        if (!isOpen) return false;
 
-void NUIDropdown::handleItemSelected(int index) {
-    if (index < 0 || index >= static_cast<int>(items_.size())) {
-        return;
-    }
+        float dropdownY = getY() + getHeight();
+        float dropdownHeight = items.size() * getHeight();
 
-    if (!items_[index].visible || !items_[index].enabled) {
-        return;
+        return point.x >= getX() && point.x <= getX() + getWidth() &&
+               point.y >= dropdownY && point.y <= dropdownY + dropdownHeight;
     }
 
-    selectedIndex_ = index;
-    setDirty(true);
+    size_t NUIDropdown::getItemIndexAtPoint(const NUIPoint& point) const {
+        if (!isPointInDropdownList(point)) return (size_t)-1;
 
-    if (onSelectionChanged_) {
-        const auto& item = items_[index];
-        onSelectionChanged_(index, item.value, item.text);
+        float dropdownY = getY() + getHeight();
+        float relativeY = point.y - dropdownY;
+        return (size_t)(relativeY / getHeight());
     }
 
-    closeDropdown();
-}
-
-void NUIDropdown::handleItemHovered(int index) {
-    hoveredIndex_ = index;
-    setDirty(true);
-}
-
-void NUIDropdown::updateArrowAnimation(double deltaTime) {
-    float step = static_cast<float>(deltaTime) * kArrowAnimationSpeed;
-    arrowProgress_ = approach(arrowProgress_, arrowTarget_, step);
-}
-
-void NUIDropdown::updateButtonState() {
-    auto& themeManager = NUIThemeManager::getInstance();
-    backgroundColor_ = themeManager.getColor("dropdown.background");
-    borderColor_ = themeManager.getColor("dropdown.border");
-    textColor_ = themeManager.getColor("dropdown.text");
-    arrowColor_ = themeManager.getColor("dropdown.arrow");
-    hoverColor_ = themeManager.getColor("dropdown.hover");
-    focusColor_ = themeManager.getColor("dropdown.focus");
-    disabledColor_ = themeManager.getColor("textDisabled");
-}
-
-std::string NUIDropdown::getDisplayText() const {
-    if (selectedIndex_ >= 0 && selectedIndex_ < static_cast<int>(items_.size())) {
-        return items_[selectedIndex_].text;
+    void NUIDropdown::updateCurrentSelectionLabel() {
+        std::string text = items.empty() ? "" : items[selectedIndex].text;
+        currentSelectionLabel.setText(text);
     }
-    return std::string();
-}
 
 } // namespace NomadUI
-

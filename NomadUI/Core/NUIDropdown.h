@@ -1,100 +1,79 @@
-#pragma once
+#ifndef NUIDROPDOWN_H
+#define NUIDROPDOWN_H
 
 #include "NUIComponent.h"
-#include "NUITypes.h"
-#include <functional>
-#include <memory>
-#include <string>
+#include "NUILabel.h"
 #include <vector>
+#include <string>
+#include <functional>
 
 namespace NomadUI {
 
-class NUIRenderer;
-class NUIDropdownContainer;
-class NUIDropdownManager;
+    class NUIDropdown : public NUIComponent {
+    public:
+        NUIDropdown();
+        virtual ~NUIDropdown();
 
-struct NUIDropdownItem {
-    std::string text;
-    int value = 0;
-    bool enabled = true;
-    bool visible = true;
-};
-
-class NUIDropdown : public NUIComponent {
-public:
-    NUIDropdown();
-    ~NUIDropdown() override;
-
+    // Add an item to the dropdown
+    void addItem(const std::string& text);
+    void addItem(const std::string& text, const std::function<void()>& callback);
+    // Add an item with an associated integer value (used by AudioSettingsDialog)
     void addItem(const std::string& text, int value);
-    void addItem(const NUIDropdownItem& item);
-    void setItems(const std::vector<NUIDropdownItem>& items);
-    void clear();
+    void addItem(const std::string& text, int value, const std::function<void()>& callback);
 
+        // Remove an item at the specified index
+        void removeItem(size_t index);
+
+    // Clear all items
+    void clear();
+    // Backwards-compatible name used in UI code
+    void clearItems();
+
+    // Set/get the selected item
+    void setSelectedIndex(size_t index);
+    // Backwards-compatible overload accepting int
     void setSelectedIndex(int index);
-    int getSelectedIndex() const { return selectedIndex_; }
-    void setSelectedValue(int value);
-    int getSelectedValue() const;
+    size_t getSelectedIndex() const;
     std::string getSelectedText() const;
 
+    // Count of items
+    int getItemCount() const;
+
+    // Placeholder text when no selection
     void setPlaceholderText(const std::string& text);
-    void setOnSelectionChanged(std::function<void(int, int, const std::string&)> callback);
-    void setMaxVisibleItems(int count);
 
-    void onRender(NUIRenderer& renderer) override;
-    void onUpdate(double deltaTime) override;
-    bool onMouseEvent(const NUIMouseEvent& event) override;
-    bool onKeyEvent(const NUIKeyEvent& event) override;
-    void onFocusLost() override;
+        // Event handlers
+    void setOnSelectionChanged(const std::function<void(size_t)>& callback);
+    // Full signature used by dialogs: (index, value, text)
+    void setOnSelectionChanged(const std::function<void(int,int,const std::string&)>& callback);
 
-    bool isOpen() const { return isOpen_; }
-    std::shared_ptr<NUIDropdownContainer> getContainer() const { return container_; }
-    const std::vector<NUIDropdownItem>& getItems() const { return items_; }
+        // Overridden from NUIComponent
+        void onMouseEnter() override;
+        void onMouseLeave() override;
+        bool onMouseEvent(const NUIMouseEvent& event) override;
+        void onRender(NUIRenderer& renderer) override;
 
-private:
-    void ensureRegistration();
-    void toggleDropdown();
-    void openDropdown();
-    void closeDropdown();
-    void applyOpenState(bool open);
-    void refreshContainerLayout();
-    void handleItemSelected(int index);
-    void handleItemHovered(int index);
-    void updateArrowAnimation(double deltaTime);
-    void updateButtonState();
-    std::string getDisplayText() const;
+    private:
+        struct DropdownItem {
+            std::string text;
+            std::function<void()> callback;
+            int value = 0;
+        };
 
-    std::vector<NUIDropdownItem> items_;
-    int selectedIndex_ = -1;
-    int hoveredIndex_ = -1;
-    int maxVisibleItems_ = 8;
+        std::vector<DropdownItem> items;
+        size_t selectedIndex;
+        bool isOpen;
+        NUILabel currentSelectionLabel;
+    std::function<void(size_t)> onSelectionChangedCallback;
+    std::function<void(int,int,const std::string&)> onSelectionChangedFullCallback;
 
-    std::string placeholderText_;
-    std::function<void(int, int, const std::string&)> onSelectionChanged_;
-
-    std::shared_ptr<NUIDropdownContainer> container_;
-    bool registeredWithManager_ = false;
-    bool isOpen_ = false;
-    bool pressedInside_ = false;
-    bool pointerInside_ = false;
-
-    float arrowProgress_ = 0.0f;
-    float arrowTarget_ = 0.0f;
-    float hoverProgress_ = 0.0f;
-
-    NUIColor backgroundColor_;
-    NUIColor borderColor_;
-    NUIColor textColor_;
-    NUIColor arrowColor_;
-    NUIColor hoverColor_;
-    NUIColor disabledColor_;
-    NUIColor focusColor_;
-
-    float cornerRadius_ = 6.0f;
-    float borderThickness_ = 1.0f;
-
-    friend class NUIDropdownContainer;
-    friend class NUIDropdownManager;
-};
+        void toggleDropdown();
+        void closeDropdown();
+        bool isPointInDropdownList(const NUIPoint& point) const;
+        size_t getItemIndexAtPoint(const NUIPoint& point) const;
+        void updateCurrentSelectionLabel();
+    };
 
 } // namespace NomadUI
 
+#endif // NUIDROPDOWN_H
