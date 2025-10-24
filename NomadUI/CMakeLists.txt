@@ -47,14 +47,13 @@ set(NOMADUI_CORE_SOURCES
     Core/NUICustomWindow.cpp
     Core/NUIIcon.h
     Core/NUIIcon.cpp
-    Core/NUIDropdown.h
-    Core/NUIDropdown.cpp
-    Core/NUIDropdownContainer.h
-    Core/NUIDropdownContainer.cpp
-    Core/NUIDropdownManager.h
-    Core/NUIDropdownManager.cpp
     # Core/NUIApp.h  # Requires renderer
     # Core/NUIApp.cpp
+)
+
+# Widget implementations (compile into core library)
+list(APPEND NOMADUI_CORE_SOURCES
+    Widgets/NUIDropdown.cpp
 )
 
 set(NOMADUI_GRAPHICS_SOURCES
