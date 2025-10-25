@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(NOMADUI_BUILD_EXAMPLES "Build example applications" ON)
 option(NOMADUI_BUILD_OPENGL "Build OpenGL renderer" ON)
 option(NOMADUI_BUILD_VULKAN "Build Vulkan renderer" OFF)
+option(NOMADUI_BUILD_TESTS "Build unit tests" ON)
 
 # ============================================================================
 # Core Library
@@ -133,6 +134,58 @@ FetchContent_MakeAvailable(freetype)
 message(STATUS "✓ FreeType loaded")
 
 # ============================================================================
+# Google Test - Unit Testing Framework
+# ============================================================================
+
+if(NOMADUI_BUILD_TESTS)
+    include(FetchContent)
+
+    message(STATUS "Fetching Google Test...")
+
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.14.0
+        GIT_SHALLOW TRUE
+    )
+
+    # Prevent overriding the parent project's compiler/linker settings
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+    FetchContent_MakeAvailable(googletest)
+
+    message(STATUS "✓ Google Test loaded")
+
+    # Enable testing
+    enable_testing()
+
+    # Core unit tests (no OpenGL/Platform required)
+    add_executable(NomadUI_CoreTests
+        tests/NUIButtonTests.cpp
+        tests/MockRenderer.h
+        Core/NUIComponent.cpp
+        Core/NUIButton.cpp
+        Core/NUILabel.cpp
+    )
+
+    target_link_libraries(NomadUI_CoreTests PRIVATE
+        NomadUI_Core
+        gtest_main
+        gtest
+    )
+
+    target_include_directories(NomadUI_CoreTests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
+    )
+
+    set_target_properties(NomadUI_CoreTests PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+
+    # Register tests
+    add_test(NAME NomadUI_CoreTests COMMAND NomadUI_CoreTests)
+endif()
 # OpenGL Renderer (Optional)
 # ============================================================================
 
@@ -602,6 +655,44 @@ if(NOMADUI_BUILD_EXAMPLES)
 endif()
 
 # ============================================================================
+# Button System Demo
+# ============================================================================
+
+if(WIN32 AND NOMADUI_BUILD_OPENGL AND NOMADUI_BUILD_EXAMPLES)
+    add_executable(NomadUI_ButtonDemo
+        Examples/ButtonDemo.cpp
+        Core/NUIComponent.cpp
+        Core/NUITheme.cpp
+        Core/NUIAnimation.cpp
+        Core/NUIThemeSystem.cpp
+        Core/NUIButton.cpp
+        Core/NUILabel.cpp
+        Graphics/NUIRenderer.cpp
+        Graphics/OpenGL/NUIRendererGL.cpp
+        ${NOMADUI_TEXT_SOURCES}
+    )
+
+    # Add glad.c as a separate C file
+    target_sources(NomadUI_ButtonDemo PRIVATE External/glad/src/glad.c)
+    set_source_files_properties(External/glad/src/glad.c PROPERTIES LANGUAGE C)
+
+    target_include_directories(NomadUI_ButtonDemo PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/External/glad/include
+    )
+
+    target_link_libraries(NomadUI_ButtonDemo PRIVATE
+        NomadUI_Platform
+        opengl32
+        freetype
+    )
+
+    set_target_properties(NomadUI_ButtonDemo PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+endif()
+
+# ============================================================================
 # Installation
 # ============================================================================
 
@@ -630,6 +721,7 @@ message(STATUS "Build Options:")
 message(STATUS "  Examples: ${NOMADUI_BUILD_EXAMPLES}")
 message(STATUS "  OpenGL:   ${NOMADUI_BUILD_OPENGL}")
 message(STATUS "  Vulkan:   ${NOMADUI_BUILD_VULKAN}")
+message(STATUS "  Tests:    ${NOMADUI_BUILD_TESTS}")
 message(STATUS "")
 message(STATUS "Platform: ${PLATFORM_NAME}")
 message(STATUS "Architecture: ${CMAKE_SIZEOF_VOID_P}-bit")
