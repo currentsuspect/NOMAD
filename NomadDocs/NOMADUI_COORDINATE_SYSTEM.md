@@ -348,27 +348,193 @@ child->setBounds(NUIAligned(getBounds(), 10, 10, 10, 10));
 child->setBounds(NUIAligned(getBounds(), 10, 10, 10, -1));
 ```
 
+### NUIStackHorizontal() - Horizontal Layout
+
+```cpp
+// Stack children horizontally with 10px spacing
+std::vector<NUISize> childSizes = {{100, 50}, {200, 50}, {150, 50}};
+auto rects = NUIStackHorizontal(getBounds(), childSizes, 10);
+for (size_t i = 0; i < rects.size(); ++i) {
+    children[i]->setBounds(rects[i]);
+}
+```
+
+### NUIStackVertical() - Vertical Layout
+
+```cpp
+// Stack children vertically with 5px spacing
+auto rects = NUIStackVertical(getBounds(), childSizes, 5);
+for (size_t i = 0; i < rects.size(); ++i) {
+    children[i]->setBounds(rects[i]);
+}
+```
+
+### NUIGridCell() - Grid Positioning
+
+```cpp
+// Position in 3x4 grid at row 1, column 2
+child->setBounds(NUIGridCell(getBounds(), 1, 2, 3, 4));
+```
+
+### NUIApplyScrollOffset() - Scrollable Containers
+
+```cpp
+// Adjust child positions for scroll in nested containers
+for (auto& child : children) {
+    NUIRect original = child->getBounds();
+    child->setBounds(NUIApplyScrollOffset(original, scrollX, scrollY));
+}
+```
+
+### NUIScreenClamp() - Popup/Tooltip Clamping
+
+```cpp
+// Ensure popups stay on screen
+NUIRect clamped = NUIScreenClamp(popupBounds, screenWidth, screenHeight);
+popup->setBounds(clamped);
+```
+
+### NUIRelativePosition() - Position Conversion
+
+```cpp
+// Convert absolute to relative for saving state
+NUIRect relative = NUIRelativePosition(child->getBounds(), parent->getBounds());
+
+// Convert back to absolute
+child->setBounds(NUIAbsoluteFromRelative(relative, parent->getBounds()));
+```
+
+### NUIUnionRects() - Invalidation Optimization
+
+```cpp
+// Calculate minimal invalidation area
+std::vector<NUIRect> dirtyRects = {child1->getBounds(), child2->getBounds()};
+NUIRect invalidationArea = NUIUnionRects(dirtyRects);
+renderer.invalidateRegion(invalidationArea);
+```
+
 These helpers maintain the absolute coordinate system while making code cleaner and less error-prone.
 
 ---
+
+## YAML Configuration System (v1.3+)
+
+### Pixel-Perfect Customization
+
+NOMAD UI now supports comprehensive YAML-based configuration for pixel-perfect control over all visual aspects:
+
+#### Configuration File Structure
+
+```yaml
+# Colors - Full RGBA support
+colors:
+  backgroundPrimary: "#121214"
+  primary: "#00bcd4"
+  textPrimary: "#e6e6eb"
+
+# Layout dimensions - All sizes configurable
+layout:
+  trackHeight: 80.0
+  trackControlsWidth: 150.0
+  fileBrowserWidth: 200.0
+  transportBarHeight: 60.0
+
+# Spacing system
+spacing:
+  panelMargin: 10.0
+  componentPadding: 8.0
+
+# Typography
+typography:
+  fontSizeM: 14.0
+  fontSizeL: 16.0
+```
+
+#### Usage
+
+1. **Modify Configuration**: Edit `NomadUI/Config/nomad_ui_config.yaml`
+2. **Rebuild Application**: Changes take effect after compilation
+3. **Runtime Loading**: Configuration is loaded at startup
+
+#### Benefits
+
+✅ **Pixel-Perfect Control**: Adjust any dimension or color without code changes
+✅ **Theme Consistency**: Centralized styling system
+✅ **Easy Customization**: Simple YAML format for designers
+✅ **Compile-Time Optimization**: All values resolved at build time
+
+## Advanced Utilities (v1.2+)
+
+### Addressing System-Wide Issues
+
+The following utilities address common pitfalls in absolute coordinate systems:
+
+#### Scrollable Containers
+```cpp
+// In your scrollable component's layout method
+void ScrollableContainer::updateScroll() {
+    for (auto& child : children) {
+        NUIRect original = child->getBounds();
+        child->setBounds(NUIApplyScrollOffset(original, m_scrollX, m_scrollY));
+    }
+}
+```
+
+#### Window Resizing & Layout Propagation
+```cpp
+// Trigger full layout update after window resize
+void MyWindow::onResize(int width, int height) {
+    // Update root component bounds
+    setBounds(NUIRect(0, 0, width, height));
+    
+    // Propagate layout to all children recursively
+    layoutAllChildren();
+}
+
+void layoutAllChildren() {
+    for (auto& child : children) {
+        child->onResize(child->getWidth(), child->getHeight());
+        child->layoutAllChildren(); // Recursive
+    }
+}
+```
+
+#### Popup/Tooltip Clamping
+```cpp
+// Ensure tooltips stay visible
+NUIRect tooltipRect = calculateTooltipPosition(mousePos, tooltipSize);
+NUIRect clamped = NUIScreenClamp(tooltipRect, screenWidth, screenHeight);
+tooltip->setBounds(clamped);
+```
+
+#### Performance Optimization
+```cpp
+// Calculate minimal invalidation region
+std::vector<NUIRect> changedRects;
+for (auto& component : dirtyComponents) {
+    changedRects.push_back(component->getBounds());
+}
+NUIRect invalidationArea = NUIUnionRects(changedRects);
+renderer.invalidateRegion(invalidationArea);
+```
 
 ## Future Improvements
 
 ### Potential Solutions
 
 1. **Add coordinate transformation to NUIComponent::renderChildren()**
-   - Automatically translate renderer context for children
-   - Would allow relative positioning
-   - Requires renderer push/pop transform support
+    - Automatically translate renderer context for children
+    - Would allow relative positioning
+    - Requires renderer push/pop transform support
 
 2. **Create RelativeComponent base class**
-   - Handles coordinate transformation internally
-   - Opt-in for components that want relative positioning
+    - Handles coordinate transformation internally
+    - Opt-in for components that want relative positioning
 
 3. **Add layout managers**
-   - VBoxLayout, HBoxLayout, GridLayout
-   - Handle positioning automatically
-   - Similar to Qt/Java Swing layout managers
+    - VBoxLayout, HBoxLayout, GridLayout
+    - Handle positioning automatically
+    - Similar to Qt/Java Swing layout managers
 
 ---
 

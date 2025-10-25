@@ -17,7 +17,7 @@ void PlayButton::onRender(NUIRenderer& renderer)
 
 bool PlayButton::onMouseEvent(const NUIMouseEvent& event)
 {
-    if (event.type == NUIMouseEventType::ButtonDown)
+    if (event.pressed && event.button == NUIMouseButton::Left)
     {
         playing_ = !playing_;
         repaint();
@@ -50,7 +50,7 @@ void StopButton::onRender(NUIRenderer& renderer)
 
 bool StopButton::onMouseEvent(const NUIMouseEvent& event)
 {
-    if (event.type == NUIMouseEventType::ButtonDown)
+    if (event.pressed && event.button == NUIMouseButton::Left)
     {
         if (onStop_)
             onStop_();
@@ -76,7 +76,7 @@ void RecordButton::onRender(NUIRenderer& renderer)
 
 bool RecordButton::onMouseEvent(const NUIMouseEvent& event)
 {
-    if (event.type == NUIMouseEventType::ButtonDown)
+    if (event.pressed && event.button == NUIMouseButton::Left)
     {
         armed_ = !armed_;
         repaint();
@@ -114,7 +114,7 @@ void RewindButton::onRender(NUIRenderer& renderer)
 
 bool RewindButton::onMouseEvent(const NUIMouseEvent& event)
 {
-    if (event.type == NUIMouseEventType::ButtonDown)
+    if (event.pressed && event.button == NUIMouseButton::Left)
     {
         if (onRewind_)
             onRewind_();
@@ -137,7 +137,7 @@ void ForwardButton::onRender(NUIRenderer& renderer)
 
 bool ForwardButton::onMouseEvent(const NUIMouseEvent& event)
 {
-    if (event.type == NUIMouseEventType::ButtonDown)
+    if (event.pressed && event.button == NUIMouseButton::Left)
     {
         if (onForward_)
             onForward_();
@@ -163,9 +163,9 @@ void TempoDisplay::onRender(NUIRenderer& renderer)
 
 bool TempoDisplay::onMouseEvent(const NUIMouseEvent& event)
 {
-    if (event.type == NUIMouseEventType::Scroll)
+    if (event.wheelDelta != 0.0f)
     {
-        setTempo(tempo_ + event.scrollDeltaY);
+        setTempo(tempo_ + event.wheelDelta);
         return true;
     }
     return false;

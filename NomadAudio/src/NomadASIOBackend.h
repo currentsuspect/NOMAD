@@ -27,6 +27,12 @@ public:
     double getStreamLatency() const override;
 
 private:
+    uint32_t getDefaultOutputDeviceFallback();
+    uint32_t getDefaultInputDeviceFallback();
+    std::vector<AudioDeviceInfo> getDevicesFallback();
+    bool isAsioAvailable();
+
+private:
     std::unique_ptr<RtAudio> m_rtAudio;
     AudioCallback m_userCallback;
     void* m_userData;

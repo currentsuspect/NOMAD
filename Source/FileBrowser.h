@@ -70,6 +70,7 @@ public:
     void setOnFileSelected(std::function<void(const FileItem&)> callback) { onFileSelected_ = callback; }
     void setOnFileOpened(std::function<void(const FileItem&)> callback) { onFileOpened_ = callback; }
     void setOnPathChanged(std::function<void(const std::string&)> callback) { onPathChanged_ = callback; }
+    void setOnSoundPreview(std::function<void(const FileItem&)> callback) { onSoundPreview_ = callback; }
     
     // Properties
     const std::string& getCurrentPath() const { return currentPath_; }
@@ -148,6 +149,7 @@ private:
     std::function<void(const FileItem&)> onFileSelected_;
     std::function<void(const FileItem&)> onFileOpened_;
     std::function<void(const std::string&)> onPathChanged_;
+    std::function<void(const FileItem&)> onSoundPreview_;
     
     // Theme colors
     NUIColor backgroundColor_;

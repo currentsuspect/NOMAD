@@ -7,12 +7,12 @@ namespace NomadUI {
 
 Fader::Fader()
 {
-    setOrientation(NUISliderOrientation::Vertical);
+    setOrientation(NUISlider::Orientation::Vertical);
 }
 
 PanKnob::PanKnob()
 {
-    setOrientation(NUISliderOrientation::Rotary);
+    setStyle(NUISlider::Style::Rotary);
     setRange(-1.0f, 1.0f);
     setValue(0.0f);
 }
@@ -63,7 +63,7 @@ void InsertSlot::onRender(NUIRenderer& renderer)
 
 bool InsertSlot::onMouseEvent(const NUIMouseEvent& event)
 {
-    if (event.type == NUIMouseEventType::ButtonDown)
+    if (event.pressed && event.button == NUIMouseButton::Left)
     {
         if (onActivate_)
             onActivate_();

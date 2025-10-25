@@ -26,7 +26,8 @@
 #include "AudioProcessor.h"
 #include "MixerBus.h"
 #include "Oscillator.h"
-#include "Oscillator.h"
+#include "Track.h"
+#include "TrackManager.h"
 
 namespace Nomad {
 namespace Audio {

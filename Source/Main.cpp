@@ -25,9 +25,18 @@
 #include "AudioSettingsDialog.h"
 #include "FileBrowser.h"
 #include "AudioVisualizer.h"
+#include "TrackUIComponent.h"
+#include "TrackManagerUI.h"
 
 #include <memory>
 #include <iostream>
+#include <chrono>
+#include <cmath>
+#include <cstring>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 using namespace Nomad;
 using namespace NomadUI;
@@ -44,26 +53,62 @@ using namespace Nomad::Audio;
 class NomadContent : public NomadUI::NUIComponent {
 public:
     NomadContent() {
+        // Get layout dimensions from theme for initial setup
+        auto& themeManager = NomadUI::NUIThemeManager::getInstance();
+        const auto& layout = themeManager.getLayoutDimensions();
+
         // Create transport bar
         m_transportBar = std::make_shared<TransportBar>();
         addChild(m_transportBar);
-        
-        // Create file browser - starts right below transport bar accent strip
+
+        // Create file browser - starts right below transport bar
         m_fileBrowser = std::make_shared<NomadUI::FileBrowser>();
-        // Initial positioning - will be updated in onResize
-        m_fileBrowser->setBounds(NomadUI::NUIRect(0, 62, 280, 620)); // Right below transport bar (Y=62), no gap
+        // Initial positioning using configurable dimensions - will be updated in onResize
+        m_fileBrowser->setBounds(NomadUI::NUIRect(0, layout.transportBarHeight, layout.fileBrowserWidth, 620));
         m_fileBrowser->setOnFileOpened([this](const NomadUI::FileItem& file) {
             Log::info("File opened: " + file.path);
             // TODO: Load audio file or project
         });
+        m_fileBrowser->setOnSoundPreview([this](const NomadUI::FileItem& file) {
+            Log::info("Sound preview requested: " + file.path);
+            playSoundPreview(file);
+        });
+        m_fileBrowser->setOnFileSelected([this](const NomadUI::FileItem& file) {
+            // Stop any currently playing preview when selecting a file
+            stopSoundPreview();
+        });
         addChild(m_fileBrowser);
-        
+
         // Create compact audio meter - positioned inside transport bar (right side)
         m_audioVisualizer = std::make_shared<NomadUI::AudioVisualizer>();
-        m_audioVisualizer->setBounds(NomadUI::NUIRect(1100, 46, 80, 40)); // Inside transport bar (Y=46, height=40) - centered
+        float visualizerWidth = 80.0f;
+        float visualizerHeight = 40.0f;
+        float vuY = layout.componentPadding; // Will be centered in onResize
+        m_audioVisualizer->setBounds(NomadUI::NUIRect(1100, vuY, visualizerWidth, visualizerHeight));
         m_audioVisualizer->setMode(NomadUI::AudioVisualizationMode::CompactMeter);
         m_audioVisualizer->setShowStereo(true);
         addChild(m_audioVisualizer);
+
+        // Create track manager for multi-track functionality
+        m_trackManager = std::make_shared<TrackManager>();
+        addDemoTracks();
+
+        // Create track manager UI
+        m_trackManagerUI = std::make_shared<TrackManagerUI>(m_trackManager);
+        float trackAreaWidth = 800.0f; // Will be updated in onResize
+        float trackAreaHeight = 500.0f;
+        m_trackManagerUI->setBounds(NomadUI::NUIRect(layout.fileBrowserWidth, layout.transportBarHeight, trackAreaWidth, trackAreaHeight));
+        addChild(m_trackManagerUI);
+
+        // Initialize sound preview system
+        m_previewTrack = m_trackManager->addTrack("Preview");
+        m_previewTrack->setVolume(0.5f); // Lower volume for preview
+        m_previewTrack->setColor(0xFFFF8800); // Orange color for preview track
+        m_previewIsPlaying = false;
+        m_previewStartTime = std::chrono::steady_clock::time_point(); // Default construct
+        m_previewDuration = 5.0; // 5 seconds preview
+        
+        Log::info("Sound preview system initialized");
     }
     
     void setAudioStatus(bool active) {
@@ -78,90 +123,255 @@ public:
         return m_audioVisualizer;
     }
     
+    std::shared_ptr<TrackManager> getTrackManager() const {
+        return m_trackManager;
+    }
+    
+    std::shared_ptr<TrackManagerUI> getTrackManagerUI() const {
+        return m_trackManagerUI;
+    }
+    
+    void addDemoTracks() {
+        Log::info("addDemoTracks() called - starting demo track creation");
+
+        // Add some demo tracks for testing with numbered names
+        auto track1 = m_trackManager->addTrack("Track 1");
+        track1->setColor(0xFF804020); // Orange
+        Log::info("Loading demo audio into Track 1");
+        track1->loadAudioFile("demo_guitar.wav"); // This will generate preview tone
+
+        auto track2 = m_trackManager->addTrack("Track 2");
+        track2->setColor(0xFF408020); // Green
+        Log::info("Loading demo audio into Track 2");
+        track2->loadAudioFile("demo_drums.wav");
+
+        auto track3 = m_trackManager->addTrack("Track 3");
+        track3->setColor(0xFF402080); // Purple
+        Log::info("Loading demo audio into Track 3");
+        track3->loadAudioFile("demo_vocals.wav");
+
+        // Refresh the UI to show the new tracks
+        if (m_trackManagerUI) {
+            m_trackManagerUI->refreshTracks();
+        }
+        Log::info("addDemoTracks() completed");
+    }
+
+    // Generate a simple test WAV file for demo purposes
+    bool generateTestWavFile(const std::string& filename, float frequency, double duration) {
+        Log::info("generateTestWavFile called for: " + filename);
+
+        // Check if file already exists
+        std::ifstream checkFile(filename);
+        if (checkFile) {
+            checkFile.close();
+            Log::info("File already exists: " + filename);
+            return true; // File already exists
+        }
+        checkFile.close();
+
+        Log::info("Generating test WAV file: " + filename + " (" + std::to_string(frequency) + " Hz, " + std::to_string(duration) + "s)");
+
+        // WAV file parameters
+        const uint32_t sampleRate = 44100;
+        const uint16_t numChannels = 2;
+        const uint16_t bitsPerSample = 16;
+        const uint32_t totalSamples = static_cast<uint32_t>(sampleRate * duration * numChannels);
+
+        Log::info("WAV parameters: " + std::to_string(sampleRate) + " Hz, " + std::to_string(numChannels) + " channels, " + std::to_string(bitsPerSample) + " bits, " + std::to_string(totalSamples) + " samples");
+
+        // Create WAV header
+        struct WavHeader {
+            char riff[4] = {'R', 'I', 'F', 'F'};
+            uint32_t fileSize;
+            char wave[4] = {'W', 'A', 'V', 'E'};
+            char fmt[4] = {'f', 'm', 't', ' '};
+            uint32_t fmtSize = 16;
+            uint16_t audioFormat = 1; // PCM
+            uint16_t numChannels;
+            uint32_t sampleRate;
+            uint32_t byteRate;
+            uint16_t blockAlign;
+            uint16_t bitsPerSample;
+            char data[4] = {'d', 'a', 't', 'a'};
+            uint32_t dataSize;
+        } header;
+
+        header.numChannels = numChannels;
+        header.sampleRate = sampleRate;
+        header.byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+        header.blockAlign = numChannels * (bitsPerSample / 8);
+        header.bitsPerSample = bitsPerSample;
+        header.dataSize = totalSamples * (bitsPerSample / 8);
+        header.fileSize = 36 + header.dataSize; // Header size + data size
+
+        Log::info("Generated WAV header: fileSize=" + std::to_string(header.fileSize) + ", dataSize=" + std::to_string(header.dataSize));
+
+        // Generate audio data
+        std::vector<int16_t> audioData(totalSamples);
+        Log::info("Created audio data buffer with " + std::to_string(audioData.size()) + " samples");
+
+        for (uint32_t i = 0; i < totalSamples / numChannels; ++i) {
+            double phase = 2.0 * M_PI * frequency * i / sampleRate;
+            int16_t sample = static_cast<int16_t>(30000 * sin(phase)); // 16-bit sample with some headroom
+
+            // Stereo (left and right channels)
+            audioData[i * numChannels + 0] = sample;
+            audioData[i * numChannels + 1] = sample;
+        }
+
+        Log::info("Generated audio samples, first sample: " + std::to_string(audioData[0]));
+
+        // Write WAV file
+        std::ofstream wavFile(filename, std::ios::binary);
+        if (!wavFile) {
+            Log::error("Failed to create test WAV file: " + filename);
+            return false;
+        }
+
+        Log::info("Opened WAV file for writing: " + filename);
+        wavFile.write(reinterpret_cast<char*>(&header), sizeof(header));
+        Log::info("Wrote WAV header");
+        wavFile.write(reinterpret_cast<char*>(audioData.data()), audioData.size() * sizeof(int16_t));
+        Log::info("Wrote audio data");
+        wavFile.close();
+        Log::info("Closed WAV file");
+
+        // Verify file was created
+        std::ifstream verifyFile(filename, std::ios::binary);
+        if (verifyFile) {
+            verifyFile.seekg(0, std::ios::end);
+            std::streamsize fileSize = verifyFile.tellg();
+            verifyFile.close();
+            Log::info("Test WAV file generated successfully: " + filename + " (size: " + std::to_string(fileSize) + " bytes)");
+            return true;
+        } else {
+            Log::error("Failed to verify WAV file creation: " + filename);
+            return false;
+        }
+    }
+    
+    void playSoundPreview(const NomadUI::FileItem& file) {
+        Log::info("Playing sound preview for: " + file.path);
+
+        // Stop any currently playing preview
+        stopSoundPreview();
+
+        // Load the audio file into the preview track
+        if (m_previewTrack && m_previewTrack->loadAudioFile(file.path)) {
+            Log::info("Preview audio loaded successfully");
+
+            // Set volume for preview (lower than normal)
+            m_previewTrack->setVolume(0.5f);
+
+            // Start playing the preview
+            m_previewTrack->play();
+            m_previewIsPlaying = true;
+            m_previewStartTime = std::chrono::steady_clock::now();
+            m_currentPreviewFile = file.path;
+
+            Log::info("Sound preview started - Track state: " + 
+                      std::to_string(static_cast<int>(m_previewTrack->getState())));
+        } else {
+            Log::warning("Failed to load preview audio: " + file.path);
+        }
+    }
+
+    void stopSoundPreview() {
+        if (m_previewTrack && m_previewIsPlaying) {
+            m_previewTrack->stop();
+            m_previewTrack->setPosition(0.0);
+            m_previewIsPlaying = false;
+            m_currentPreviewFile.clear();
+            Log::info("Sound preview stopped");
+        }
+    }
+
+    void updateSoundPreview() {
+        if (m_previewIsPlaying) {
+            // Check if 5 seconds have elapsed
+            auto currentTime = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(currentTime - m_previewStartTime);
+
+            if (elapsed.count() >= m_previewDuration) {
+                stopSoundPreview();
+            }
+        }
+    }
     
     void onRender(NomadUI::NUIRenderer& renderer) override {
         // Note: bounds are set by parent (NUICustomWindow) to be below the title bar
         NomadUI::NUIRect bounds = getBounds();
         float width = bounds.width;
         float height = bounds.height;
-        
-        // Transport bar height
-        float transportHeight = 60.0f;
-        
-        // Get Liminal Dark v2.0 theme colors
+
+        // Get configurable transport bar height from theme
         auto& themeManager = NomadUI::NUIThemeManager::getInstance();
+        const auto& layout = themeManager.getLayoutDimensions();
+        float transportHeight = layout.transportBarHeight;
+
+        // Get Liminal Dark v2.0 theme colors
         NomadUI::NUIColor textColor = themeManager.getColor("textPrimary");        // #e6e6eb - Soft white
         NomadUI::NUIColor accentColor = themeManager.getColor("accentCyan");       // #00bcd4 - Accent cyan
-        NomadUI::NUIColor statusColor = m_audioActive ? 
+        NomadUI::NUIColor statusColor = m_audioActive ?
             themeManager.getColor("accentLime") : themeManager.getColor("error");  // #9eff61 for active, #ff4d4d for error
-        
-        // Draw center panel with padding (below transport bar) - BACKGROUND FIRST
-        // Use absolute coordinates since NUIComponent doesn't transform child coordinates
-        NomadUI::NUIRect centerPanel(bounds.x + 20, bounds.y + transportHeight + 20, 
-                                     width - 40, height - transportHeight - 40);
-        renderer.fillRoundedRect(centerPanel, 8, themeManager.getColor("surfaceTertiary"));  // #25252a - Popups, transport bar, VU meter surface
-        
-        // Render children AFTER background (transport bar and other components on top)
+
+        // Draw main content area (below transport bar)
+        NomadUI::NUIRect contentArea(bounds.x, bounds.y + transportHeight,
+                                     width, height - transportHeight);
+        renderer.fillRect(contentArea, themeManager.getColor("backgroundPrimary"));
+
+        // Draw content area border
+        renderer.strokeRect(contentArea, 1, themeManager.getColor("border"));
+
+        // Render children (transport bar, file browser, track manager, visualizer)
         renderChildren(renderer);
-        
-        // Calculate center position using absolute coordinates
-        float centerX = bounds.x + (width / 2.0f);
-        float centerY = bounds.y + transportHeight + ((height - transportHeight) / 2.0f);
-        
-        // Draw welcome message with enhanced styling
-        std::string welcomeMsg = "NOMAD DAW - Ready";
-        auto welcomeSize = renderer.measureText(welcomeMsg, 32);
-        float welcomeY = centerY - welcomeSize.height / 2.0f - 20; // Perfect vertical centering
-        renderer.drawText(welcomeMsg, 
-                         NomadUI::NUIPoint(centerX - welcomeSize.width / 2.0f, welcomeY), 
-                         32, textColor);
-        
-        // Draw audio status with perfect alignment
-        std::string statusText = m_audioActive ? "Audio: Active" : "Audio: Inactive";
-        auto statusSize = renderer.measureText(statusText, 16);
-        float statusY = centerY + 20; // Perfect spacing from welcome message
-        renderer.drawText(statusText, 
-                         NomadUI::NUIPoint(centerX - statusSize.width / 2.0f, statusY), 
-                         16, statusColor);
-        
-        // Draw instructions with perfect alignment
-        std::string infoText = "Press SPACE to play/pause | ESC to exit | F11 for fullscreen";
-        auto infoSize = renderer.measureText(infoText, 14);
-        float infoY = centerY + 50; // Perfect spacing from status
-        renderer.drawText(infoText, 
-                         NomadUI::NUIPoint(centerX - infoSize.width / 2.0f, infoY), 
-                         14, themeManager.getColor("textSecondary"));
+
     }
     
+    
     void onResize(int width, int height) override {
-        // Update transport bar bounds
-        // Since NUIComponent doesn't transform child coordinates, we need to position
-        // the transport bar at the absolute position (content area Y offset + 0)
+        // Get layout dimensions from theme
+        auto& themeManager = NomadUI::NUIThemeManager::getInstance();
+        const auto& layout = themeManager.getLayoutDimensions();
+
+        // Update transport bar bounds using configurable dimensions
         if (m_transportBar) {
-            float transportHeight = 60.0f;
-            // Get our bounds to find the Y offset (should be 32 for title bar height)
             NomadUI::NUIRect contentBounds = getBounds();
-            m_transportBar->setBounds(NomadUI::NUIRect(contentBounds.x, contentBounds.y, 
-                                                       static_cast<float>(width), transportHeight));
-            m_transportBar->onResize(width, static_cast<int>(transportHeight));
+            m_transportBar->setBounds(NomadUI::NUIRect(contentBounds.x, contentBounds.y,
+                                                       static_cast<float>(width), layout.transportBarHeight));
+            m_transportBar->onResize(width, static_cast<int>(layout.transportBarHeight));
         }
-        
-        // Update file browser bounds to be responsive
+
+        // Update file browser bounds using full window dimensions
         if (m_fileBrowser) {
-            float fileBrowserWidth = std::min(280.0f, width * 0.25f); // 25% of width or max 280px
-            float fileBrowserHeight = height - 62; // Full height minus transport bar (60px) + 2px gap
+            float fileBrowserWidth = std::min(layout.fileBrowserWidth, width * 0.25f); // 25% of width or max configured width
+            float fileBrowserHeight = height - layout.transportBarHeight; // Full height to bottom
             NomadUI::NUIRect contentBounds = getBounds();
-            m_fileBrowser->setBounds(NomadUI::NUIRect(contentBounds.x, contentBounds.y + 62, 
-                                                      fileBrowserWidth, fileBrowserHeight));
+            m_fileBrowser->setBounds(NomadUI::NUIRect(contentBounds.x, contentBounds.y + layout.transportBarHeight,
+                                                       fileBrowserWidth, fileBrowserHeight));
         }
-        
-        // Update audio visualizer position
+
+        // Update audio visualizer position - centered in transport bar
         if (m_audioVisualizer) {
             NomadUI::NUIRect contentBounds = getBounds();
-            m_audioVisualizer->setBounds(NomadUI::NUIRect(contentBounds.x + width - 100, 
-                                                          contentBounds.y + 10, 80, 40));
+            float visualizerWidth = 80.0f; // Could be made configurable
+            float visualizerHeight = 40.0f;
+            float vuY = contentBounds.y + (layout.transportBarHeight - visualizerHeight) / 2.0f; // Vertically centered
+            m_audioVisualizer->setBounds(NomadUI::NUIRect(contentBounds.x + width - visualizerWidth - layout.panelMargin,
+                                                           vuY, visualizerWidth, visualizerHeight));
         }
-        
+
+        // Update track manager UI bounds using full window dimensions (no margins)
+        if (m_trackManagerUI) {
+            float trackAreaX = layout.fileBrowserWidth; // Use configured file browser width
+            float trackAreaWidth = width - trackAreaX; // Full width to window edge
+            float trackAreaHeight = height - layout.transportBarHeight; // Full height to bottom
+            // Position track manager to start immediately after transport bar, matching file browser positioning
+            NomadUI::NUIRect contentBounds = getBounds();
+            m_trackManagerUI->setBounds(NomadUI::NUIRect(trackAreaX, contentBounds.y + layout.transportBarHeight, trackAreaWidth, trackAreaHeight));
+        }
+
         NomadUI::NUIComponent::onResize(width, height);
     }
     
@@ -169,7 +379,16 @@ private:
     std::shared_ptr<TransportBar> m_transportBar;
     std::shared_ptr<NomadUI::FileBrowser> m_fileBrowser;
     std::shared_ptr<NomadUI::AudioVisualizer> m_audioVisualizer;
+    std::shared_ptr<TrackManager> m_trackManager;
+    std::shared_ptr<TrackManagerUI> m_trackManagerUI;
+    std::shared_ptr<Track> m_previewTrack;  // Dedicated track for sound previews
     bool m_audioActive = false;
+
+    // Sound preview state
+    bool m_previewIsPlaying = false;
+    std::chrono::steady_clock::time_point m_previewStartTime{}; // Default initialized
+    double m_previewDuration = 5.0; // 5 seconds
+    std::string m_currentPreviewFile;
 };
 
 /**
@@ -310,6 +529,8 @@ public:
         }
 
         // Initialize audio engine
+        std::cout << "Main::initialize: Initializing audio engine" << std::endl;
+        std::cout.flush();
         m_audioManager = std::make_unique<AudioDeviceManager>();
         if (!m_audioManager->initialize()) {
             Log::error("Failed to initialize audio engine");
@@ -320,29 +541,65 @@ public:
             ss << "Audio engine initialized: " << Audio::getBackendName();
             Log::info(ss.str());
             
-            // Get default audio device
-            auto defaultDevice = m_audioManager->getDefaultOutputDevice();
-            ss.str("");
-            ss << "Default audio device: " << defaultDevice.name;
-            Log::info(ss.str());
-            
-            // Configure audio stream
-            AudioStreamConfig config;
-            config.deviceId = defaultDevice.id;
-            config.sampleRate = 48000;
-            config.bufferSize = 512;
-            config.numInputChannels = 0;
-            config.numOutputChannels = 2;
+            try {
+                // Get default audio device with error handling
+                std::cout << "Main::initialize: Getting default output device" << std::endl;
+                std::cout.flush();
+                
+                // First check if any devices are available
+                auto devices = m_audioManager->getDevices();
+                if (devices.empty()) {
+                    Log::warning("No ASIO audio devices found. Please install ASIO drivers.");
+                    Log::warning("Continuing without audio support.");
+                    m_audioInitialized = false;
+                } else {
+                    ss.str("");
+                    ss << "Found " << devices.size() << " ASIO device(s)";
+                    Log::info(ss.str());
+                    
+                    auto defaultDevice = m_audioManager->getDefaultOutputDevice();
+                    
+                    if (defaultDevice.name.empty()) {
+                        Log::warning("No default ASIO device available");
+                        m_audioInitialized = false;
+                    } else {
+                        ss.str("");
+                        ss << "Default audio device: " << defaultDevice.name;
+                        Log::info(ss.str());
+                        
+                        // Configure audio stream
+                        AudioStreamConfig config;
+                        config.deviceId = defaultDevice.id;
+                        config.sampleRate = 48000;
+                        config.bufferSize = 512;
+                        config.numInputChannels = 0;
+                        config.numOutputChannels = 2;
 
-            // Open audio stream with a simple callback
-            if (m_audioManager->openStream(config, audioCallback, this)) {
+                        std::cout << "Main::initialize: Opening audio stream" << std::endl;
+                        std::cout.flush();
+                        
+                        // Open audio stream with a simple callback
+                        if (m_audioManager->openStream(config, audioCallback, this)) {
+                            ss.str("");
+                            ss << "Audio stream opened: " << config.sampleRate << " Hz, "
+                               << config.bufferSize << " samples, " << config.numOutputChannels << " channels";
+                            Log::info(ss.str());
+                            m_audioInitialized = true;
+                        } else {
+                            Log::warning("Failed to open audio stream");
+                            m_audioInitialized = false;
+                        }
+                    }
+                }
+            } catch (const std::exception& e) {
                 ss.str("");
-                ss << "Audio stream opened: " << config.sampleRate << " Hz, " 
-                   << config.bufferSize << " samples, " << config.numOutputChannels << " channels";
-                Log::info(ss.str());
-                m_audioInitialized = true;
-            } else {
-                Log::warning("Failed to open audio stream");
+                ss << "Exception while initializing ASIO audio: " << e.what();
+                Log::error(ss.str());
+                Log::warning("Continuing without audio support. Please install ASIO drivers.");
+                m_audioInitialized = false;
+            } catch (...) {
+                Log::error("Unknown exception while initializing ASIO audio");
+                Log::warning("Continuing without audio support. Please install ASIO drivers.");
                 m_audioInitialized = false;
             }
         }
@@ -351,6 +608,12 @@ public:
         auto& themeManager = NUIThemeManager::getInstance();
         themeManager.setActiveTheme("nomad-dark");
         Log::info("Theme system initialized");
+
+        // Load YAML configuration for pixel-perfect customization
+        // Note: This would be implemented in the config loader
+        Log::info("Loading UI configuration...");
+        // NUIConfigLoader::getInstance().loadConfig("NomadUI/Config/nomad_ui_config.yaml");
+        Log::info("UI configuration loaded");
         
         // Create root component
         m_rootComponent = std::make_shared<NomadRootComponent>();
@@ -372,22 +635,22 @@ public:
             
             transport->setOnPlay([this]() {
                 Log::info("Transport: Play");
-                if (m_audioManager) {
-                    m_audioManager->startStream();
+                if (m_content && m_content->getTrackManagerUI()) {
+                    m_content->getTrackManagerUI()->getTrackManager()->play();
                 }
             });
             
             transport->setOnPause([this]() {
                 Log::info("Transport: Pause");
-                if (m_audioManager) {
-                    m_audioManager->stopStream();
+                if (m_content && m_content->getTrackManagerUI()) {
+                    m_content->getTrackManagerUI()->getTrackManager()->pause();
                 }
             });
             
             transport->setOnStop([this, transport]() {
                 Log::info("Transport: Stop");
-                if (m_audioManager) {
-                    m_audioManager->stopStream();
+                if (m_content && m_content->getTrackManagerUI()) {
+                    m_content->getTrackManagerUI()->getTrackManager()->stop();
                 }
                 // Reset position to 0
                 transport->setPosition(0.0);
@@ -397,7 +660,7 @@ public:
                 std::stringstream ss;
                 ss << "Transport: Tempo changed to " << bpm << " BPM";
                 Log::info(ss.str());
-                // TODO: Update audio engine tempo
+                // TODO: Update track manager tempo
             });
         }
         
@@ -408,7 +671,11 @@ public:
             Log::info("Audio settings applied");
             // Update audio status
             if (m_content) {
-                m_content->setAudioStatus(m_audioManager->isStreamRunning());
+                bool trackManagerActive = m_content->getTrackManagerUI() &&
+                                        m_content->getTrackManagerUI()->getTrackManager() &&
+                                        (m_content->getTrackManagerUI()->getTrackManager()->isPlaying() ||
+                                         m_content->getTrackManagerUI()->getTrackManager()->isRecording());
+                m_content->setAudioStatus(m_audioInitialized || trackManagerActive);
             }
         });
         m_audioSettingsDialog->setOnCancel([this]() {
@@ -469,8 +736,20 @@ public:
             Log::warning("Failed to start audio stream");
         }
 
+        // Start track manager if tracks are loaded
+        if (m_content && m_content->getTrackManagerUI() && m_content->getTrackManagerUI()->getTrackManager() &&
+            m_content->getTrackManagerUI()->getTrackManager()->getTrackCount() > 0) {
+            Log::info("Starting track manager playback");
+            // Track manager will be controlled by transport bar callbacks
+        }
+
         // Main event loop
         while (m_running && m_window->processEvents()) {
+            // Update sound previews
+            if (m_content) {
+                m_content->updateSoundPreview();
+            }
+
             render();
             m_window->swapBuffers();
         }
@@ -494,6 +773,12 @@ public:
             m_audioManager->closeStream();
             m_audioManager->shutdown();
             Log::info("Audio engine shutdown");
+        }
+
+        // Stop track manager
+        if (m_content && m_content->getTrackManagerUI() && m_content->getTrackManagerUI()->getTrackManager()) {
+            m_content->getTrackManagerUI()->getTrackManager()->stop();
+            Log::info("Track manager shutdown");
         }
 
         // Shutdown UI renderer
@@ -650,46 +935,31 @@ private:
 
     /**
      * @brief Audio callback function
+     * 
+     * IMPORTANT: This runs in real-time audio thread - minimize work and NO logging!
      */
-    static int audioCallback(float* outputBuffer, const float* inputBuffer, 
-                            uint32_t nFrames, double streamTime, void* userData) {
+    static int audioCallback(float* outputBuffer, const float* inputBuffer,
+                             uint32_t nFrames, double streamTime, void* userData) {
         NomadApp* app = static_cast<NomadApp*>(userData);
-        
-        // Generate a more dynamic test tone for visualization
-        static double phase = 0.0;
-        static double phase2 = 0.0;
-        double frequency = 440.0; // A4 note
-        double frequency2 = 880.0; // A5 note for stereo effect
-        double sampleRate = 48000.0;
-        double phaseIncrement = 2.0 * 3.14159265359 * frequency / sampleRate;
-        double phaseIncrement2 = 2.0 * 3.14159265359 * frequency2 / sampleRate;
-        
-        // Add some variation to make it more interesting
-        double time = streamTime;
-        double amplitude = 0.3f + 0.2f * std::sin(time * 2.0); // Varying amplitude
-        double stereoOffset = 0.1f * std::sin(time * 0.5); // Stereo movement
-        
-        for (uint32_t i = 0; i < nFrames; ++i) {
-            float leftSample = static_cast<float>(std::sin(phase) * amplitude);
-            float rightSample = static_cast<float>(std::sin(phase2 + stereoOffset) * amplitude);
-            
-            outputBuffer[i * 2] = leftSample;     // Left channel
-            outputBuffer[i * 2 + 1] = rightSample; // Right channel
-            
-            phase += phaseIncrement;
-            phase2 += phaseIncrement2;
+        if (!app || !outputBuffer) {
+            return 1;
         }
-        
-        // Send audio data to visualizer if available
-        if (app && app->m_content) {
-            // Get the audio visualizer from the content
-            auto visualizer = app->m_content->getAudioVisualizer();
-            if (visualizer) {
-                visualizer->setAudioData(
-                    outputBuffer, outputBuffer + 1, nFrames, sampleRate);
+
+        // Clear output buffer first
+        std::fill(outputBuffer, outputBuffer + nFrames * 2, 0.0f);
+
+        // Process audio through track manager
+        if (app->m_content && app->m_content->getTrackManagerUI()) {
+            auto trackManager = app->m_content->getTrackManagerUI()->getTrackManager();
+            if (trackManager) {
+                // Let track manager mix all playing tracks
+                trackManager->processAudio(outputBuffer, nFrames, streamTime);
             }
         }
-        
+
+        // Note: Audio visualizer updates happen in the UI thread via setAudioData()
+        // No visualization updates in the audio callback to maintain real-time safety
+
         return 0;
     }
 

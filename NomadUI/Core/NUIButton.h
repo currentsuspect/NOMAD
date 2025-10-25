@@ -59,6 +59,10 @@ public:
     void setToggled(bool toggled);
     bool isToggled() const { return toggled_; }
 
+    // State access
+    bool isHovered() const { return state_ == State::Hovered; }
+    bool isPressed() const { return isPressed_; }
+
     // Event callbacks
     void setOnClick(std::function<void()> callback);
     void setOnToggle(std::function<void(bool)> callback);
