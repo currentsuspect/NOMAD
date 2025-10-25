@@ -132,9 +132,10 @@ void ZoomControls::onRender(NUIRenderer& renderer)
 
 bool ZoomControls::onMouseEvent(const NUIMouseEvent& event)
 {
-    if (event.type == NUIMouseEventType::Scroll)
+    // Map legacy scroll event to current wheelDelta
+    if (event.wheelDelta != 0.0f)
     {
-        setZoom(zoom_ + event.scrollDeltaY * 0.1);
+        setZoom(zoom_ + event.wheelDelta * 0.1);
         return true;
     }
     return false;

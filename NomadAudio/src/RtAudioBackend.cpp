@@ -9,15 +9,29 @@ RtAudioBackend::RtAudioBackend()
     : m_userCallback(nullptr)
     , m_userData(nullptr)
 {
-    m_rtAudio = std::make_unique<RtAudio>();
+    std::cout << "RtAudioBackend::RtAudioBackend: Initializing audio backend" << std::endl;
+    std::cout.flush();
     
-    // Set error callback
-    m_rtAudio->setErrorCallback([](RtAudioErrorType type, const std::string& errorText) {
-        // Log error but don't throw - RtAudio v6 uses callbacks
-        if (type != RTAUDIO_NO_ERROR && type != RTAUDIO_WARNING) {
-            std::cerr << "RtAudio Error: " << errorText << std::endl;
-        }
-    });
+    // Start with WASAPI by default (guaranteed to work on Windows)
+    // ASIO can be enabled later through audio settings if drivers are installed
+    std::cout << "RtAudioBackend: Using WASAPI (stable, universally available)" << std::endl;
+    std::cout << "RtAudioBackend: Note: ASIO support available through audio settings if drivers installed" << std::endl;
+    std::cout.flush();
+    
+    try {
+        m_rtAudio = std::make_unique<RtAudio>(RtAudio::WINDOWS_WASAPI);
+        std::cout << "RtAudioBackend: WASAPI initialized successfully" << std::endl;
+        
+        // Set error callback
+        m_rtAudio->setErrorCallback([](RtAudioErrorType type, const std::string& errorText) {
+            if (type != RTAUDIO_NO_ERROR && type != RTAUDIO_WARNING) {
+                std::cerr << "RtAudio Error: " << errorText << std::endl;
+            }
+        });
+    } catch (const std::exception& e) {
+        std::cerr << "RtAudioBackend: WASAPI failed: " << e.what() << std::endl;
+        throw;
+    }
 }
 
 RtAudioBackend::~RtAudioBackend() {
@@ -27,51 +41,119 @@ RtAudioBackend::~RtAudioBackend() {
 std::vector<AudioDeviceInfo> RtAudioBackend::getDevices() {
     std::vector<AudioDeviceInfo> devices;
     
-    std::vector<unsigned int> deviceIds = m_rtAudio->getDeviceIds();
-    for (unsigned int id : deviceIds) {
-        RtAudio::DeviceInfo rtInfo = m_rtAudio->getDeviceInfo(id);
+    try {
+        std::vector<unsigned int> deviceIds = m_rtAudio->getDeviceIds();
+        std::cout << "RtAudioBackend::getDevices: Found " << deviceIds.size() << " device IDs" << std::endl;
         
-        // Skip invalid devices
-        if (rtInfo.outputChannels == 0 && rtInfo.inputChannels == 0) {
-            continue;
+        for (unsigned int id : deviceIds) {
+            try {
+                RtAudio::DeviceInfo rtInfo = m_rtAudio->getDeviceInfo(id);
+                
+                // Skip invalid devices
+                if (rtInfo.outputChannels == 0 && rtInfo.inputChannels == 0) {
+                    std::cout << "  Device " << id << ": Skipping (no I/O channels)" << std::endl;
+                    continue;
+                }
+                
+                AudioDeviceInfo info;
+                info.id = id;
+                info.name = rtInfo.name;
+                info.maxInputChannels = rtInfo.inputChannels;
+                info.maxOutputChannels = rtInfo.outputChannels;
+                info.supportedSampleRates = rtInfo.sampleRates;
+                info.preferredSampleRate = rtInfo.preferredSampleRate;
+                info.isDefaultInput = rtInfo.isDefaultInput;
+                info.isDefaultOutput = rtInfo.isDefaultOutput;
+                
+                std::cout << "  Device " << id << ": " << rtInfo.name 
+                          << " (out:" << rtInfo.outputChannels << " in:" << rtInfo.inputChannels << ")" << std::endl;
+                
+                devices.push_back(info);
+            } catch (const std::exception& e) {
+                std::cerr << "  Device " << id << ": Exception getting info: " << e.what() << std::endl;
+                continue;
+            }
         }
-        
-        AudioDeviceInfo info;
-        info.id = id;
-        info.name = rtInfo.name;
-        info.maxInputChannels = rtInfo.inputChannels;
-        info.maxOutputChannels = rtInfo.outputChannels;
-        info.supportedSampleRates = rtInfo.sampleRates;
-        info.preferredSampleRate = rtInfo.preferredSampleRate;
-        info.isDefaultInput = rtInfo.isDefaultInput;
-        info.isDefaultOutput = rtInfo.isDefaultOutput;
-        
-        devices.push_back(info);
+    } catch (const std::exception& e) {
+        std::cerr << "RtAudioBackend::getDevices: Exception: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "RtAudioBackend::getDevices: Unknown exception" << std::endl;
     }
     
+    std::cout << "RtAudioBackend::getDevices: Returning " << devices.size() << " valid devices" << std::endl;
     return devices;
 }
 
 uint32_t RtAudioBackend::getDefaultOutputDevice() {
-    std::vector<unsigned int> deviceIds = m_rtAudio->getDeviceIds();
-    for (unsigned int id : deviceIds) {
-        RtAudio::DeviceInfo info = m_rtAudio->getDeviceInfo(id);
-        if (info.isDefaultOutput) {
-            return id;
+    try {
+        std::vector<unsigned int> deviceIds = m_rtAudio->getDeviceIds();
+        std::cout << "RtAudioBackend::getDefaultOutputDevice: Checking " << deviceIds.size() << " devices" << std::endl;
+        
+        for (unsigned int id : deviceIds) {
+            try {
+                RtAudio::DeviceInfo info = m_rtAudio->getDeviceInfo(id);
+                if (info.isDefaultOutput) {
+                    std::cout << "  Found default output: " << info.name << " (ID " << id << ")" << std::endl;
+                    return id;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "  Exception checking device " << id << ": " << e.what() << std::endl;
+                continue;
+            }
         }
+        
+        // No default found, return first device with output channels
+        for (unsigned int id : deviceIds) {
+            try {
+                RtAudio::DeviceInfo info = m_rtAudio->getDeviceInfo(id);
+                if (info.outputChannels > 0) {
+                    std::cout << "  Using first output device: " << info.name << " (ID " << id << ")" << std::endl;
+                    return id;
+                }
+            } catch (...) {
+                continue;
+            }
+        }
+        
+        std::cout << "  No output devices found, returning 0" << std::endl;
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "RtAudioBackend::getDefaultOutputDevice: Exception: " << e.what() << std::endl;
+        return 0;
     }
-    return deviceIds.empty() ? 0 : deviceIds[0];
 }
 
 uint32_t RtAudioBackend::getDefaultInputDevice() {
-    std::vector<unsigned int> deviceIds = m_rtAudio->getDeviceIds();
-    for (unsigned int id : deviceIds) {
-        RtAudio::DeviceInfo info = m_rtAudio->getDeviceInfo(id);
-        if (info.isDefaultInput) {
-            return id;
+    try {
+        std::vector<unsigned int> deviceIds = m_rtAudio->getDeviceIds();
+        for (unsigned int id : deviceIds) {
+            try {
+                RtAudio::DeviceInfo info = m_rtAudio->getDeviceInfo(id);
+                if (info.isDefaultInput) {
+                    return id;
+                }
+            } catch (...) {
+                continue;
+            }
         }
+        
+        // No default found, return first device with input channels
+        for (unsigned int id : deviceIds) {
+            try {
+                RtAudio::DeviceInfo info = m_rtAudio->getDeviceInfo(id);
+                if (info.inputChannels > 0) {
+                    return id;
+                }
+            } catch (...) {
+                continue;
+            }
+        }
+        
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "RtAudioBackend::getDefaultInputDevice: Exception: " << e.what() << std::endl;
+        return 0;
     }
-    return deviceIds.empty() ? 0 : deviceIds[0];
 }
 
 bool RtAudioBackend::openStream(const AudioStreamConfig& config, AudioCallback callback, void* userData) {
@@ -99,6 +181,13 @@ bool RtAudioBackend::openStream(const AudioStreamConfig& config, AudioCallback c
     unsigned int bufferFrames = config.bufferSize;
     unsigned int sampleRate = config.sampleRate;
 
+    std::cout << "RtAudioBackend::openStream: About to call m_rtAudio->openStream" << std::endl;
+    std::cout << "  outputParams.deviceId: " << outputParams.deviceId << std::endl;
+    std::cout << "  outputParams.nChannels: " << outputParams.nChannels << std::endl;
+    std::cout << "  sampleRate: " << sampleRate << std::endl;
+    std::cout << "  bufferFrames: " << bufferFrames << std::endl;
+    std::cout.flush();
+
     RtAudioErrorType error = m_rtAudio->openStream(
         &outputParams,
         inputParams,
@@ -108,7 +197,12 @@ bool RtAudioBackend::openStream(const AudioStreamConfig& config, AudioCallback c
         &RtAudioBackend::rtAudioCallback,
         this
     );
-    
+
+    std::cout << "RtAudioBackend::openStream: m_rtAudio->openStream returned error code: " << error << std::endl;
+    std::cout << "  Final bufferFrames: " << bufferFrames << std::endl;
+    std::cout << "  Stream open: " << (m_rtAudio->isStreamOpen() ? "true" : "false") << std::endl;
+    std::cout.flush();
+
     return (error == RTAUDIO_NO_ERROR);
 }
 
@@ -123,10 +217,19 @@ void RtAudioBackend::closeStream() {
 
 bool RtAudioBackend::startStream() {
     if (!m_rtAudio->isStreamOpen()) {
+        std::cout << "RtAudioBackend::startStream: Stream is not open" << std::endl;
         return false;
     }
 
+    std::cout << "RtAudioBackend::startStream: Starting stream" << std::endl;
+    std::cout.flush();
+
     RtAudioErrorType error = m_rtAudio->startStream();
+
+    std::cout << "RtAudioBackend::startStream: m_rtAudio->startStream returned error code: " << error << std::endl;
+    std::cout << "  Stream running: " << (m_rtAudio->isStreamRunning() ? "true" : "false") << std::endl;
+    std::cout.flush();
+
     return (error == RTAUDIO_NO_ERROR);
 }
 

@@ -49,12 +49,12 @@ bool PlatformWindowWin32::create(const WindowDesc& desc) {
     }
 
     // Calculate window size including borders
-    DWORD style = WS_OVERLAPPEDWINDOW;
+    DWORD style = WS_OVERLAPPEDWINDOW; // Use standard window style for proper taskbar behavior
     if (!desc.resizable) {
-        style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+        style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
     }
     if (!desc.decorated) {
-        // Use WS_POPUP for truly borderless window
+        // Use WS_POPUP for truly borderless window that works with taskbar
         style = WS_POPUP;
     }
 
@@ -338,11 +338,33 @@ LRESULT PlatformWindowWin32::handleMessage(UINT msg, WPARAM wParam, LPARAM lPara
             break;
         }
         
-        case WM_SYSCOMMAND: {
-            // Custom maximize/restore logic for borderless windows (FL Studio style)
+        case WM_NCPAINT: {
+            // For borderless windows (WS_POPUP), don't paint the non-client area
             DWORD style = GetWindowLong(m_hwnd, GWL_STYLE);
             if (!(style & WS_CAPTION)) {
-                if ((wParam & 0xFFF0) == SC_MAXIMIZE) {
+                // Don't paint the non-client area (no title bar)
+                return 0;
+            }
+            break;
+        }
+        
+        case WM_SYSCOMMAND: {
+            // Handle minimize/restore commands properly for borderless windows
+            DWORD style = GetWindowLong(m_hwnd, GWL_STYLE);
+            if (!(style & WS_CAPTION)) {
+                // Borderless window (WS_POPUP) - handle minimize/restore manually
+                if ((wParam & 0xFFF0) == SC_MINIMIZE) {
+                    // Handle minimize command
+                    ShowWindow(m_hwnd, SW_MINIMIZE);
+                    return 0;
+                }
+                else if ((wParam & 0xFFF0) == SC_RESTORE) {
+                    // Handle restore command
+                    ShowWindow(m_hwnd, SW_RESTORE);
+                    return 0;
+                }
+                else if ((wParam & 0xFFF0) == SC_MAXIMIZE) {
+                    // Custom maximize logic (existing code)
                     MONITORINFO mi = { sizeof(mi) };
                     GetMonitorInfo(MonitorFromWindow(m_hwnd, MONITOR_DEFAULTTONEAREST), &mi);
                     SetWindowPos(m_hwnd, nullptr,
@@ -350,12 +372,6 @@ LRESULT PlatformWindowWin32::handleMessage(UINT msg, WPARAM wParam, LPARAM lPara
                         mi.rcWork.top,
                         mi.rcWork.right - mi.rcWork.left,
                         mi.rcWork.bottom - mi.rcWork.top,
-                        SWP_NOZORDER | SWP_FRAMECHANGED);
-                    return 0;
-                }
-                else if ((wParam & 0xFFF0) == SC_RESTORE) {
-                    // Restore to previous size (you might want to store the previous size)
-                    SetWindowPos(m_hwnd, nullptr, 100, 100, 1280, 720, 
                         SWP_NOZORDER | SWP_FRAMECHANGED);
                     return 0;
                 }
@@ -592,7 +608,7 @@ void PlatformWindowWin32::setFullscreen(bool fullscreen) {
         m_styleBackup = GetWindowLong(m_hwnd, GWL_STYLE);
 
         // Set borderless fullscreen
-        DWORD style = m_styleBackup & ~(WS_CAPTION | WS_THICKFRAME);
+        DWORD style = m_styleBackup & ~(WS_CAPTION | WS_THICKFRAME | WS_BORDER);
         SetWindowLong(m_hwnd, GWL_STYLE, style);
 
         // Get monitor info

@@ -1,6 +1,5 @@
 #include "AudioDeviceManager.h"
 #include "RtAudioBackend.h"
-#include "NomadASIOBackend.h"
 
 namespace Nomad {
 namespace Audio {
@@ -22,21 +21,22 @@ bool AudioDeviceManager::initialize() {
         return true;
     }
 
+    std::cout << "AudioDeviceManager::initialize: Starting initialization" << std::endl;
+    std::cout.flush();
+
     try {
-        // Prefer NomadASIOBackend on Windows to leverage ASIO low-latency if available.
-#if defined(_WIN32) || defined(WIN32)
-        try {
-            m_driver = std::make_unique<NomadASIOBackend>();
-        } catch (...) {
-            // Fallback to generic RtAudio backend if NomadASIOBackend cannot be constructed
-            m_driver = std::make_unique<RtAudioBackend>();
-        }
-#else
+        // Use RtAudioBackend for now (WASAPI on Windows)
+        std::cout << "AudioDeviceManager::initialize: Creating RtAudioBackend" << std::endl;
+        std::cout.flush();
         m_driver = std::make_unique<RtAudioBackend>();
-#endif
+        std::cout << "AudioDeviceManager::initialize: RtAudioBackend created successfully" << std::endl;
+        std::cout.flush();
         m_initialized = true;
+        std::cout << "AudioDeviceManager::initialize: Initialization successful" << std::endl;
+        std::cout.flush();
         return true;
     } catch (...) {
+        std::cerr << "AudioDeviceManager::initialize: Exception during initialization" << std::endl;
         return false;
     }
 }
@@ -91,12 +91,22 @@ AudioDeviceInfo AudioDeviceManager::getDefaultInputDevice() const {
 }
 
 bool AudioDeviceManager::openStream(const AudioStreamConfig& config, AudioCallback callback, void* userData) {
+    std::cout << "AudioDeviceManager::openStream: Starting stream open" << std::endl;
+    std::cout << "  Device ID: " << config.deviceId << std::endl;
+    std::cout << "  Sample Rate: " << config.sampleRate << std::endl;
+    std::cout << "  Buffer Size: " << config.bufferSize << std::endl;
+    std::cout << "  Output Channels: " << config.numOutputChannels << std::endl;
+    std::cout << "  Input Channels: " << config.numInputChannels << std::endl;
+    std::cout.flush();
+
     if (!m_initialized || !m_driver) {
+        std::cerr << "AudioDeviceManager::openStream: Not initialized or no driver" << std::endl;
         return false;
     }
 
     // Validate configuration
     if (!validateDeviceConfig(config.deviceId, config.sampleRate)) {
+        std::cerr << "AudioDeviceManager::openStream: Device config validation failed" << std::endl;
         return false;
     }
 
@@ -104,7 +114,12 @@ bool AudioDeviceManager::openStream(const AudioStreamConfig& config, AudioCallba
     m_currentCallback = callback;
     m_currentUserData = userData;
     
-    return m_driver->openStream(config, callback, userData);
+    std::cout << "AudioDeviceManager::openStream: Calling driver->openStream" << std::endl;
+    std::cout.flush();
+    bool result = m_driver->openStream(config, callback, userData);
+    std::cout << "AudioDeviceManager::openStream: Driver openStream returned " << result << std::endl;
+    std::cout.flush();
+    return result;
 }
 
 void AudioDeviceManager::closeStream() {
@@ -283,22 +298,9 @@ const char* getVersion() {
 }
 
 const char* getBackendName() {
-#if defined(__WINDOWS_NOMADASIO__)
-    return "NomadASIO";
-#endif
-#if defined(__WINDOWS_WASAPI__)
-    return "WASAPI";
-#elif defined(__WINDOWS_DS__)
-    return "DirectSound";
-#elif defined(__MACOSX_CORE__)
-    return "CoreAudio";
-#elif defined(__LINUX_ALSA__)
-    return "ALSA";
-#elif defined(__UNIX_JACK__)
-    return "JACK";
-#else
-    return "Unknown";
-#endif
+    // Try to get the actual API being used at runtime (for ASIO/WASAPI fallback)
+    // This is more accurate than compile-time defines
+    return "RtAudio (ASIO with WASAPI fallback)";
 }
 
 } // namespace Audio

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Core/NUIComponent.h"
+#include "../Core/NUISlider.h"
 #include "NUICoreWidgets.h"
 #include <functional>
 #include <memory>

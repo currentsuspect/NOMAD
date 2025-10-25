@@ -18,8 +18,8 @@ bool NUIToggle::onMouseEvent(const NUIMouseEvent& event)
 {
     if (!isEnabled() || state_ == State::Disabled)
         return false;
-
-    if (event.type == NUIMouseEventType::ButtonDown)
+    // Old widget code used event.type/enum; map to current event fields
+    if (event.pressed && event.button == NUIMouseButton::Left)
     {
         setOn(!isOn());
         if (onToggle_)
@@ -161,11 +161,12 @@ void NUIScrollView::onRender(NUIRenderer& renderer)
 
 bool NUIScrollView::onMouseEvent(const NUIMouseEvent& event)
 {
-    if (event.type == NUIMouseEventType::Scroll)
+    // Map legacy scroll fields: use wheelDelta as vertical scroll amount
+    if (event.wheelDelta != 0.0f)
     {
         NUIPoint newOffset = scrollOffset_;
-        newOffset.x -= event.scrollDeltaX;
-        newOffset.y -= event.scrollDeltaY;
+        newOffset.x -= 0.0f; // horizontal wheel not available in core event
+        newOffset.y -= event.wheelDelta;
         setScrollOffset(newOffset);
         return true;
     }
@@ -254,9 +255,9 @@ void NUIPopupMenu::onRender(NUIRenderer& renderer)
 
 bool NUIPopupMenu::onMouseEvent(const NUIMouseEvent& event)
 {
-    if (event.type == NUIMouseEventType::ButtonDown)
+    if (event.pressed && event.button == NUIMouseButton::Left)
     {
-        const int index = static_cast<int>((event.y - getY()) / 24.0f);
+        const int index = static_cast<int>((event.position.y - getY()) / 24.0f);
         if (index >= 0 && index < static_cast<int>(items_.size()))
         {
             const auto& item = items_[index];
@@ -290,9 +291,9 @@ void NUITabBar::onRender(NUIRenderer& renderer)
 
 bool NUITabBar::onMouseEvent(const NUIMouseEvent& event)
 {
-    if (event.type == NUIMouseEventType::ButtonDown)
+    if (event.pressed && event.button == NUIMouseButton::Left)
     {
-        const int index = hitTestTab(event.x, event.y);
+        const int index = hitTestTab(static_cast<int>(event.position.x), static_cast<int>(event.position.y));
         if (index >= 0 && index < static_cast<int>(tabs_.size()))
         {
             setActiveTab(tabs_[index].id);

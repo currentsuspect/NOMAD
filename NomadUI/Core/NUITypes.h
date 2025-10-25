@@ -6,8 +6,15 @@
 #include <functional>
 #include <cmath>
 #include <algorithm>
+#include <vector>
 
 namespace NomadUI {
+
+// Utility functions
+template <typename T>
+T clamp(T value, T min, T max) {
+    return (value < min) ? min : (value > max) ? max : value;
+}
 
 // ============================================================================
 // Basic Types
@@ -201,26 +208,26 @@ struct NUIColor {
     
     NUIColor withSaturation(float saturation) const {
         HSL hsl = toHSL();
-        hsl.s = std::clamp(saturation, 0.0f, 1.0f);
+        hsl.s = clamp(saturation, 0.0f, 1.0f);
         return fromHSL(hsl);
     }
     
     NUIColor withLightness(float lightness) const {
         HSL hsl = toHSL();
-        hsl.l = std::clamp(lightness, 0.0f, 1.0f);
+        hsl.l = clamp(lightness, 0.0f, 1.0f);
         return fromHSL(hsl);
     }
     
     // Advanced color operations
     NUIColor withContrast(float contrast) const {
         HSL hsl = toHSL();
-        hsl.l = std::clamp(hsl.l * contrast, 0.0f, 1.0f);
+        hsl.l = clamp(hsl.l * contrast, 0.0f, 1.0f);
         return fromHSL(hsl);
     }
     
     NUIColor withVibrance(float vibrance) const {
         HSL hsl = toHSL();
-        hsl.s = std::clamp(hsl.s * vibrance, 0.0f, 1.0f);
+        hsl.s = clamp(hsl.s * vibrance, 0.0f, 1.0f);
         return fromHSL(hsl);
     }
     
@@ -284,6 +291,11 @@ struct NUIColor {
             hslA.l + (hslB.l - hslA.l) * t,
             hslA.a + (hslB.a - hslA.a) * t
         ));
+    }
+    
+    // Division operator for scaling colors
+    NUIColor operator/(float scalar) const {
+        return NUIColor(r / scalar, g / scalar, b / scalar, a / scalar);
     }
 };
 
@@ -479,6 +491,191 @@ inline NUIRect NUIAligned(const NUIRect& parent, float left, float top, float ri
     float width = parent.width - left - right;
     float height = parent.height - top - bottom;
     return NUIRect(x, y, width, height);
+}
+
+/**
+ * @brief Stack children horizontally within parent with spacing
+ *
+ * @param parent The parent bounds
+ * @param children Vector of child sizes (width, height)
+ * @param spacing Spacing between children
+ * @param startIndex Starting index in children vector
+ * @return Vector of NUIRect for each child
+ *
+ * @example
+ * std::vector<NUISize> childSizes = {{100, 50}, {200, 50}, {150, 50}};
+ * auto rects = NUIStackHorizontal(bounds, childSizes, 10);
+ * for (size_t i = 0; i < rects.size(); ++i) {
+ *     children[i]->setBounds(rects[i]);
+ * }
+ */
+inline std::vector<NUIRect> NUIStackHorizontal(const NUIRect& parent, const std::vector<NUISize>& children, float spacing, size_t startIndex = 0) {
+    std::vector<NUIRect> rects;
+    float currentX = parent.x + startIndex * (children[startIndex].width + spacing);
+    for (size_t i = startIndex; i < children.size(); ++i) {
+        float y = parent.y + (parent.height - children[i].height) / 2.0f; // Center vertically
+        rects.push_back(NUIRect(currentX, y, children[i].width, children[i].height));
+        currentX += children[i].width + spacing;
+    }
+    return rects;
+}
+
+/**
+ * @brief Stack children vertically within parent with spacing
+ *
+ * @param parent The parent bounds
+ * @param children Vector of child sizes (width, height)
+ * @param spacing Spacing between children
+ * @param startIndex Starting index in children vector
+ * @return Vector of NUIRect for each child
+ */
+inline std::vector<NUIRect> NUIStackVertical(const NUIRect& parent, const std::vector<NUISize>& children, float spacing, size_t startIndex = 0) {
+    std::vector<NUIRect> rects;
+    float currentY = parent.y + startIndex * (children[startIndex].height + spacing);
+    for (size_t i = startIndex; i < children.size(); ++i) {
+        float x = parent.x + (parent.width - children[i].width) / 2.0f; // Center horizontally
+        rects.push_back(NUIRect(x, currentY, children[i].width, children[i].height));
+        currentY += children[i].height + spacing;
+    }
+    return rects;
+}
+
+/**
+ * @brief Position child in a grid cell
+ *
+ * @param parent The parent bounds
+ * @param row Row index (0-based)
+ * @param col Column index (0-based)
+ * @param rows Total number of rows
+ * @param cols Total number of columns
+ * @param width Child width (0 for full cell width)
+ * @param height Child height (0 for full cell height)
+ * @return NUIRect for the child
+ */
+inline NUIRect NUIGridCell(const NUIRect& parent, int row, int col, int rows, int cols, float width = 0, float height = 0) {
+    float cellWidth = parent.width / cols;
+    float cellHeight = parent.height / rows;
+    float x = parent.x + col * cellWidth;
+    float y = parent.y + row * cellHeight;
+    if (width == 0) width = cellWidth;
+    if (height == 0) height = cellHeight;
+    return NUIRect(x, y, width, height);
+}
+
+/**
+ * @brief Apply scroll offset to absolute coordinates
+ *
+ * Useful for nested scrollable containers where children need to be adjusted
+ * for scroll position.
+ *
+ * @param rect The original absolute rect
+ * @param scrollX Horizontal scroll offset
+ * @param scrollY Vertical scroll offset
+ * @return Adjusted NUIRect
+ *
+ * @example
+ * // In a scrollable container's layout
+ * for (auto& child : children) {
+ *     NUIRect original = child->getBounds();
+ *     child->setBounds(NUIApplyScrollOffset(original, 0, -scrollY));
+ * }
+ */
+inline NUIRect NUIApplyScrollOffset(const NUIRect& rect, float scrollX, float scrollY) {
+    return NUIRect(rect.x - scrollX, rect.y - scrollY, rect.width, rect.height);
+}
+
+/**
+ * @brief Clamp rect to visible screen area
+ *
+ * Ensures popups, tooltips, and dropdowns stay on screen.
+ *
+ * @param rect The rect to clamp
+ * @param screenWidth Screen width
+ * @param screenHeight Screen height
+ * @return Clamped NUIRect
+ *
+ * @example
+ * NUIRect clamped = NUIScreenClamp(popupBounds, screenWidth, screenHeight);
+ * popup->setBounds(clamped);
+ */
+inline NUIRect NUIScreenClamp(const NUIRect& rect, float screenWidth, float screenHeight) {
+    float x = clamp(rect.x, 0.0f, screenWidth - rect.width);
+    float y = clamp(rect.y, 0.0f, screenHeight - rect.height);
+    return NUIRect(x, y, rect.width, rect.height);
+}
+
+/**
+ * @brief Calculate relative position within parent
+ *
+ * Converts absolute coordinates to relative offsets from parent.
+ * Useful for saving/restoring positions or animations.
+ *
+ * @param childRect Child's absolute bounds
+ * @param parentRect Parent's absolute bounds
+ * @return NUIRect with relative coordinates (x,y are offsets from parent)
+ *
+ * @example
+ * NUIRect relative = NUIRelativePosition(child->getBounds(), parent->getBounds());
+ * // relative.x is now offset from parent's left edge
+ */
+inline NUIRect NUIRelativePosition(const NUIRect& childRect, const NUIRect& parentRect) {
+    return NUIRect(childRect.x - parentRect.x, childRect.y - parentRect.y, childRect.width, childRect.height);
+}
+
+/**
+ * @brief Convert relative position back to absolute
+ *
+ * @param relativeRect Relative bounds (x,y are offsets from parent)
+ * @param parentRect Parent's absolute bounds
+ * @return NUIRect with absolute coordinates
+ */
+inline NUIRect NUIAbsoluteFromRelative(const NUIRect& relativeRect, const NUIRect& parentRect) {
+    return NUIAbsolute(parentRect, relativeRect.x, relativeRect.y, relativeRect.width, relativeRect.height);
+}
+
+/**
+ * @brief Calculate bounding rect that contains all given rects
+ *
+ * Useful for invalidation regions or container sizing.
+ *
+ * @param rects Vector of rects to union
+ * @return NUIRect containing all input rects
+ *
+ * @example
+ * std::vector<NUIRect> dirtyRects = {child1->getBounds(), child2->getBounds()};
+ * NUIRect invalidationArea = NUIUnionRects(dirtyRects);
+ * renderer.invalidateRegion(invalidationArea);
+ */
+inline NUIRect NUIUnionRects(const std::vector<NUIRect>& rects) {
+    if (rects.empty()) return NUIRect(0, 0, 0, 0);
+    
+    float minX = rects[0].x;
+    float minY = rects[0].y;
+    float maxX = rects[0].x + rects[0].width;
+    float maxY = rects[0].y + rects[0].height;
+    
+    for (const auto& rect : rects) {
+        minX = std::min(minX, rect.x);
+        minY = std::min(minY, rect.y);
+        maxX = std::max(maxX, rect.x + rect.width);
+        maxY = std::max(maxY, rect.y + rect.height);
+    }
+    
+    return NUIRect(minX, minY, maxX - minX, maxY - minY);
+}
+
+/**
+ * @brief Check if two rects intersect
+ *
+ * Useful for hit testing or invalidation optimization.
+ *
+ * @param a First rect
+ * @param b Second rect
+ * @return true if rects overlap
+ */
+inline bool NUIRectsIntersect(const NUIRect& a, const NUIRect& b) {
+    return !(a.x + a.width < b.x || b.x + b.width < a.x ||
+             a.y + a.height < b.y || b.y + b.height < a.y);
 }
 
 } // namespace NomadUI
