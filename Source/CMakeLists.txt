@@ -15,6 +15,10 @@ add_executable(NOMAD_DAW
     FileBrowser.cpp
     AudioVisualizer.h
     AudioVisualizer.cpp
+    TrackUIComponent.h
+    TrackUIComponent.cpp
+    TrackManagerUI.h
+    TrackManagerUI.cpp
 )
 
 # Set C++ standard

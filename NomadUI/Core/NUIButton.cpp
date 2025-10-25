@@ -33,7 +33,7 @@ void NUIButton::onRender(NUIRenderer& renderer)
     }
     else if (state_ == State::Hovered)
     {
-        pressScale = 1.03f; // Slight scale up on hover
+        pressScale = 1.0f; // No scaling on hover for smoother appearance
         opacity = 1.0f;
     }
     else if (state_ == State::Disabled)
@@ -88,56 +88,46 @@ void NUIButton::onRender(NUIRenderer& renderer)
     {
     case Style::Primary:
     {
-        // Enhanced rounded rectangle with modern gradient effect
+        // Simplified primary button with smooth hover effect
         float cornerRadius = theme.radiusM;
-        
-        // Subtle shadow for depth
-        NUIRect shadowRect = scaledBounds;
-        shadowRect.x += 1;
-        shadowRect.y += 2;
-        renderer.fillRoundedRect(shadowRect, cornerRadius, theme.shadowS.color.withAlpha(theme.shadowS.opacity * opacity));
-        
-        // Hover glow effect with smooth transition
+
+        // Subtle shadow for depth (only when not hovered for cleaner look)
+        if (state_ != State::Hovered)
+        {
+            NUIRect shadowRect = scaledBounds;
+            shadowRect.x += 1;
+            shadowRect.y += 1;
+            renderer.fillRoundedRect(shadowRect, cornerRadius, theme.shadowS.color.withAlpha(theme.shadowS.opacity * opacity));
+        }
+
+        // Simple hover glow effect - similar to secondary button
         if (state_ == State::Hovered)
         {
             NUIRect glowRect = scaledBounds;
-            glowRect.x -= 3;
-            glowRect.y -= 3;
-            glowRect.width += 6;
-            glowRect.height += 6;
-            renderer.fillRoundedRect(glowRect, cornerRadius + 3, bgColor.withAlpha(0.2f * opacity));
+            glowRect.x -= 1;
+            glowRect.y -= 1;
+            glowRect.width += 2;
+            glowRect.height += 2;
+            renderer.fillRoundedRect(glowRect, cornerRadius + 1, bgColor.withAlpha(0.3f * opacity));
         }
-        
-        // Modern gradient effect using HSL color space
+
+        // Simple flat background with subtle gradient
         NUIColor baseColor = bgColor.withAlpha(opacity);
-        NUIColor topColor = baseColor.withLightness(std::min(1.0f, baseColor.toHSL().l + 0.08f));
+        NUIColor topColor = baseColor.withLightness(std::min(1.0f, baseColor.toHSL().l + 0.05f));
         NUIColor bottomColor = baseColor.withLightness(std::max(0.0f, baseColor.toHSL().l - 0.05f));
-        
-        // Draw gradient background with smooth transitions
-        for (int i = 0; i < 4; ++i)
-        {
-            float factor = static_cast<float>(i) / 3.0f;
-            NUIColor gradientColor = NUIColor::lerpHSL(topColor, bottomColor, factor);
-            NUIRect gradientRect = scaledBounds;
-            gradientRect.y += i * 1.5f;
-            gradientRect.height -= i * 1.5f;
-            renderer.fillRoundedRect(gradientRect, cornerRadius, gradientColor);
-        }
-        
-        // Inner highlight for modern look
-        NUIRect highlightRect = scaledBounds;
-        highlightRect.x += 1;
-        highlightRect.y += 1;
-        highlightRect.width -= 2;
-        highlightRect.height = scaledBounds.height * 0.4f;
-        renderer.fillRoundedRect(highlightRect, cornerRadius - 1, 
-            topColor.withAlpha(0.3f * opacity));
-        
-        // Enhanced border with state-based styling
+
+        // Simple two-tone gradient instead of complex multi-layer
+        renderer.fillRoundedRect(scaledBounds, cornerRadius, topColor);
+        NUIRect bottomRect = scaledBounds;
+        bottomRect.y += scaledBounds.height * 0.6f;
+        bottomRect.height = scaledBounds.height * 0.4f;
+        renderer.fillRoundedRect(bottomRect, cornerRadius, bottomColor);
+
+        // Simple border with smooth hover effect
         float borderWidth = (state_ == State::Hovered) ? 2.0f : 1.5f;
-        NUIColor borderColor = (state_ == State::Hovered) ? 
-            bgColor.lightened(0.3f).withAlpha(opacity) : 
-            bgColor.lightened(0.15f).withAlpha(opacity);
+        NUIColor borderColor = (state_ == State::Hovered) ?
+            bgColor.lightened(0.2f).withAlpha(opacity) :
+            bgColor.lightened(0.1f).withAlpha(opacity);
         renderer.strokeRoundedRect(scaledBounds, cornerRadius, borderWidth, borderColor);
         break;
     }
@@ -145,24 +135,34 @@ void NUIButton::onRender(NUIRenderer& renderer)
         {
             // Enhanced outlined button with better contrast
             float cornerRadius = 6.0f;
-            
+
+            // Calculate squeeze effect when pressed (squeeze from both sides)
+            NUIRect renderBounds = scaledBounds;
+            if (isPressed_)
+            {
+                // Squeeze from both sides - reduce width by 2px total (1px each side)
+                renderBounds.x += 1.0f;
+                renderBounds.width -= 2.0f;
+                cornerRadius = 5.0f; // Slightly smaller radius when pressed
+            }
+
             // Hover glow effect
             if (state_ == State::Hovered)
             {
-                NUIRect glowRect = scaledBounds;
+                NUIRect glowRect = renderBounds;
                 glowRect.x -= 1;
                 glowRect.y -= 1;
                 glowRect.width += 2;
                 glowRect.height += 2;
                 renderer.fillRoundedRect(glowRect, cornerRadius + 1, textColor.withAlpha(0.2f));
             }
-            
+
             // Subtle background
-            renderer.fillRoundedRect(scaledBounds, cornerRadius, bgColor.withAlpha(0.1f));
-            
+            renderer.fillRoundedRect(renderBounds, cornerRadius, bgColor.withAlpha(0.1f));
+
             // Enhanced border with hover effect
             float borderWidth = (state_ == State::Hovered) ? 2.5f : 2.0f;
-            renderer.strokeRoundedRect(scaledBounds, cornerRadius, borderWidth, textColor);
+            renderer.strokeRoundedRect(renderBounds, cornerRadius, borderWidth, textColor);
             break;
         }
         case Style::Text:
@@ -232,7 +232,35 @@ void NUIButton::onRender(NUIRenderer& renderer)
         // renderer.setFont(NUITheme::getDefaultFont());
         // Use smaller font size for compact buttons
         float fontSize = std::min(14.0f, scaledBounds.height * 0.5f);
-        renderer.drawTextCentered(text_, scaledBounds, fontSize, textColor);
+
+        // Adjust text position for better vertical centering
+        NUIRect textRect = scaledBounds;
+        if (style_ == Style::Secondary) {
+            // Apply squeeze effect to text bounds when pressed
+            if (isPressed_)
+            {
+                textRect.x += 1.0f;
+                textRect.width -= 2.0f;
+            }
+            // Drop Secondary button text down by 2px for better alignment
+            textRect.y += 4.0f;
+        }
+
+        // Calculate text color with hover preview effect for Secondary buttons
+        NUIColor finalTextColor = textColor;
+        if (style_ == Style::Secondary && state_ == State::Hovered && !isPressed_)
+        {
+            // Preview active state colors on hover for M and S buttons
+            if (text_ == "M") {
+                // Show red preview for mute button (like when muted)
+                finalTextColor = NUIColor(1.0f, 0.27f, 0.4f, 1.0f); // Error red color
+            } else if (text_ == "S") {
+                // Show lime preview for solo button (like when soloed)
+                finalTextColor = NUIColor(0.8f, 1.0f, 0.2f, 1.0f); // Accent lime color
+            }
+        }
+
+        renderer.drawTextCentered(text_, textRect, fontSize, finalTextColor);
     }
 }
 
@@ -247,6 +275,7 @@ void NUIButton::onMouseEnter()
 
 void NUIButton::onMouseLeave()
 {
+    // Always reset to normal state when mouse leaves, regardless of press state
     state_ = State::Normal;
     repaint();
 }
@@ -254,17 +283,15 @@ void NUIButton::onMouseLeave()
 bool NUIButton::onMouseEvent(const NUIMouseEvent& event)
 {
     if (!enabled_) return false;
-    
-    // Check if event is within bounds
+
+    // Let base class handle hover detection and child events first
+    bool handled = NUIComponent::onMouseEvent(event);
+
+    // If this event was not within bounds, return early
     if (!containsPoint(event.position)) {
-        if (isPressed_) {
-            isPressed_ = false;
-            state_ = isHovered() ? State::Hovered : State::Normal;
-            repaint();
-        }
         return false;
     }
-    
+
     // Handle mouse down
     if (event.pressed && event.button == NUIMouseButton::Left)
     {
@@ -273,13 +300,13 @@ bool NUIButton::onMouseEvent(const NUIMouseEvent& event)
         repaint();
         return true;
     }
-    
+
     // Handle mouse up
     if (event.released && event.button == NUIMouseButton::Left)
     {
         bool wasPressed = isPressed_;
         isPressed_ = false;
-        
+
         if (containsPoint(event.position))
         {
             if (toggleable_)
@@ -292,13 +319,13 @@ bool NUIButton::onMouseEvent(const NUIMouseEvent& event)
                 triggerClick();
             }
         }
-        
-        state_ = isHovered() ? State::Hovered : State::Normal;
+
+        // Don't manually set state - let hover system handle it
         repaint();
         return true;
     }
-    
-    return false;
+
+    return handled;
 }
 
 void NUIButton::onMouseDown(int x, int y, int button)
@@ -316,7 +343,9 @@ void NUIButton::onMouseUp(int x, int y, int button)
 
     bool wasPressed = isPressed_;
     isPressed_ = false;
-    state_ = State::Hovered; // Will be updated by mouse enter/leave
+
+    // Let the hover system handle the state - don't set it manually here
+    // The base class hover tracking will set it to Hovered if mouse is still over button
 
     if (wasPressed)
     {
@@ -407,9 +436,15 @@ void NUIButton::updateState()
     {
         state_ = State::Disabled;
     }
-    else
+    else if (state_ == State::Disabled)
     {
-        state_ = State::Normal;
+        // If coming out of disabled state, go to normal or hovered
+        state_ = isHovered() ? State::Hovered : State::Normal;
+    }
+    else if (state_ != State::Pressed)
+    {
+        // Preserve current state unless it's pressed (pressed state is managed by mouse events)
+        state_ = isHovered() ? State::Hovered : State::Normal;
     }
 }
 

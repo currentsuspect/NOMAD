@@ -1,6 +1,7 @@
 #include "AudioProcessor.h"
 #include <cmath>
 #include <algorithm>
+#include <cstring>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -35,28 +36,34 @@ void AudioProcessor::processCommands() {
 
 void AudioProcessor::handleCommand(const AudioCommandMessage& message) {
     switch (message.command) {
-        case AudioCommand::SetGain:
+        case AudioCommand::SetGain: {
             m_gain.store(message.value1, std::memory_order_release);
             break;
-            
-        case AudioCommand::SetPan:
-            m_pan.store(std::clamp(message.value1, -1.0f, 1.0f), std::memory_order_release);
+        }
+
+        case AudioCommand::SetPan: {
+            float clampedPan = (message.value1 < -1.0f) ? -1.0f : (message.value1 > 1.0f) ? 1.0f : message.value1;
+            m_pan.store(clampedPan, std::memory_order_release);
             break;
-            
-        case AudioCommand::Mute:
+        }
+
+        case AudioCommand::Mute: {
             m_muted.store(true, std::memory_order_release);
             break;
-            
-        case AudioCommand::Unmute:
+        }
+
+        case AudioCommand::Unmute: {
             m_muted.store(false, std::memory_order_release);
             break;
-            
-        case AudioCommand::Reset:
+        }
+
+        case AudioCommand::Reset: {
             m_gain.store(1.0f, std::memory_order_release);
             m_pan.store(0.0f, std::memory_order_release);
             m_muted.store(false, std::memory_order_release);
             break;
-            
+        }
+
         default:
             break;
     }
@@ -124,8 +131,8 @@ void TestToneGenerator::process(
     double phase = m_phase.load(std::memory_order_acquire);
     
     // Calculate pan gains (constant power panning)
-    float leftGain = std::cos((pan + 1.0f) * M_PI * 0.25f);
-    float rightGain = std::sin((pan + 1.0f) * M_PI * 0.25f);
+    float leftGain = std::cos((pan + 1.0f) * 3.14159265358979323846 * 0.25f);
+    float rightGain = std::sin((pan + 1.0f) * 3.14159265358979323846 * 0.25f);
     
     // Generate audio
     for (uint32_t i = 0; i < numFrames; ++i) {
@@ -133,7 +140,7 @@ void TestToneGenerator::process(
         
         if (!muted) {
             // Generate sine wave
-            sample = static_cast<float>(std::sin(2.0 * M_PI * phase) * gain * 0.3);
+            sample = static_cast<float>(std::sin(2.0 * 3.14159265358979323846 * phase) * gain * 0.3);
             
             // Advance phase
             phase += frequency / m_sampleRate;

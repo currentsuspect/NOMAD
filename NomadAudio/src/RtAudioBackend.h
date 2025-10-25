@@ -24,6 +24,9 @@ public:
     void stopStream() override;
     bool isStreamRunning() const override;
     double getStreamLatency() const override;
+    
+    // Get the actual API being used
+    RtAudio::Api getCurrentApi() const { return m_rtAudio ? m_rtAudio->getCurrentApi() : RtAudio::UNSPECIFIED; }
 
 private:
     std::unique_ptr<RtAudio> m_rtAudio;

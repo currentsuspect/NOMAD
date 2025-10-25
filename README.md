@@ -186,6 +186,28 @@ NOMAD is a fully self-authored DAW with **zero borrowed frameworks**. Every laye
 
 ---
 
+## 🎵 Audio System Features
+
+#### ✅ **Sound Preview System**
+- **5-second previews** when clicking on audio files in the file browser
+- **Unique tone generation** based on filename hash for each file
+- **Automatic preview management** - stops when selecting different files
+- **Lower volume playback** (30%) to avoid startling users
+- **Preview track hidden** from main track UI for clean interface
+
+#### ✅ **Silent Startup**
+- **No more startup sounds** - removed test tones from audio initialization
+- **Clean application launch** with immediate silence
+- **Professional audio behavior** - only plays when user initiates
+
+#### ✅ **File Browser Integration**
+- **Audio file detection** - automatically detects .wav, .mp3, .flac, .aiff files
+- **Preview on selection** - click or use arrow keys to trigger preview
+- **Visual feedback** - highlights selected files with cyan accent
+- **Directory navigation** - double-click folders or use Enter keystream-style
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -214,27 +236,20 @@ git clone https://github.com/***REMOVED***/NOMAD.git
 cd NOMAD
 
 # Build (Windows)
-.\build.ps1
+.\build.ps1              # Normal build
+.\build.ps1 -Clean       # Clean rebuild
+.\build.ps1 -Help        # Show help
 
 # Or manually
-cmake -B build
-cmake --build build --config Debug
+cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release --target NOMAD_DAW
 ```
 
-### Run Examples
+### Run
 
 ```bash
-# Custom Window Demo
-.\build\bin\Debug\NomadUI_CustomWindowDemo.exe
-
-# Window Demo
-.\build\bin\Debug\NomadUI_WindowDemo.exe
-
-# Icon Demo
-.\build\bin\Debug\NomadUI_IconDemo.exe
-
-# Platform Tests
-.\build\NomadPlat\Debug\PlatformDPITest.exe
+# Launch NOMAD DAW
+.\build\bin\Release\NOMAD_DAW.exe
 ```
 
 ---

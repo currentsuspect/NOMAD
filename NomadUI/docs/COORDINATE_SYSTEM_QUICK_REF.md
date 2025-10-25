@@ -80,6 +80,27 @@ child->setBounds(NUICentered(getBounds(), 200, 100));
 
 // Fill parent with margins
 child->setBounds(NUIAligned(getBounds(), 10, 10, 10, 10));
+
+// Stack children horizontally
+std::vector<NUISize> sizes = {{100, 50}, {200, 50}};
+auto rects = NUIStackHorizontal(getBounds(), sizes, 10);
+for (size_t i = 0; i < rects.size(); ++i) {
+    children[i]->setBounds(rects[i]);
+}
+
+// Position in grid
+child->setBounds(NUIGridCell(getBounds(), 1, 2, 3, 4));
+
+// Apply scroll offset for scrollable containers
+child->setBounds(NUIApplyScrollOffset(originalBounds, 0, scrollY));
+
+// Clamp popup to screen
+popup->setBounds(NUIScreenClamp(popupBounds, screenWidth, screenHeight));
+
+// Check if rects intersect for optimization
+if (NUIRectsIntersect(rectA, rectB)) {
+    // Handle intersection
+}
 ```
 
 ## Common Mistakes
@@ -100,6 +121,23 @@ child->setBounds(NUIAligned(getBounds(), 10, 10, 10, 10));
 | **Use helpers** | Cleaner code | `NUICentered()`, `NUIAligned()` |
 | **Render order = Z-order** | Control stacking | First added = bottom layer |
 | **Origin (0,0) = top-left** | Standard coordinates | Y increases downward |
+
+## YAML Configuration System
+
+Customize all UI dimensions and colors by editing `NomadUI/Config/nomad_ui_config.yaml`:
+
+```yaml
+# Example: Adjust track height and colors
+layout:
+  trackHeight: 100.0        # Taller tracks
+  trackControlsWidth: 180.0 # Wider control panel
+
+colors:
+  primary: "#ff6b35"        # Orange accent
+  backgroundSecondary: "#1a1a1a" # Darker panels
+```
+
+**Changes take effect after rebuilding the application.**
 
 ## Full Documentation
 

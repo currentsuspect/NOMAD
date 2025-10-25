@@ -286,11 +286,6 @@ void NUIScrollbar::scrollByPage(double direction)
     scrollBy(direction * pageStepSize_);
 }
 
-void NUIScrollbar::scrollByLine(double direction)
-{
-    scrollBy(direction * singleStepSize_);
-}
-
 double NUIScrollbar::getCurrentPosition() const
 {
     return currentRangeStart_;
@@ -675,9 +670,9 @@ void NUIScrollbar::drawEnhancedTrack(NUIRenderer& renderer, const NUIRect& track
 
 void NUIScrollbar::drawEnhancedThumb(NUIRenderer& renderer, const NUIRect& thumbRect)
 {
-    // Normal 16px thumb with purple gradient and white markers
-    NUIColor thumbBase = NUIColor(0.7f, 0.3f, 1.0f, 1.0f); // Vibrant purple gradient base
-    NUIColor thumbTop = thumbBase.lightened(0.15f);
+    // Normal 16px thumb with faded white gradient and white markers
+    NUIColor thumbBase = NUIColor(0.8f, 0.8f, 0.8f, 0.8f); // Faded white gradient base
+    NUIColor thumbTop = thumbBase.lightened(0.1f);
     NUIColor thumbBottom = thumbBase.darkened(0.1f);
     
     // Calculate hover scale (subtle)
@@ -702,7 +697,7 @@ void NUIScrollbar::drawEnhancedThumb(NUIRenderer& renderer, const NUIRect& thumb
         scaledThumb.height *= scale;
     }
     
-    // Purple gradient thumb (16px wide)
+    // Faded white gradient thumb (16px wide)
     for (int i = 0; i < 4; ++i)
     {
         float factor = static_cast<float>(i) / 3.0f;
@@ -763,7 +758,7 @@ void NUIScrollbar::drawEnhancedThumb(NUIRenderer& renderer, const NUIRect& thumb
     
     // Very subtle border
     renderer.strokeRoundedRect(scaledThumb, 8.0f, 1.0f, 
-        thumbBase.lightened(0.2f).withAlpha(0.6f));
+        thumbBase.lightened(0.1f).withAlpha(0.6f));
 }
 
 } // namespace NomadUI
