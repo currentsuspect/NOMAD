@@ -175,12 +175,12 @@ private:
     // Visual properties
     Orientation orientation_ = Orientation::Vertical;
     NUIColor trackColor_ = NUIColor(0.15f, 0.15f, 0.18f, 1.0f); // Dark charcoal track
-    NUIColor thumbColor_ = NUIColor(0.7f, 0.3f, 1.0f, 1.0f); // Vibrant purple gradient base
-    NUIColor thumbHoverColor_ = NUIColor(0.8f, 0.4f, 1.0f, 1.0f); // Lighter purple on hover
-    NUIColor thumbPressedColor_ = NUIColor(0.6f, 0.2f, 0.9f, 1.0f); // Darker purple when pressed
+    NUIColor thumbColor_ = NUIColor(0.8f, 0.8f, 0.8f, 0.8f); // Faded white thumb base
+    NUIColor thumbHoverColor_ = NUIColor(0.9f, 0.9f, 0.9f, 0.9f); // Lighter white on hover
+    NUIColor thumbPressedColor_ = NUIColor(0.7f, 0.7f, 0.7f, 0.9f); // Darker white when pressed
     NUIColor arrowColor_ = NUIColor(0.8f, 0.8f, 0.8f, 1.0f); // Light gray arrows
     NUIColor arrowHoverColor_ = NUIColor(1.0f, 1.0f, 1.0f, 1.0f); // White on hover
-    NUIColor arrowPressedColor_ = NUIColor(0.7f, 0.3f, 1.0f, 1.0f); // Purple when pressed
+    NUIColor arrowPressedColor_ = NUIColor(0.6f, 0.6f, 0.6f, 1.0f); // Darker grey when pressed
     NUIColor borderColor_ = NUIColor(0.3f, 0.3f, 0.35f, 1.0f); // Subtle border
     float borderWidth_ = 1.0f;
     float borderRadius_ = 4.0f;

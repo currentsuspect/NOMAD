@@ -43,6 +43,13 @@ struct NUIThemeProperties {
     NUIColor error;                  // #FF5E5E
     NUIColor info;                   // #6BCBFF
     
+    // Liminal Dark v2.0 Accent Colors
+    NUIColor accentCyan;             // #00bcd4 - Playful but professional blue
+    NUIColor accentMagenta;          // #ff4081 - Passion, energy - stereo right
+    NUIColor accentLime;             // #9eff61 - Active/Connected indicators
+    NUIColor accentPrimary;          // #00bcd4 - Primary accent (cyan)
+    NUIColor accentSecondary;        // #ff4081 - Secondary accent (magenta)
+    
     NUIColor onBackground;
     NUIColor onSurface;
     NUIColor onPrimary;
@@ -172,6 +179,47 @@ struct NUIThemeProperties {
     int zIndexModal = 300;
     int zIndexTooltip = 400;
     int zIndexNotification = 500;
+
+    // Layout Dimensions - Configurable UI Sizing
+    struct LayoutDimensions {
+        // Panel widths
+        float fileBrowserWidth = 250.0f;
+        float trackControlsWidth = 150.0f;
+        float timelineAreaWidth = 800.0f;
+
+        // Track heights and spacing
+        float trackHeight = 80.0f;
+        float trackSpacing = 5.0f;
+        float trackLabelHeight = 20.0f;
+
+        // Transport bar dimensions
+        float transportBarHeight = 60.0f;
+        float transportButtonSize = 40.0f;
+        float transportButtonSpacing = 8.0f;
+
+        // Control button dimensions
+        float controlButtonWidth = 25.0f;
+        float controlButtonHeight = 20.0f;
+        float controlButtonSpacing = 5.0f;
+        float controlButtonStartX = 100.0f; // X position where control buttons start
+
+        // Grid and timeline
+        float gridLineSpacing = 50.0f;
+        float timelineHeight = 40.0f;
+
+        // Margins and padding
+        float panelMargin = 10.0f;
+        float componentPadding = 8.0f;
+        float buttonPadding = 4.0f;
+
+        // Window dimensions
+        float minWindowWidth = 800.0f;
+        float minWindowHeight = 600.0f;
+        float defaultWindowWidth = 1200.0f;
+        float defaultWindowHeight = 800.0f;
+    };
+
+    LayoutDimensions layout;
 };
 
 // Theme manager
@@ -204,6 +252,13 @@ public:
     float getRadius(const std::string& radiusName) const;
     float getFontSize(const std::string& fontSizeName) const;
     NUIThemeProperties::Shadow getShadow(const std::string& shadowName) const;
+
+    // Layout dimension access
+    float getLayoutDimension(const std::string& dimensionName) const;
+    const NUIThemeProperties::LayoutDimensions& getLayoutDimensions() const;
+
+    // Component-specific dimension access
+    float getComponentDimension(const std::string& componentName, const std::string& dimensionName) const;
     
     // Color utilities
     NUIColor getContrastColor(const NUIColor& backgroundColor) const;
@@ -246,6 +301,8 @@ public:
     float getThemeSpacing(const std::string& spacingName) const;
     float getThemeRadius(const std::string& radiusName) const;
     float getThemeFontSize(const std::string& fontSizeName) const;
+    float getThemeLayoutDimension(const std::string& dimensionName) const;
+    float getThemeComponentDimension(const std::string& componentName, const std::string& dimensionName) const;
     
 protected:
     void registerForThemeUpdates();
