@@ -1171,13 +1171,36 @@ void NUIRendererGL::drawCharacter(char c, float x, float y, float width, float h
 }
 
 void NUIRendererGL::drawTextCentered(const std::string& text, const NUIRect& rect, float fontSize, const NUIColor& color) {
-    // Calculate text position for centering
-    float textWidth = text.length() * fontSize * 0.6f;
-    float x = rect.x + (rect.width - textWidth) * 0.5f;
-    float y = rect.y + (rect.height - fontSize) * 0.5f;
+    // Measure actual text dimensions
+    NUISize textSize = measureText(text, fontSize);
     
-    // Use the improved text rendering
-    drawText(text, NUIPoint(x, y), fontSize, color);
+    // Calculate horizontal centering
+    float x = rect.x + (rect.width - textSize.width) * 0.5f;
+    
+    // Calculate vertical centering with proper baseline adjustment
+    if (fontInitialized_ && ftFace_) {
+        // Use font metrics for accurate vertical centering
+        float dpiScale = getDPIScale();
+        FT_Set_Pixel_Sizes(ftFace_, 0, static_cast<FT_UInt>(fontSize * dpiScale));
+        
+        // Get font metrics (in 26.6 fractional pixel format)
+        float ascent = (ftFace_->size->metrics.ascender >> 6) / dpiScale;
+        float descent = (ftFace_->size->metrics.descender >> 6) / dpiScale;  // Negative value
+        
+        // Simple and accurate: position baseline so the font's natural center aligns with rect center
+        // The font's center is at ascent/2 above the baseline (since descent is negative)
+        // We want: baseline + ascent/2 = rect.y + rect.height/2
+        // Therefore: baseline = rect.y + rect.height/2 + ascent/2
+        // Add visual adjustment (6px up) for perceived centering
+        float y = rect.y + rect.height * 0.5f + ascent * 0.5f - 6.5f;
+        
+        drawText(text, NUIPoint(x, y), fontSize, color);
+    } else {
+        // Fallback for blocky text: simple vertical centering
+        // Blocky text renders from top-left, so we center differently
+        float y = rect.y + (rect.height - textSize.height) * 0.5f;
+        drawText(text, NUIPoint(x, y), fontSize, color);
+    }
 }
 
 NUISize NUIRendererGL::measureText(const std::string& text, float fontSize) {

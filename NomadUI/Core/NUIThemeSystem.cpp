@@ -165,6 +165,13 @@ NUIColor NUIThemeManager::getColor(const std::string& colorName) const {
     if (colorName == "error") return theme.error;
     if (colorName == "info") return theme.info;
     
+    // Liminal Dark v2.0 Accent Colors
+    if (colorName == "accentCyan") return theme.accentCyan;
+    if (colorName == "accentMagenta") return theme.accentMagenta;
+    if (colorName == "accentLime") return theme.accentLime;
+    if (colorName == "accentPrimary") return theme.accentPrimary;
+    if (colorName == "accentSecondary") return theme.accentSecondary;
+    
     // Text
     if (colorName == "text") return theme.textPrimary;
     if (colorName == "textPrimary") return theme.textPrimary;
@@ -183,6 +190,28 @@ NUIColor NUIThemeManager::getColor(const std::string& colorName) const {
     if (colorName == "hover") return theme.hover;
     if (colorName == "pressed") return theme.pressed;
     if (colorName == "focused") return theme.focused;
+    
+    // FL Studio-inspired dropdown theme tokens
+    if (colorName == "dropdown.background") return theme.surfaceTertiary.withAlpha(0.95f);
+    if (colorName == "dropdown.border") return NUIColor(0, 0, 0, 1.0f); // Black border
+    if (colorName == "dropdown.hover") return NUIColor(0.471f, 0.353f, 1.0f, 0.15f); // FL Studio lavender hover
+    if (colorName == "dropdown.focus") return theme.primary.withAlpha(0.8f);
+    if (colorName == "dropdown.text") return theme.textPrimary;
+    if (colorName == "dropdown.arrow") return theme.textSecondary;
+    
+    // Dropdown list container - black borders
+    if (colorName == "dropdown.list.background") return theme.surfaceTertiary.withAlpha(0.98f);
+    if (colorName == "dropdown.list.border") return NUIColor(0, 0, 0, 1.0f); // Black border
+    if (colorName == "dropdown.item.divider") return NUIColor(0, 0, 0, 0.3f); // Black divider between items
+    
+    // Dropdown items - normal text by default, purple only for selected
+    if (colorName == "dropdown.item.background") return NUIColor(0, 0, 0, 0); // Transparent by default
+    if (colorName == "dropdown.item.text") return theme.textPrimary; // Normal text color by default
+    if (colorName == "dropdown.item.hover") return theme.primary.withAlpha(0.2f); // Purple strip on hover
+    if (colorName == "dropdown.item.hoverText") return theme.textPrimary; // Normal text on hover
+    if (colorName == "dropdown.item.selectedText") return theme.primary; // Purple text for selected only
+    if (colorName == "dropdown.item.disabled") return theme.textDisabled;
+    
     if (colorName == "selected") return theme.selected;
     
     // Interactive Elements
@@ -254,14 +283,95 @@ float NUIThemeManager::getFontSize(const std::string& fontSizeName) const {
 
 NUIThemeProperties::Shadow NUIThemeManager::getShadow(const std::string& shadowName) const {
     const auto& theme = getCurrentTheme();
-    
+
     if (shadowName == "xs") return theme.shadowXS;
     if (shadowName == "s") return theme.shadowS;
     if (shadowName == "m") return theme.shadowM;
     if (shadowName == "l") return theme.shadowL;
     if (shadowName == "xl") return theme.shadowXL;
-    
+
     return theme.shadowM; // Default fallback
+}
+
+float NUIThemeManager::getLayoutDimension(const std::string& dimensionName) const {
+    const auto& theme = getCurrentTheme();
+    const auto& layout = theme.layout;
+
+    // Panel dimensions
+    if (dimensionName == "fileBrowserWidth") return layout.fileBrowserWidth;
+    if (dimensionName == "trackControlsWidth") return layout.trackControlsWidth;
+    if (dimensionName == "timelineAreaWidth") return layout.timelineAreaWidth;
+
+    // Track dimensions
+    if (dimensionName == "trackHeight") return layout.trackHeight;
+    if (dimensionName == "trackSpacing") return layout.trackSpacing;
+    if (dimensionName == "trackLabelHeight") return layout.trackLabelHeight;
+
+    // Transport bar dimensions
+    if (dimensionName == "transportBarHeight") return layout.transportBarHeight;
+    if (dimensionName == "transportButtonSize") return layout.transportButtonSize;
+    if (dimensionName == "transportButtonSpacing") return layout.transportButtonSpacing;
+
+    // Control dimensions
+    if (dimensionName == "controlButtonWidth") return layout.controlButtonWidth;
+    if (dimensionName == "controlButtonHeight") return layout.controlButtonHeight;
+    if (dimensionName == "controlButtonSpacing") return layout.controlButtonSpacing;
+    if (dimensionName == "controlButtonStartX") return layout.controlButtonStartX;
+
+    // Grid and timeline
+    if (dimensionName == "gridLineSpacing") return layout.gridLineSpacing;
+    if (dimensionName == "timelineHeight") return layout.timelineHeight;
+
+    // Margins and padding
+    if (dimensionName == "panelMargin") return layout.panelMargin;
+    if (dimensionName == "componentPadding") return layout.componentPadding;
+    if (dimensionName == "buttonPadding") return layout.buttonPadding;
+
+    // Window dimensions
+    if (dimensionName == "minWindowWidth") return layout.minWindowWidth;
+    if (dimensionName == "minWindowHeight") return layout.minWindowHeight;
+    if (dimensionName == "defaultWindowWidth") return layout.defaultWindowWidth;
+    if (dimensionName == "defaultWindowHeight") return layout.defaultWindowHeight;
+
+    return 0.0f; // Default fallback
+}
+
+const NUIThemeProperties::LayoutDimensions& NUIThemeManager::getLayoutDimensions() const {
+    return getCurrentTheme().layout;
+}
+
+float NUIThemeManager::getComponentDimension(const std::string& componentName, const std::string& dimensionName) const {
+    const auto& theme = getCurrentTheme();
+
+    // File Browser dimensions
+    if (componentName == "fileBrowser") {
+        if (dimensionName == "itemHeight") return 32.0f; // Default value
+        if (dimensionName == "iconSize") return 24.0f;
+        if (dimensionName == "indentSize") return 16.0f;
+        if (dimensionName == "hoverOpacity") return 0.1f;
+        if (dimensionName == "scrollbarWidth") return 8.0f;
+        if (dimensionName == "headerHeight") return 60.0f;
+    }
+
+    // Track Controls dimensions
+    if (componentName == "trackControls") {
+        if (dimensionName == "muteButtonSize") return 25.0f; // Width
+        if (dimensionName == "soloButtonSize") return 25.0f; // Width
+        if (dimensionName == "recordButtonSize") return 25.0f; // Width
+        if (dimensionName == "buttonSpacing") return 5.0f;
+        if (dimensionName == "buttonStartX") return 100.0f;
+    }
+
+    // Transport Bar dimensions
+    if (componentName == "transportBar") {
+        if (dimensionName == "playButtonSize") return 40.0f;
+        if (dimensionName == "stopButtonSize") return 40.0f;
+        if (dimensionName == "recordButtonSize") return 40.0f;
+        if (dimensionName == "buttonSpacing") return 8.0f;
+        if (dimensionName == "labelHeight") return 30.0f;
+    }
+
+    return 0.0f; // Default fallback
 }
 
 NUIColor NUIThemeManager::getContrastColor(const NUIColor& backgroundColor) const {
@@ -337,73 +447,88 @@ float NUIThemedComponent::getThemeFontSize(const std::string& fontSizeName) cons
     return NUIThemeManager::getInstance().getFontSize(fontSizeName);
 }
 
+float NUIThemedComponent::getThemeLayoutDimension(const std::string& dimensionName) const {
+    return NUIThemeManager::getInstance().getLayoutDimension(dimensionName);
+}
+
+float NUIThemedComponent::getThemeComponentDimension(const std::string& componentName, const std::string& dimensionName) const {
+    return NUIThemeManager::getInstance().getComponentDimension(componentName, dimensionName);
+}
+
 // NUIThemePresets Implementation
 NUIThemeProperties NUIThemePresets::createNomadDark() {
     NUIThemeProperties theme;
     
-    // 🧱 1. Core Structure - Layered backgrounds
-    theme.backgroundPrimary = NUIColor(0.094f, 0.094f, 0.098f, 1.0f);    // #181819 - Deep matte black
-    theme.backgroundSecondary = NUIColor(0.118f, 0.118f, 0.122f, 1.0f);  // #1e1e1f - Panels, sidebars
-    theme.surfaceTertiary = NUIColor(0.141f, 0.141f, 0.157f, 1.0f);      // #242428 - Dialogs, popups
-    theme.surfaceRaised = NUIColor(0.173f, 0.173f, 0.192f, 1.0f);        // #2c2c31 - Cards, containers
+    // 🌌 Modern Professional Dark - Core Structure
+    theme.backgroundPrimary = NUIColor(0.098f, 0.098f, 0.110f, 1.0f);    // #19191c - Deep slate background
+    theme.backgroundSecondary = NUIColor(0.118f, 0.118f, 0.133f, 1.0f);  // #1e1e22 - Panels, sidebars, file browser
+    theme.surfaceTertiary = NUIColor(0.157f, 0.157f, 0.176f, 1.0f);      // #28282d - Popups, transport bar, elevated surfaces
+    theme.surfaceRaised = NUIColor(0.196f, 0.196f, 0.220f, 1.0f);        // #323238 - Cards, hover surface, active elements
     
     // Legacy compatibility
     theme.background = theme.backgroundPrimary;
     theme.surface = theme.backgroundSecondary;
     theme.surfaceVariant = theme.surfaceTertiary;
     
-    // 💡 2. Accent & Branding
-    theme.primary = NUIColor(0.545f, 0.498f, 1.0f, 1.0f);                // #8B7FFF - Core Nomad purple
-    theme.primaryHover = NUIColor(0.655f, 0.620f, 1.0f, 1.0f);           // #A79EFF - Hover variant
-    theme.primaryPressed = NUIColor(0.400f, 0.353f, 0.851f, 1.0f);       // #665AD9 - Pressed state
+    // 💡 2. Accent & Branding - Modern Professional
+    theme.primary = NUIColor(0.471f, 0.353f, 1.0f, 1.0f);                // #785aff - Vibrant purple (FL Studio inspired)
+    theme.primaryHover = NUIColor(0.549f, 0.451f, 1.0f, 1.0f);           // #8c73ff - Lighter purple for hover
+    theme.primaryPressed = NUIColor(0.392f, 0.275f, 0.863f, 1.0f);       // #6446dc - Darker purple for pressed
     theme.primaryVariant = theme.primaryPressed;
     
-    theme.secondary = theme.backgroundSecondary;
-    theme.secondaryVariant = NUIColor(0.5f, 0.5f, 0.6f, 1.0f);
+    theme.secondary = NUIColor(0.0f, 0.831f, 0.737f, 1.0f);              // #00d4bc - Teal accent
+    theme.secondaryVariant = NUIColor(0.0f, 0.698f, 0.620f, 1.0f);       // #00b29e - Darker teal
     
-    // 🌈 6. Functional Colors (Status Feedback)
-    theme.success = NUIColor(0.357f, 0.847f, 0.588f, 1.0f);              // #5BD896 - Green
-    theme.warning = NUIColor(1.0f, 0.847f, 0.420f, 1.0f);                // #FFD86B - Amber
-    theme.error = NUIColor(1.0f, 0.369f, 0.369f, 1.0f);                  // #FF5E5E - Red
-    theme.info = NUIColor(0.420f, 0.796f, 1.0f, 1.0f);                   // #6BCBFF - Cyan-blue
+    // Modern Professional Accent Colors
+    theme.accentCyan = NUIColor(0.0f, 0.831f, 0.737f, 1.0f);             // #00d4bc - Teal
+    theme.accentMagenta = NUIColor(0.863f, 0.275f, 0.588f, 1.0f);        // #dc4696 - Pink accent
+    theme.accentLime = NUIColor(0.620f, 0.941f, 0.380f, 1.0f);           // #9ef061 - Lime green
+    theme.accentPrimary = theme.primary;
+    theme.accentSecondary = theme.secondary;
     
-    // 🧭 3. Text & Typography
-    theme.textPrimary = NUIColor(0.898f, 0.898f, 0.910f, 1.0f);          // #E5E5E8 - Main text
-    theme.textSecondary = NUIColor(0.651f, 0.651f, 0.667f, 1.0f);        // #A6A6AA - Subtext
-    theme.textDisabled = NUIColor(0.353f, 0.353f, 0.365f, 1.0f);         // #5A5A5D - Inactive
-    theme.textLink = theme.primary;                                       // #8B7FFF - Links/actions
-    theme.textCritical = theme.error;                                     // #FF5E5E - Errors
+    // 🌈 6. Functional Colors - Modern Professional
+    theme.success = NUIColor(0.0f, 0.831f, 0.620f, 1.0f);                // #00d49e - Teal green for success
+    theme.warning = NUIColor(1.0f, 0.706f, 0.0f, 1.0f);                  // #ffb400 - Amber warning
+    theme.error = NUIColor(1.0f, 0.267f, 0.396f, 1.0f);                  // #ff4465 - Vibrant red for errors
+    theme.info = NUIColor(0.471f, 0.353f, 1.0f, 1.0f);                   // #785aff - Purple (matches primary)
     
-    // 🪞 5. Borders & Highlights
-    theme.borderSubtle = NUIColor(0.173f, 0.173f, 0.184f, 1.0f);         // #2c2c2f - Divider lines
-    theme.borderActive = theme.primary;                                   // #8B7FFF - Selected/focused
+    // 🧭 3. Text & Typography - Modern Professional
+    theme.textPrimary = NUIColor(0.933f, 0.933f, 0.949f, 1.0f);          // #eeeeF2 - Crisp white with excellent readability
+    theme.textSecondary = NUIColor(0.667f, 0.667f, 0.698f, 1.0f);        // #aaaab2 - Secondary text, labels
+    theme.textDisabled = NUIColor(0.502f, 0.502f, 0.533f, 1.0f);         // #808088 - Disabled text
+    theme.textLink = theme.primary;                                       // #785aff - Links/actions (purple)
+    theme.textCritical = theme.error;                                     // #ff4465 - Errors
+    
+    // 🪞 5. Borders & Highlights - Modern Professional
+    theme.borderSubtle = NUIColor(0.196f, 0.196f, 0.220f, 1.0f);         // #323238 - Subtle separation lines
+    theme.borderActive = theme.primary;                                   // #785aff - Selected/focused (purple)
     theme.border = theme.borderSubtle;
-    theme.divider = NUIColor(0.2f, 0.2f, 0.25f, 1.0f);
-    theme.outline = NUIColor(0.4f, 0.4f, 0.45f, 1.0f);
-    theme.outlineVariant = NUIColor(0.25f, 0.25f, 0.3f, 1.0f);
+    theme.divider = NUIColor(0.157f, 0.157f, 0.176f, 1.0f);              // #28282d - Divider lines
+    theme.outline = NUIColor(0.392f, 0.392f, 0.431f, 1.0f);              // #64646e
+    theme.outlineVariant = NUIColor(0.275f, 0.275f, 0.306f, 1.0f);       // #46464e
     
-    // 🖱️ 4. Interactive Elements - Buttons
-    theme.buttonBgDefault = theme.surfaceTertiary;                        // #242428
-    theme.buttonBgHover = NUIColor(0.180f, 0.180f, 0.200f, 1.0f);        // #2e2e33
-    theme.buttonBgActive = theme.primary;                                 // #8B7FFF
-    theme.buttonTextDefault = theme.textPrimary;                          // #E5E5E8
-    theme.buttonTextActive = NUIColor(1.0f, 1.0f, 1.0f, 1.0f);          // #ffffff
+    // 🖱️ 4. Interactive Elements - Buttons (Modern Professional)
+    theme.buttonBgDefault = theme.surfaceTertiary;                        // #28282d - Button background
+    theme.buttonBgHover = NUIColor(0.196f, 0.196f, 0.220f, 1.0f);        // #323238 - Hovered buttons
+    theme.buttonBgActive = theme.primary;                                 // #785aff - Active state (purple)
+    theme.buttonTextDefault = theme.textPrimary;                          // #eeeeF2 - White text
+    theme.buttonTextActive = NUIColor(1.0f, 1.0f, 1.0f, 1.0f);          // #ffffff - Bright white for active
     
-    // Toggle / Switch
-    theme.toggleDefault = NUIColor(0.227f, 0.227f, 0.247f, 1.0f);        // #3a3a3f
-    theme.toggleHover = NUIColor(0.290f, 0.290f, 0.314f, 1.0f);          // #4a4a50
-    theme.toggleActive = theme.primary;                                   // #8B7FFF
+    // Toggle / Switch (Modern Professional)
+    theme.toggleDefault = NUIColor(0.235f, 0.235f, 0.259f, 1.0f);        // #3c3c42 - Toggle background
+    theme.toggleHover = NUIColor(0.275f, 0.275f, 0.306f, 1.0f);          // #46464e - Toggle hover
+    theme.toggleActive = theme.primary;                                   // #785aff - Purple active state
     
-    // Input Fields
-    theme.inputBgDefault = NUIColor(0.106f, 0.106f, 0.110f, 1.0f);       // #1b1b1c
-    theme.inputBgHover = NUIColor(0.122f, 0.122f, 0.125f, 1.0f);         // #1f1f20
-    theme.inputBorderFocus = theme.primary;                               // #8B7FFF
+    // Input Fields (Modern Professional)
+    theme.inputBgDefault = NUIColor(0.118f, 0.118f, 0.133f, 1.0f);       // #1e1e22 - Input background
+    theme.inputBgHover = NUIColor(0.157f, 0.157f, 0.176f, 1.0f);         // #28282d - Input hover
+    theme.inputBorderFocus = theme.primary;                               // #785aff - Purple focus
     
-    // Sliders
-    theme.sliderTrack = NUIColor(0.165f, 0.165f, 0.180f, 1.0f);          // #2a2a2e
-    theme.sliderHandle = theme.primary;                                   // #8B7FFF
-    theme.sliderHandleHover = theme.primaryHover;                         // #A79EFF
-    theme.sliderHandlePressed = theme.primaryPressed;                     // #665AD9
+    // Sliders (Modern Professional)
+    theme.sliderTrack = NUIColor(0.196f, 0.196f, 0.220f, 1.0f);          // #323238 - Slider track
+    theme.sliderHandle = theme.primary;                                   // #785aff - Purple handle
+    theme.sliderHandleHover = theme.primaryHover;                         // #8c73ff - Lighter purple hover
+    theme.sliderHandlePressed = theme.primaryPressed;                     // #6446dc - Darker purple pressed
     
     // Interactive states (legacy)
     theme.hover = NUIColor(1.0f, 1.0f, 1.0f, 0.08f);
@@ -413,7 +538,7 @@ NUIThemeProperties NUIThemePresets::createNomadDark() {
     theme.disabled = NUIColor(0.5f, 0.5f, 0.5f, 0.38f);
     
     // Highlight glow
-    theme.highlightGlow = NUIColor(0.545f, 0.498f, 1.0f, 0.3f);          // rgba(139, 127, 255, 0.3)
+    theme.highlightGlow = NUIColor(0.471f, 0.353f, 1.0f, 0.25f);         // rgba(120, 90, 255, 0.25) - Purple glow
     
     // 🪞 5. Shadows
     theme.shadowXS = NUIThemeProperties::Shadow(0, 1, 2, 0, NUIColor::black(), 0.1f);
