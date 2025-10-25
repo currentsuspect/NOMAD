@@ -86,7 +86,7 @@ By submitting a pull request, you agree that:
 
 ### For Licensing, Partnerships, or General Inquiries:
 - **Email**: makoridylan@gmail.com
-- **GitHub**: [Technical questions & bug reports](https://github.com/***REMOVED***/NOMAD/issues)
+- **GitHub**: [Technical questions & bug reports](https://github.com/currentsuspect/NOMAD/issues)
 - **Website**: Coming Soon
 
 ### Early Access:
