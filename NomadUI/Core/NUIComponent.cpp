@@ -47,40 +47,53 @@ void NUIComponent::onResize(int width, int height) {
 
 bool NUIComponent::onMouseEvent(const NUIMouseEvent& event) {
     if (!visible_ || !enabled_) return false;
-    
-    // Check if event is within bounds
-    if (!containsPoint(event.position)) {
-        return false;
-    }
-    
-    // Try children first (front to back)
+
+    // Store original hover state before processing
+    bool wasHovered = hovered_;
+
+    // First, let children handle the event (front to back)
+    bool eventHandledByChild = false;
     for (auto it = children_.rbegin(); it != children_.rend(); ++it) {
         if ((*it)->onMouseEvent(event)) {
-            return true;  // Event was handled by child
+            eventHandledByChild = true;
+            break;  // Stop at first child that handles the event
         }
     }
-    
-    // Handle callbacks
-    if (event.pressed && onMouseDown) {
-        onMouseDown(event);
-        return true;
+
+    // Handle the event ourselves if no child handled it
+    bool eventHandledBySelf = false;
+    if (!eventHandledByChild) {
+        // Handle callbacks
+        if (event.pressed && onMouseDown) {
+            onMouseDown(event);
+            eventHandledBySelf = true;
+        }
+
+        if (event.released && onMouseUp) {
+            onMouseUp(event);
+            eventHandledBySelf = true;
+        }
+
+        if (onMouseMove) {
+            onMouseMove(event);
+        }
+
+        if (event.wheelDelta != 0.0f && onMouseWheel) {
+            onMouseWheel(event);
+            eventHandledBySelf = true;
+        }
     }
-    
-    if (event.released && onMouseUp) {
-        onMouseUp(event);
-        return true;
+
+    // Now check hover state AFTER event propagation
+    bool isWithinBounds = containsPoint(event.position);
+    bool shouldBeHovered = isWithinBounds;
+
+    // Update hover state if it changed
+    if (wasHovered != shouldBeHovered) {
+        setHovered(shouldBeHovered);
     }
-    
-    if (onMouseMove) {
-        onMouseMove(event);
-    }
-    
-    if (event.wheelDelta != 0.0f && onMouseWheel) {
-        onMouseWheel(event);
-        return true;
-    }
-    
-    return false;
+
+    return eventHandledByChild || eventHandledBySelf;
 }
 
 bool NUIComponent::onKeyEvent(const NUIKeyEvent& event) {
@@ -143,6 +156,24 @@ void NUIComponent::setPosition(float x, float y) {
 
 void NUIComponent::setSize(float width, float height) {
     setBounds(bounds_.x, bounds_.y, width, height);
+}
+
+NUIRect NUIComponent::getGlobalBounds() const {
+    NUIRect r = getBounds();
+    std::cout << "[getGlobalBounds] Starting with local bounds: (" << r.x << "," << r.y << "," << r.width << "," << r.height << ")" << std::endl;
+    const NUIComponent* p = getParent();
+    int depth = 0;
+    while (p) {
+        const NUIRect& pb = p->getBounds();
+        std::cout << "[getGlobalBounds] Depth " << depth << " - Parent bounds: (" << pb.x << "," << pb.y << "," << pb.width << "," << pb.height << ")" << std::endl;
+        r.x += pb.x;
+        r.y += pb.y;
+        std::cout << "[getGlobalBounds] After adding parent, global so far: (" << r.x << "," << r.y << ")" << std::endl;
+        p = p->getParent();
+        depth++;
+    }
+    std::cout << "[getGlobalBounds] Final global bounds: (" << r.x << "," << r.y << "," << r.width << "," << r.height << ")" << std::endl;
+    return r;
 }
 
 // ============================================================================
@@ -255,11 +286,13 @@ void NUIComponent::setFocused(bool focused) {
 
 void NUIComponent::setHovered(bool hovered) {
     if (hovered_ != hovered) {
+        hovered_ = hovered;
         if (hovered) {
             onMouseEnter();
         } else {
             onMouseLeave();
         }
+        setDirty();
     }
 }
 
