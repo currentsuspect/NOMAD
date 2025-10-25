@@ -1,3 +1,13 @@
+# Ignore locally provided ASIO SDK (do not commit proprietary SDK)
+NomadAudio/External/ASIOSDK/
+
+# Build directories
+/build/
+
+# Visual Studio
+*.user
+*.suo
+*.vcxproj.user
 # Build directories
 build/
 cmake-build-*/

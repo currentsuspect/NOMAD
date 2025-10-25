@@ -47,6 +47,8 @@ UI framework with OpenGL rendering:
 - [Platform Migration](../NomadUI/docs/PLATFORM_MIGRATION.md) - Migration from old Windows code to NomadPlat
 - [Architecture](../NomadUI/docs/ARCHITECTURE.md) - UI framework architecture
 - [Custom Window Integration](../NomadUI/docs/CUSTOM_WINDOW_INTEGRATION.md) - Building custom windows
+- [Coordinate System Guide](NOMADUI_COORDINATE_SYSTEM.md) - **CRITICAL:** Understanding NomadUI positioning
+- [Coordinate Utilities v1.1](COORDINATE_UTILITIES_V1.1.md) - **NEW:** Convenience helpers for positioning
 - [Icon System Guide](../NomadUI/docs/ICON_SYSTEM_GUIDE.md) - SVG icon usage
 - [Theme Demo Guide](../NomadUI/docs/THEME_DEMO_GUIDE.md) - Theming system
 - [Windows Snap Guide](../NomadUI/docs/WINDOWS_SNAP_GUIDE.md) - Window snapping behavior
@@ -68,6 +70,7 @@ UI framework with OpenGL rendering:
 - **Adding DPI support?** → `NomadPlat/docs/DPI_SUPPORT.md`
 - **Migrating from old code?** → `NomadUI/docs/PLATFORM_MIGRATION.md`
 - **Building custom windows?** → `NomadUI/docs/CUSTOM_WINDOW_INTEGRATION.md`
+- **Component positioning issues?** → `NomadDocs/NOMADUI_COORDINATE_SYSTEM.md` ⚠️ **READ THIS FIRST**
 
 ## 📊 Project Status
 

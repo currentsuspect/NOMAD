@@ -91,6 +91,10 @@ private:
     NUIComponent* m_rootComponent;
     NUIRenderer* m_renderer;
     
+    // Mouse position tracking for wheel events
+    int m_lastMouseX;
+    int m_lastMouseY;
+    
     // NomadUI-style callbacks
     std::function<void(int, int)> m_mouseMoveCallback;
     std::function<void(int, bool)> m_mouseButtonCallback;

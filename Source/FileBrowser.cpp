@@ -1,0 +1,1013 @@
+#include "FileBrowser.h"
+#include "../NomadUI/Core/NUIThemeSystem.h"
+#include "../NomadUI/Graphics/NUIRenderer.h"
+#include <algorithm>
+#include <filesystem>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
+#include <iostream>
+
+namespace NomadUI {
+
+FileBrowser::FileBrowser()
+    : NUIComponent()
+    , selectedFile_(nullptr)
+    , selectedIndex_(-1)
+    , scrollOffset_(0.0f)
+    , visibleItems_(0)
+    , showHiddenFiles_(false)
+    , scrollbarVisible_(false)
+    , scrollbarOpacity_(0.0f)
+    , isDraggingScrollbar_(false)
+    , dragStartY_(0.0f)
+    , dragStartScrollOffset_(0.0f)
+    , scrollbarFadeTimer_(0.0f)
+    , hoveredIndex_(-1)
+    , sortMode_(SortMode::Name)
+    , sortAscending_(true)
+{
+    // Set default size from theme
+    auto& themeManager = NUIThemeManager::getInstance();
+    float defaultWidth = themeManager.getLayoutDimension("fileBrowserWidth");
+    float defaultHeight = 300.0f; // Default height
+    setSize(defaultWidth, defaultHeight);
+    
+    // Initialize icons with improved visibility for Liminal Dark v2.0
+    // Use inline SVG content for reliable icon loading
+    folderIcon_ = std::make_shared<NUIIcon>();
+    const char* folderSvg = R"(
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
+        </svg>
+    )";
+    folderIcon_->loadSVG(folderSvg);
+    folderIcon_->setIconSize(24, 24);
+    folderIcon_->setColor(NUIColor(0.0f, 0.737f, 0.831f, 1.0f));  // #00bcd4 - Brighter cyan for folders
+    
+    folderOpenIcon_ = std::make_shared<NUIIcon>();
+    const char* folderOpenSvg = R"(
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 6h-8l-2-2H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm0 12H4V8h16v10z"/>
+        </svg>
+    )";
+    folderOpenIcon_->loadSVG(folderOpenSvg);
+    folderOpenIcon_->setIconSize(24, 24);
+    folderOpenIcon_->setColor(NUIColor(0.0f, 0.737f, 0.831f, 1.0f));  // #00bcd4 - Brighter cyan for folders
+    
+    audioFileIcon_ = std::make_shared<NUIIcon>();
+    const char* audioFileSvg = R"(
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+        </svg>
+    )";
+    audioFileIcon_->loadSVG(audioFileSvg);
+    audioFileIcon_->setIconSize(24, 24);
+    audioFileIcon_->setColor(NUIColor(0.902f, 0.902f, 0.922f, 1.0f));  // #e6e6eb - Bright white for file icons
+    
+    musicFileIcon_ = std::make_shared<NUIIcon>();
+    const char* musicFileSvg = R"(
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+        </svg>
+    )";
+    musicFileIcon_->loadSVG(musicFileSvg);
+    musicFileIcon_->setIconSize(24, 24);
+    musicFileIcon_->setColor(NUIColor(0.902f, 0.902f, 0.922f, 1.0f));  // #e6e6eb - Bright white for file icons
+    
+    projectFileIcon_ = std::make_shared<NUIIcon>();
+    const char* projectFileSvg = R"(
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+        </svg>
+    )";
+    projectFileIcon_->loadSVG(projectFileSvg);
+    projectFileIcon_->setIconSize(24, 24);
+    projectFileIcon_->setColor(NUIColor(0.902f, 0.902f, 0.922f, 1.0f));  // #e6e6eb - Bright white for file icons
+    
+    wavFileIcon_ = std::make_shared<NUIIcon>();
+    const char* wavFileSvg = R"(
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+        </svg>
+    )";
+    wavFileIcon_->loadSVG(wavFileSvg);
+    wavFileIcon_->setIconSize(24, 24);
+    wavFileIcon_->setColor(NUIColor(0.902f, 0.902f, 0.922f, 1.0f));  // #e6e6eb - Bright white for file icons
+    
+    mp3FileIcon_ = std::make_shared<NUIIcon>();
+    const char* mp3FileSvg = R"(
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+        </svg>
+    )";
+    mp3FileIcon_->loadSVG(mp3FileSvg);
+    mp3FileIcon_->setIconSize(24, 24);
+    mp3FileIcon_->setColor(NUIColor(0.902f, 0.902f, 0.922f, 1.0f));  // #e6e6eb - Bright white for file icons
+    
+    flacFileIcon_ = std::make_shared<NUIIcon>();
+    const char* flacFileSvg = R"(
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+        </svg>
+    )";
+    flacFileIcon_->loadSVG(flacFileSvg);
+    flacFileIcon_->setIconSize(24, 24);
+    flacFileIcon_->setColor(NUIColor(0.902f, 0.902f, 0.922f, 1.0f));  // #e6e6eb - Bright white for file icons
+    
+    // Unknown file icon (use a generic document icon)
+    unknownFileIcon_ = std::make_shared<NUIIcon>();
+    const char* unknownFileSvg = R"(
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+        </svg>
+    )";
+    unknownFileIcon_->loadSVG(unknownFileSvg);
+    unknownFileIcon_->setIconSize(24, 24);
+    unknownFileIcon_->setColor(NUIColor(0.604f, 0.604f, 0.639f, 1.0f));  // #9a9aa3 - Secondary text for unknown files
+    
+    // Set initial path to current directory
+    currentPath_ = std::filesystem::current_path().string();
+    loadDirectoryContents();
+    
+    // Load Liminal Dark v2.0 theme colors
+    backgroundColor_ = themeManager.getColor("backgroundSecondary");  // #1b1b1f - Panels, sidebars, file browser
+    textColor_ = themeManager.getColor("textPrimary");                // #e6e6eb - Soft white
+    selectedColor_ = themeManager.getColor("accentCyan");             // #00bcd4 - Accent cyan for selection
+    hoverColor_ = themeManager.getColor("surfaceRaised");             // #32323a - Hovered buttons, focused areas
+    borderColor_ = themeManager.getColor("border");                   // #2e2e35 - Subtle separation lines
+}
+
+void FileBrowser::onRender(NUIRenderer& renderer) {
+    NUIRect bounds = getBounds();
+    if (bounds.isEmpty()) return;
+    
+    
+    // Render background with enhanced borders
+    renderer.fillRoundedRect(bounds, 8, backgroundColor_);
+    
+    // Main border
+    renderer.strokeRoundedRect(bounds, 8, 1, borderColor_);
+    
+    // Inner black border for cleaner look
+    NUIRect innerBounds(bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2);
+    renderer.strokeRoundedRect(innerBounds, 7, 1, NUIColor(0.0f, 0.0f, 0.0f, 0.4f));
+    
+    // Render toolbar
+    renderToolbar(renderer);
+    
+    // Render path bar
+    renderPathBar(renderer);
+    
+    // Render file list
+    renderFileList(renderer);
+    
+    // Render scrollbar
+    renderScrollbar(renderer);
+}
+
+void FileBrowser::onResize(int width, int height) {
+    NUIComponent::onResize(width, height);
+
+    // Get component dimensions from theme
+    auto& themeManager = NUIThemeManager::getInstance();
+
+    // Update visible items count using configurable dimensions
+    float headerHeight = themeManager.getComponentDimension("fileBrowser", "headerHeight");
+    float itemHeight = themeManager.getComponentDimension("fileBrowser", "itemHeight");
+    visibleItems_ = static_cast<int>((height - headerHeight) / itemHeight);
+    visibleItems_ = std::max(1, visibleItems_);
+
+    // Update scrollbar dimensions using configurable dimensions
+    float scrollbarWidth = themeManager.getComponentDimension("fileBrowser", "scrollbarWidth");
+    scrollbarTrackHeight_ = height - headerHeight - 8 - 20; // Account for path bar spacing and height
+    scrollbarWidth_ = scrollbarWidth;
+
+    // Debug logs for dimension validation
+    std::cout << "FileBrowser onResize Debug:" << std::endl;
+    std::cout << "  width: " << width << ", height: " << height << std::endl;
+    std::cout << "  headerHeight (theme): " << headerHeight << std::endl;
+    std::cout << "  itemHeight (theme): " << itemHeight << std::endl;
+    std::cout << "  visibleItems_: " << visibleItems_ << std::endl;
+    std::cout << "  scrollbarWidth (theme): " << scrollbarWidth << std::endl;
+    std::cout << "  scrollbarTrackHeight_: " << scrollbarTrackHeight_ << std::endl;
+
+    updateScrollbarVisibility();
+}
+
+bool FileBrowser::onMouseEvent(const NUIMouseEvent& event) {
+    NUIRect bounds = getBounds();
+    
+    // If we're dragging the scrollbar, handle mouse events even outside bounds
+    if (isDraggingScrollbar_) {
+        // Always check scrollbar events if we're dragging
+        if (handleScrollbarMouseEvent(event)) {
+            return true;
+        }
+    }
+    
+    // Check if mouse is within bounds
+    bool mouseInside = bounds.contains(event.position.x, event.position.y);
+
+    // Clear hover if mouse leaves the file browser entirely (but allow scrollbar dragging)
+    if (!mouseInside && !isDraggingScrollbar_) {
+        if (hoveredIndex_ != -1) {
+            hoveredIndex_ = -1;
+            setDirty(true); // Trigger redraw when clearing hover
+        }
+        return false;
+    }
+    
+    
+    // Handle scrollbar mouse events first - check if scrollbar should be visible
+    float contentHeight = files_.size() * itemHeight_;
+    float maxScroll = std::max(0.0f, contentHeight - scrollbarTrackHeight_);
+    bool needsScrollbar = maxScroll > 0.0f;
+    
+    // Handle mouse wheel scrolling first (works anywhere in the file browser)
+    if (event.wheelDelta != 0) {
+        auto& themeManager = NUIThemeManager::getInstance();
+        float headerHeight = themeManager.getComponentDimension("fileBrowser", "headerHeight");
+        float itemHeight = themeManager.getComponentDimension("fileBrowser", "itemHeight");
+        float listY = bounds.y + headerHeight + 8 + 20; // After path bar
+        float listHeight = bounds.height - headerHeight - 8 - 20;
+
+        // Smooth scroll speed - reduce acceleration
+        float scrollSpeed = 0.5f; // Scroll 0.5 items per wheel step for smoother feel
+        scrollOffset_ -= event.wheelDelta * scrollSpeed * itemHeight;
+
+        // Clamp scroll offset
+        float maxScroll = std::max(0.0f, (files_.size() * itemHeight) - listHeight);
+        scrollOffset_ = std::max(0.0f, std::min(scrollOffset_, maxScroll));
+
+        updateScrollbarVisibility();
+        return true;
+    }
+    
+    // Check scrollbar events if scrollbar is needed (but not dragging - handled above)
+    if (needsScrollbar && files_.size() > 0 && !isDraggingScrollbar_) {
+        if (handleScrollbarMouseEvent(event)) {
+            return true;
+        }
+    }
+    
+    // Check if click is in file list area
+    auto& themeManager = NUIThemeManager::getInstance();
+    float headerHeight = themeManager.getComponentDimension("fileBrowser", "headerHeight");
+    float itemHeight = themeManager.getComponentDimension("fileBrowser", "itemHeight");
+    float listY = bounds.y + headerHeight + 8 + 20; // After path bar
+    float listHeight = bounds.height - headerHeight - 8 - 20;
+
+    if (event.position.x >= bounds.x && event.position.x <= bounds.x + bounds.width &&
+        event.position.y >= listY && event.position.y <= listY + listHeight) {
+
+        // Calculate which item is being hovered
+        float relativeY = event.position.y - listY;
+        int itemIndex = static_cast<int>((relativeY + scrollOffset_) / itemHeight);
+
+        // Update hover state
+        int newHoveredIndex = (itemIndex >= 0 && itemIndex < static_cast<int>(files_.size())) ? itemIndex : -1;
+        if (newHoveredIndex != hoveredIndex_) {
+            hoveredIndex_ = newHoveredIndex;
+            setDirty(true); // Trigger redraw when hover state changes
+        }
+
+        if (event.pressed && event.button == NUIMouseButton::Left) {
+            // Calculate which file was clicked
+            float relativeY = event.position.y - listY;
+            int itemIndex = static_cast<int>((relativeY + scrollOffset_) / itemHeight);
+            
+            if (itemIndex >= 0 && itemIndex < static_cast<int>(files_.size())) {
+                selectedIndex_ = itemIndex;
+                selectedFile_ = &files_[itemIndex];
+                
+                if (onFileSelected_) {
+                    onFileSelected_(*selectedFile_);
+                }
+                
+                // Trigger sound preview for audio files
+                if (onSoundPreview_ && selectedFile_ && !selectedFile_->isDirectory) {
+                    // Check if it's an audio file
+                    FileType type = selectedFile_->type;
+                    if (type == FileType::AudioFile || type == FileType::MusicFile ||
+                        type == FileType::WavFile || type == FileType::Mp3File ||
+                        type == FileType::FlacFile) {
+                        onSoundPreview_(*selectedFile_);
+                    }
+                }
+                
+                // Double click to open
+                static auto lastClickTime = std::chrono::steady_clock::now();
+                auto now = std::chrono::steady_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastClickTime);
+                
+                if (duration.count() < 500) { // 500ms double click threshold
+                    if (selectedFile_->isDirectory) {
+                        navigateTo(selectedFile_->path);
+                    } else {
+                        if (onFileOpened_) {
+                            onFileOpened_(*selectedFile_);
+                        }
+                    }
+                }
+                
+                lastClickTime = now;
+                setDirty(true);
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+bool FileBrowser::onKeyEvent(const NUIKeyEvent& event) {
+    if (!event.pressed) return false;
+    
+    switch (event.keyCode) {
+        case NUIKeyCode::Up:
+            if (selectedIndex_ > 0) {
+                selectedIndex_--;
+                selectedFile_ = &files_[selectedIndex_];
+                updateScrollPosition();
+                if (onFileSelected_) {
+                    onFileSelected_(*selectedFile_);
+                }
+                // Trigger sound preview for audio files
+                if (onSoundPreview_ && selectedFile_ && !selectedFile_->isDirectory) {
+                    FileType type = selectedFile_->type;
+                    if (type == FileType::AudioFile || type == FileType::MusicFile ||
+                        type == FileType::WavFile || type == FileType::Mp3File ||
+                        type == FileType::FlacFile) {
+                        onSoundPreview_(*selectedFile_);
+                    }
+                }
+                setDirty(true);
+                return true;
+            }
+            break;
+            
+        case NUIKeyCode::Down:
+            if (selectedIndex_ < static_cast<int>(files_.size()) - 1) {
+                selectedIndex_++;
+                selectedFile_ = &files_[selectedIndex_];
+                updateScrollPosition();
+                if (onFileSelected_) {
+                    onFileSelected_(*selectedFile_);
+                }
+                // Trigger sound preview for audio files
+                if (onSoundPreview_ && selectedFile_ && !selectedFile_->isDirectory) {
+                    FileType type = selectedFile_->type;
+                    if (type == FileType::AudioFile || type == FileType::MusicFile ||
+                        type == FileType::WavFile || type == FileType::Mp3File ||
+                        type == FileType::FlacFile) {
+                        onSoundPreview_(*selectedFile_);
+                    }
+                }
+                setDirty(true);
+                return true;
+            }
+            break;
+            
+        case NUIKeyCode::Enter:
+            if (selectedFile_) {
+                if (selectedFile_->isDirectory) {
+                    navigateTo(selectedFile_->path);
+                } else {
+                    if (onFileOpened_) {
+                        onFileOpened_(*selectedFile_);
+                    }
+                }
+                return true;
+            }
+            break;
+            
+        case NUIKeyCode::Backspace:
+            navigateUp();
+            return true;
+    }
+    
+    return false;
+}
+
+void FileBrowser::setCurrentPath(const std::string& path) {
+    currentPath_ = path;
+    loadDirectoryContents();
+    if (onPathChanged_) {
+        onPathChanged_(currentPath_);
+    }
+    setDirty(true);
+}
+
+void FileBrowser::refresh() {
+    loadDirectoryContents();
+    setDirty(true);
+}
+
+void FileBrowser::navigateUp() {
+    std::filesystem::path parent = std::filesystem::path(currentPath_).parent_path();
+    if (parent != currentPath_) {
+        setCurrentPath(parent.string());
+    }
+}
+
+void FileBrowser::navigateTo(const std::string& path) {
+    if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
+        setCurrentPath(path);
+    }
+}
+
+void FileBrowser::selectFile(const std::string& path) {
+    for (size_t i = 0; i < files_.size(); ++i) {
+        if (files_[i].path == path) {
+            selectedIndex_ = static_cast<int>(i);
+            selectedFile_ = &files_[i];
+            updateScrollPosition();
+            if (onFileSelected_) {
+                onFileSelected_(*selectedFile_);
+            }
+            setDirty(true);
+            break;
+        }
+    }
+}
+
+void FileBrowser::openFile(const std::string& path) {
+    selectFile(path);
+    if (selectedFile_ && onFileOpened_) {
+        onFileOpened_(*selectedFile_);
+    }
+}
+
+void FileBrowser::openFolder(const std::string& path) {
+    navigateTo(path);
+}
+
+void FileBrowser::setSortMode(SortMode mode) {
+    sortMode_ = mode;
+    sortFiles();
+    setDirty(true);
+}
+
+void FileBrowser::setSortAscending(bool ascending) {
+    sortAscending_ = ascending;
+    sortFiles();
+    setDirty(true);
+}
+
+void FileBrowser::loadDirectoryContents() {
+    files_.clear();
+    selectedFile_ = nullptr;
+    selectedIndex_ = -1;
+    
+    try {
+        std::filesystem::path currentDir(currentPath_);
+        
+        // Add parent directory entry if not at root
+        if (currentDir.has_parent_path() && currentDir.parent_path() != currentDir) {
+            files_.emplace_back("..", currentDir.parent_path().string(), FileType::Folder, true);
+        }
+        
+        // Iterate through directory contents
+        for (const auto& entry : std::filesystem::directory_iterator(currentDir)) {
+            if (!showHiddenFiles_ && entry.path().filename().string()[0] == '.') {
+                continue;
+            }
+            
+            std::string name = entry.path().filename().string();
+            std::string path = entry.path().string();
+            bool isDir = entry.is_directory();
+            
+            FileType type = FileType::Unknown;
+            size_t size = 0;
+            std::string lastModified;
+            
+            if (isDir) {
+                type = FileType::Folder;
+            } else {
+                std::string extension = entry.path().extension().string();
+                std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+                
+                type = getFileTypeFromExtension(extension);
+                size = entry.file_size();
+                
+                // Get last modified time
+                auto time = std::filesystem::last_write_time(entry);
+                auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+                    time - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now());
+                auto time_t = std::chrono::system_clock::to_time_t(sctp);
+                std::stringstream ss;
+                ss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M");
+                lastModified = ss.str();
+            }
+            
+            files_.emplace_back(name, path, type, isDir, size, lastModified);
+        }
+        
+        sortFiles();
+    }
+    catch (const std::exception& e) {
+        // Handle directory access errors
+        std::cerr << "Error loading directory: " << e.what() << std::endl;
+    }
+    
+    // Update scrollbar visibility after loading files
+    updateScrollbarVisibility();
+}
+
+void FileBrowser::sortFiles() {
+    std::sort(files_.begin(), files_.end(), [this](const FileItem& a, const FileItem& b) {
+        // Always put directories first
+        if (a.isDirectory != b.isDirectory) {
+            return a.isDirectory > b.isDirectory;
+        }
+        
+        // Handle ".." entry
+        if (a.name == "..") return true;
+        if (b.name == "..") return false;
+        
+        bool result = false;
+        
+        switch (sortMode_) {
+            case SortMode::Name:
+                result = a.name < b.name;
+                break;
+            case SortMode::Type:
+                result = a.type < b.type;
+                break;
+            case SortMode::Size:
+                result = a.size < b.size;
+                break;
+            case SortMode::Modified:
+                result = a.lastModified < b.lastModified;
+                break;
+        }
+        
+        return sortAscending_ ? result : !result;
+    });
+}
+
+FileType FileBrowser::getFileTypeFromExtension(const std::string& extension) {
+    if (extension == ".wav") return FileType::WavFile;
+    if (extension == ".mp3") return FileType::Mp3File;
+    if (extension == ".flac") return FileType::FlacFile;
+    if (extension == ".aiff" || extension == ".aif") return FileType::AudioFile;
+    if (extension == ".nomad" || extension == ".nmd") return FileType::ProjectFile;
+    if (extension == ".mid" || extension == ".midi") return FileType::MusicFile;
+    
+    return FileType::Unknown;
+}
+
+std::shared_ptr<NUIIcon> FileBrowser::getIconForFileType(FileType type) {
+    switch (type) {
+        case FileType::Folder:
+            return folderIcon_;
+        case FileType::AudioFile:
+            return audioFileIcon_;
+        case FileType::MusicFile:
+            return musicFileIcon_;
+        case FileType::ProjectFile:
+            return projectFileIcon_;
+        case FileType::WavFile:
+            return wavFileIcon_;
+        case FileType::Mp3File:
+            return mp3FileIcon_;
+        case FileType::FlacFile:
+            return flacFileIcon_;
+        default:
+            return unknownFileIcon_;
+    }
+}
+
+void FileBrowser::renderFileList(NUIRenderer& renderer) {
+    // Get component dimensions from theme ONCE outside the loop
+    auto& themeManager = NUIThemeManager::getInstance();
+    const auto& layout = themeManager.getLayoutDimensions();
+
+    NUIRect bounds = getBounds();
+    float headerHeight = themeManager.getComponentDimension("fileBrowser", "headerHeight");
+    float itemHeight = themeManager.getComponentDimension("fileBrowser", "itemHeight");
+    float listY = bounds.y + headerHeight + 8 + 20; // After toolbar + spacing + path bar height
+    float listHeight = bounds.height - headerHeight - 8 - 20;
+
+    // Render file items
+    for (int i = 0; i < static_cast<int>(files_.size()); ++i) {
+        // Calculate item position: each item is positioned at listY + (i * itemHeight) - scrollOffset
+        float itemY = listY + (i * itemHeight) - scrollOffset_;
+
+        // Skip items that are not visible
+        if (itemY + itemHeight < listY || itemY > listY + listHeight) {
+            continue;
+        }
+
+        // Create item rect with proper dimensions
+        NUIRect itemRect(bounds.x + layout.panelMargin, itemY, bounds.width - 2 * layout.panelMargin, itemHeight);
+        
+        // Enhanced selection highlighting with Liminal Dark v2.0 effects
+        if (i == selectedIndex_) {
+            // Heavy selection highlight with cyan accent
+            renderer.fillRoundedRect(itemRect, 4, selectedColor_.withAlpha(0.3f));
+            renderer.strokeRoundedRect(itemRect, 4, 2, selectedColor_.withAlpha(0.8f));
+            
+            // Left accent bar in cyan for selected items
+            NUIRect accentBar(itemRect.x, itemRect.y, 3, itemRect.height);
+            renderer.fillRoundedRect(accentBar, 1, selectedColor_);
+        } else if (i == hoveredIndex_) {
+            // Hover highlight with subtle grey background
+            renderer.fillRoundedRect(itemRect, 4, hoverColor_.withAlpha(0.4f));
+            renderer.strokeRoundedRect(itemRect, 4, 1, hoverColor_.withAlpha(0.6f));
+        } else {
+            // Subtle background for all items
+            renderer.fillRoundedRect(itemRect, 4, backgroundColor_.withAlpha(0.02f));
+        }
+        
+        // Add subtle divider line between items (except for the last item)
+        if (i < files_.size() - 1) {
+            NUIRect dividerRect(itemRect.x + layout.panelMargin, itemRect.y + itemRect.height - 1, itemRect.width - 2 * layout.panelMargin, 1);
+            renderer.fillRect(dividerRect, NUIColor(0.0f, 0.0f, 0.0f, 0.3f)); // Black divider
+        }
+        
+        // Render icon
+        auto icon = getIconForFileType(files_[i].type);
+        if (icon) {
+            float iconSize = themeManager.getComponentDimension("fileBrowser", "iconSize");
+            NUIRect iconRect(itemRect.x + layout.panelMargin, itemY + 4, iconSize, iconSize);
+            icon->setBounds(iconRect);
+            icon->onRender(renderer);
+        } else {
+            // Debug: Draw a simple rectangle if no icon
+            float iconSize = themeManager.getComponentDimension("fileBrowser", "iconSize");
+            renderer.fillRect(NUIRect(itemRect.x + layout.panelMargin, itemY + 4, iconSize, iconSize), NUIColor::white().withAlpha(0.3f));
+        }
+
+        // Render file name with proper vertical alignment and bounds checking to prevent bleeding
+        float textX = itemRect.x + layout.panelMargin + themeManager.getComponentDimension("fileBrowser", "iconSize") + 8; // Icon size + margin
+        float textY = itemY + itemHeight / 2 + 7; // Perfect vertical centering for 14px font (baseline)
+        
+        // Measure text width and ensure it doesn't exceed bounds
+        auto nameTextSize = renderer.measureText(files_[i].name, 14);
+        float maxTextWidth = itemRect.width - layout.panelMargin - themeManager.getComponentDimension("fileBrowser", "iconSize") - 8;
+        float availableWidth = maxTextWidth;
+        
+        // Truncate filename if too long
+        std::string displayName = files_[i].name;
+        if (nameTextSize.width > availableWidth) {
+            // Reserve space for "..." (3 characters at 14px)
+            float ellipsisWidth = renderer.measureText("...", 14).width;
+            float maxNameWidth = availableWidth - ellipsisWidth;
+            
+            // Find the maximum number of characters that fit
+            std::string truncated = files_[i].name;
+            while (!truncated.empty() && renderer.measureText(truncated, 14).width > maxNameWidth) {
+                truncated = truncated.substr(0, truncated.length() - 1);
+            }
+            displayName = truncated + "...";
+        }
+        
+        // Add hover effect
+        NUIColor nameColor = textColor_;
+        if (i == selectedIndex_) {
+            nameColor = NUIColor::white(); // Bright white for selected
+        }
+        
+        renderer.drawText(displayName, NUIPoint(textX, textY), 14, nameColor);
+        
+        // Render file size with bounds checking to prevent bleeding
+        if (!files_[i].isDirectory && files_[i].size > 0) {
+            std::string sizeStr;
+            if (files_[i].size < 1024) {
+                sizeStr = std::to_string(files_[i].size) + " B";
+            } else if (files_[i].size < 1024 * 1024) {
+                sizeStr = std::to_string(files_[i].size / 1024) + " KB";
+            } else {
+                sizeStr = std::to_string(files_[i].size / (1024 * 1024)) + " MB";
+            }
+            
+            auto sizeText = renderer.measureText(sizeStr, 12);
+            
+            // Ensure size text doesn't exceed item bounds
+            float maxSizeWidth = itemRect.width - layout.panelMargin - textX;
+            if (sizeText.width > maxSizeWidth) {
+                // Truncate size string if too long
+                std::string truncatedSize = sizeStr;
+                while (!truncatedSize.empty() && renderer.measureText(truncatedSize, 12).width > maxSizeWidth) {
+                    truncatedSize = truncatedSize.substr(0, truncatedSize.length() - 1);
+                }
+                sizeStr = truncatedSize + "...";
+                sizeText = renderer.measureText(sizeStr, 12);
+            }
+            
+            // Position size text to ensure it fits within bounds
+            float sizeX = std::max(textX, itemRect.x + itemRect.width - sizeText.width - layout.panelMargin);
+            renderer.drawText(sizeStr, NUIPoint(sizeX, textY), 12, textColor_.withAlpha(0.7f));
+        }
+    }
+}
+
+void FileBrowser::renderPathBar(NUIRenderer& renderer) {
+    // Get layout dimensions from theme
+    auto& themeManager = NUIThemeManager::getInstance();
+    const auto& layout = themeManager.getLayoutDimensions();
+    float headerHeight = themeManager.getComponentDimension("fileBrowser", "headerHeight");
+
+    NUIRect bounds = getBounds();
+    float toolbarHeight = headerHeight; // Use theme headerHeight instead of hardcoded
+    NUIRect pathRect(bounds.x + layout.panelMargin, bounds.y + toolbarHeight + 8, bounds.width - 2 * layout.panelMargin, 20);
+
+    // Render path bar background with enhanced styling
+    renderer.fillRoundedRect(pathRect, 4, backgroundColor_.darkened(0.15f));
+    renderer.strokeRoundedRect(pathRect, 4, 1, borderColor_.withAlpha(0.6f));
+
+    // Render current path with proper vertical alignment and padding
+    float textY = pathRect.y + pathRect.height / 2 + 4; // Better centering
+    float textX = pathRect.x + layout.panelMargin; // Configurable padding from left edge
+    float maxTextWidth = pathRect.width - 2 * layout.panelMargin; // Account for configurable padding on both sides
+
+    // Truncate text if it's too long to prevent bleeding
+    std::string displayPath = currentPath_;
+    if (displayPath.length() > 40) { // More aggressive truncation
+        displayPath = "..." + displayPath.substr(displayPath.length() - 37);
+    }
+
+    // Measure text and ensure it fits within bounds
+    auto pathTextSize = renderer.measureText(displayPath, 12);
+    if (pathTextSize.width > maxTextWidth) {
+        // Further truncate if still too long
+        std::string truncatedPath = displayPath;
+        while (!truncatedPath.empty() && renderer.measureText(truncatedPath, 12).width > maxTextWidth) {
+            truncatedPath = truncatedPath.substr(0, truncatedPath.length() - 1);
+        }
+        displayPath = truncatedPath + "...";
+    }
+
+    // Ensure text fits within bounds
+    renderer.drawText(displayPath, NUIPoint(textX, textY), 12, textColor_);
+}
+
+void FileBrowser::renderToolbar(NUIRenderer& renderer) {
+    // Get layout dimensions from theme
+    auto& themeManager = NUIThemeManager::getInstance();
+    const auto& layout = themeManager.getLayoutDimensions();
+    float headerHeight = themeManager.getComponentDimension("fileBrowser", "headerHeight");
+
+    NUIRect bounds = getBounds();
+    float toolbarHeight = headerHeight; // Use theme headerHeight instead of hardcoded
+    NUIRect toolbarRect(bounds.x + layout.panelMargin, bounds.y + layout.panelMargin, bounds.width - 2 * layout.panelMargin, toolbarHeight);
+
+    // Render toolbar background with enhanced styling
+    renderer.fillRoundedRect(toolbarRect, 4, backgroundColor_.darkened(0.08f));
+    renderer.strokeRoundedRect(toolbarRect, 4, 1, borderColor_.withAlpha(0.3f));
+
+    // Render refresh button with proper vertical alignment and bounds checking
+    float textY = toolbarRect.y + toolbarRect.height / 2 + 6; // Perfect centering for 12px font (baseline)
+    
+    // Measure refresh text and ensure it fits
+    auto refreshTextSize = renderer.measureText("Refresh", 12);
+    float maxRefreshWidth = toolbarRect.width * 0.3f; // Limit to 30% of toolbar width
+    if (refreshTextSize.width > maxRefreshWidth) {
+        std::string truncatedRefresh = "Refresh";
+        while (!truncatedRefresh.empty() && renderer.measureText(truncatedRefresh, 12).width > maxRefreshWidth) {
+            truncatedRefresh = truncatedRefresh.substr(0, truncatedRefresh.length() - 1);
+        }
+        renderer.drawText(truncatedRefresh + "...", NUIPoint(toolbarRect.x + layout.panelMargin, textY), 12, textColor_);
+    } else {
+        renderer.drawText("Refresh", NUIPoint(toolbarRect.x + layout.panelMargin, textY), 12, textColor_);
+    }
+
+    // Render sort mode indicator with proper alignment and bounds checking
+    std::string sortText = "Sort: ";
+    switch (sortMode_) {
+        case SortMode::Name: sortText += "Name"; break;
+        case SortMode::Type: sortText += "Type"; break;
+        case SortMode::Size: sortText += "Size"; break;
+        case SortMode::Modified: sortText += "Modified"; break;
+    }
+    sortText += sortAscending_ ? " ↑" : " ↓";
+
+    auto sortTextSize = renderer.measureText(sortText, 12);
+    
+    // Ensure sort text doesn't exceed toolbar bounds
+    float maxSortWidth = toolbarRect.width * 0.4f; // Limit to 40% of toolbar width
+    if (sortTextSize.width > maxSortWidth) {
+        std::string truncatedSort = sortText;
+        while (!truncatedSort.empty() && renderer.measureText(truncatedSort, 12).width > maxSortWidth) {
+            truncatedSort = truncatedSort.substr(0, truncatedSort.length() - 1);
+        }
+        sortText = truncatedSort + "...";
+        sortTextSize = renderer.measureText(sortText, 12);
+    }
+    
+    // Position sort text to ensure it fits within bounds
+    float sortX = std::max(toolbarRect.x + layout.panelMargin, toolbarRect.x + toolbarRect.width - sortTextSize.width - layout.panelMargin);
+    renderer.drawText(sortText, NUIPoint(sortX, textY), 12, textColor_.withAlpha(0.7f));
+}
+
+void FileBrowser::updateScrollPosition() {
+    if (selectedIndex_ < 0) return;
+
+    // Get component dimensions from theme
+    auto& themeManager = NUIThemeManager::getInstance();
+    const auto& layout = themeManager.getLayoutDimensions();
+
+    NUIRect bounds = getBounds();
+    float headerHeight = themeManager.getComponentDimension("fileBrowser", "headerHeight");
+    float itemHeight = themeManager.getComponentDimension("fileBrowser", "itemHeight");
+    float listY = bounds.y + headerHeight + 8 + 20; // After path bar
+    float listHeight = bounds.height - headerHeight - 8 - 20;
+
+    float itemY = listY + (selectedIndex_ * itemHeight) - scrollOffset_;
+
+    // Scroll up if item is above visible area
+    if (itemY < listY) {
+        scrollOffset_ = selectedIndex_ * itemHeight;
+    }
+    // Scroll down if item is below visible area
+    else if (itemY + itemHeight > listY + listHeight) {
+        scrollOffset_ = (selectedIndex_ + 1) * itemHeight - listHeight;
+    }
+
+    // Clamp scroll offset
+    float maxScroll = std::max(0.0f, (files_.size() * itemHeight_) - listHeight);
+    scrollOffset_ = std::max(0.0f, std::min(scrollOffset_, maxScroll));
+
+    // Update scrollbar visibility and position
+    updateScrollbarVisibility();
+}
+
+void FileBrowser::renderScrollbar(NUIRenderer& renderer) {
+    // Get component dimensions from theme
+    auto& themeManager = NUIThemeManager::getInstance();
+    const auto& layout = themeManager.getLayoutDimensions();
+    float itemHeight = themeManager.getComponentDimension("fileBrowser", "itemHeight");
+    float headerHeight = themeManager.getComponentDimension("fileBrowser", "headerHeight");
+
+    // Check if we need a scrollbar
+    float contentHeight = files_.size() * itemHeight;
+    float maxScroll = std::max(0.0f, contentHeight - scrollbarTrackHeight_);
+    bool needsScrollbar = maxScroll > 0.0f;
+
+    // Debug output
+    std::cout << "FileBrowser renderScrollbar Debug:" << std::endl;
+    std::cout << "  files_.size(): " << files_.size() << std::endl;
+    std::cout << "  itemHeight: " << itemHeight << std::endl;
+    std::cout << "  headerHeight: " << headerHeight << std::endl;
+    std::cout << "  contentHeight: " << contentHeight << std::endl;
+    std::cout << "  scrollbarTrackHeight_: " << scrollbarTrackHeight_ << std::endl;
+    std::cout << "  maxScroll: " << maxScroll << std::endl;
+    std::cout << "  needsScrollbar: " << needsScrollbar << std::endl;
+    std::cout << "  scrollbarVisible_: " << scrollbarVisible_ << std::endl;
+    std::cout << "  scrollOffset_: " << scrollOffset_ << std::endl;
+
+    if (!needsScrollbar || files_.size() == 0) return;
+
+    // Use already calculated dimensions
+    NUIRect bounds = getBounds();
+    float scrollbarX = bounds.x + bounds.width - scrollbarWidth_ - layout.panelMargin;
+    float scrollbarY = bounds.y + headerHeight + 8 + 20; // After path bar
+    float scrollbarHeight = bounds.height - headerHeight - 8 - 20;
+
+    std::cout << "  bounds: x=" << bounds.x << ", y=" << bounds.y << ", w=" << bounds.width << ", h=" << bounds.height << std::endl;
+    std::cout << "  scrollbarX: " << scrollbarX << ", scrollbarY: " << scrollbarY << ", scrollbarHeight: " << scrollbarHeight << std::endl;
+
+    // Render scrollbar track
+    NUIColor trackColor = themeManager.getColor("backgroundSecondary").withAlpha(0.8f); // Use theme color
+    renderer.fillRoundedRect(NUIRect(scrollbarX, scrollbarY, scrollbarWidth_, scrollbarHeight),
+                             4, trackColor);
+
+    // Render scrollbar thumb with faded white color
+    NUIColor thumbColor = NUIColor(0.8f, 0.8f, 0.8f, 0.8f); // Faded white thumb color
+    float minThumbSize = themeManager.getComponentDimension("scrollbar", "minThumbSize");
+    float thumbHeight = std::max(minThumbSize, scrollbarHeight * 0.2f); // Use theme minThumbSize
+    float thumbY = scrollbarY + (scrollOffset_ / std::max(1.0f, (files_.size() * itemHeight) - scrollbarHeight)) * (scrollbarHeight - thumbHeight);
+    std::cout << "  thumbHeight: " << thumbHeight << ", thumbY: " << thumbY << std::endl;
+    renderer.fillRoundedRect(NUIRect(scrollbarX, thumbY, scrollbarWidth_, thumbHeight),
+                             4, thumbColor);
+}
+
+bool FileBrowser::handleScrollbarMouseEvent(const NUIMouseEvent& event) {
+    // Get component dimensions from theme
+    auto& themeManager = NUIThemeManager::getInstance();
+    const auto& layout = themeManager.getLayoutDimensions();
+
+    NUIRect bounds = getBounds();
+    float headerHeight = themeManager.getComponentDimension("fileBrowser", "headerHeight");
+    float scrollbarWidth = themeManager.getComponentDimension("fileBrowser", "scrollbarWidth");
+    float scrollbarX = bounds.x + bounds.width - scrollbarWidth - layout.panelMargin;
+    float scrollbarY = bounds.y + headerHeight + 8 + 20; // After path bar
+    float scrollbarHeight = bounds.height - headerHeight - 8 - 20;
+
+    // Debug log
+    std::cout << "FileBrowser handleScrollbarMouseEvent Debug:" << std::endl;
+    std::cout << "  event.position: x=" << event.position.x << ", y=" << event.position.y << std::endl;
+    std::cout << "  event.pressed: " << event.pressed << ", button: " << (int)event.button << std::endl;
+    std::cout << "  scrollbarX: " << scrollbarX << ", scrollbarY: " << scrollbarY << ", scrollbarWidth: " << scrollbarWidth << ", scrollbarHeight: " << scrollbarHeight << std::endl;
+    std::cout << "  scrollbarThumbY_: " << scrollbarThumbY_ << ", scrollbarThumbHeight_: " << scrollbarThumbHeight_ << std::endl;
+
+    // If we're dragging, continue dragging regardless of mouse position
+    if (isDraggingScrollbar_) {
+        // Stop dragging on mouse release (anywhere, not just in scrollbar area)
+        if (!event.pressed && event.button == NUIMouseButton::Left) {
+            isDraggingScrollbar_ = false;
+            return true;
+        }
+
+        // Continue dragging even if mouse is outside scrollbar area
+        float deltaY = event.position.y - dragStartY_;
+        float scrollRatio = deltaY / scrollbarTrackHeight_;
+        float itemHeight = themeManager.getComponentDimension("fileBrowser", "itemHeight");
+        float maxScroll = std::max(0.0f, (files_.size() * itemHeight) - scrollbarTrackHeight_);
+
+        // Direct scrolling for responsive dragging
+        scrollOffset_ = dragStartScrollOffset_ + (scrollRatio * maxScroll);
+
+        // Clamp scroll offset
+        scrollOffset_ = std::max(0.0f, std::min(scrollOffset_, maxScroll));
+        updateScrollbarVisibility();
+        return true;
+    }
+
+    // Check if mouse is over scrollbar area (with larger padding for easier clicking)
+    bool inScrollbarArea = (event.position.x >= scrollbarX - 10 && event.position.x <= scrollbarX + scrollbarWidth_ + 10 &&
+                             event.position.y >= scrollbarY - 10 && event.position.y <= scrollbarY + scrollbarTrackHeight_ + 10);
+
+    std::cout << "  inScrollbarArea: " << inScrollbarArea << std::endl;
+
+    if (!inScrollbarArea) {
+        return false;
+    }
+
+
+    if (event.pressed && event.button == NUIMouseButton::Left) {
+        // Check if clicking on thumb or track (with larger padding)
+        if (event.position.y >= scrollbarY + scrollbarThumbY_ - 10 &&
+            event.position.y <= scrollbarY + scrollbarThumbY_ + scrollbarThumbHeight_ + 10) {
+            // Start dragging thumb
+            isDraggingScrollbar_ = true;
+            dragStartY_ = event.position.y;
+            dragStartScrollOffset_ = scrollOffset_;
+        } else {
+            // Click on track - jump to position
+            float relativeY = event.position.y - scrollbarY;
+            float scrollRatio = relativeY / scrollbarTrackHeight_;
+            float itemHeight = themeManager.getComponentDimension("fileBrowser", "itemHeight");
+            float maxScroll = std::max(0.0f, (files_.size() * itemHeight) - scrollbarTrackHeight_);
+            scrollOffset_ = scrollRatio * maxScroll;
+
+            // Clamp scroll offset
+            scrollOffset_ = std::max(0.0f, std::min(scrollOffset_, maxScroll));
+            updateScrollbarVisibility();
+        }
+        return true;
+    } else if (!event.pressed && event.button == NUIMouseButton::Left) {
+        // Stop dragging
+        isDraggingScrollbar_ = false;
+        return true;
+    }
+
+    return false;
+}
+
+void FileBrowser::updateScrollbarVisibility() {
+    // Get component dimensions from theme
+    auto& themeManager = NUIThemeManager::getInstance();
+    float itemHeight = themeManager.getComponentDimension("fileBrowser", "itemHeight");
+
+    // Calculate if we need a scrollbar
+    float contentHeight = files_.size() * itemHeight;
+    float maxScroll = std::max(0.0f, contentHeight - scrollbarTrackHeight_);
+    bool needsScrollbar = maxScroll > 0.0f;
+
+    std::cout << "FileBrowser updateScrollbarVisibility Debug:" << std::endl;
+    std::cout << "  files_.size(): " << files_.size() << std::endl;
+    std::cout << "  itemHeight: " << itemHeight << std::endl;
+    std::cout << "  contentHeight: " << contentHeight << std::endl;
+    std::cout << "  scrollbarTrackHeight_: " << scrollbarTrackHeight_ << std::endl;
+    std::cout << "  maxScroll: " << maxScroll << std::endl;
+    std::cout << "  needsScrollbar: " << needsScrollbar << std::endl;
+    std::cout << "  scrollOffset_: " << scrollOffset_ << std::endl;
+
+    if (needsScrollbar) {
+        scrollbarVisible_ = true;
+        scrollbarOpacity_ = 1.0f;
+
+        // Calculate thumb height (proportional to visible area)
+        float minThumbSize = themeManager.getComponentDimension("scrollbar", "minThumbSize");
+        scrollbarThumbHeight_ = std::max(minThumbSize, (scrollbarTrackHeight_ / contentHeight) * scrollbarTrackHeight_);
+
+        // Calculate thumb position based on scroll offset
+        if (maxScroll > 0.0f) {
+            scrollbarThumbY_ = (scrollOffset_ / maxScroll) * (scrollbarTrackHeight_ - scrollbarThumbHeight_);
+        } else {
+            scrollbarThumbY_ = 0.0f;
+        }
+
+        std::cout << "  scrollbarThumbHeight_: " << scrollbarThumbHeight_ << std::endl;
+        std::cout << "  scrollbarThumbY_: " << scrollbarThumbY_ << std::endl;
+
+    } else {
+        scrollbarVisible_ = false;
+        scrollbarOpacity_ = 0.0f;
+    }
+}
+
+} // namespace NomadUI
