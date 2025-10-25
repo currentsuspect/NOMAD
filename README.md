@@ -232,7 +232,7 @@ NOMAD is a fully self-authored DAW with **zero borrowed frameworks**. Every laye
 
 ```powershell
 # Clone the repository
-git clone https://github.com/***REMOVED***/NOMAD.git
+git clone https://github.com/currentsuspect/NOMAD.git
 cd NOMAD
 
 # Build (Windows)
@@ -433,8 +433,8 @@ See [LICENSING.md](LICENSING.md) for details.
 
 ### Contact
 - **Email**: makoridylan@gmail.com
-- **GitHub Issues**: [Report bugs](https://github.com/***REMOVED***/NOMAD/issues)
-- **Discussions**: [Feature requests](https://github.com/***REMOVED***/NOMAD/discussions)
+- **GitHub Issues**: [Report bugs](https://github.com/currentsuspect/NOMAD/issues)
+- **Discussions**: [Feature requests](https://github.com/currentsuspect/NOMAD/discussions)
 
 ---
 
