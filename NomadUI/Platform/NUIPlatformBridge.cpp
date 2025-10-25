@@ -10,6 +10,8 @@ NUIPlatformBridge::NUIPlatformBridge()
     : m_window(nullptr)
     , m_rootComponent(nullptr)
     , m_renderer(nullptr)
+    , m_lastMouseX(0)
+    , m_lastMouseY(0)
 {
     // Initialize NomadPlat if not already done
     Nomad::Platform::initialize();
@@ -72,6 +74,10 @@ void NUIPlatformBridge::destroy() {
 void NUIPlatformBridge::setupEventBridges() {
     // Mouse move
     m_window->setMouseMoveCallback([this](int x, int y) {
+        // Store mouse position for wheel events
+        m_lastMouseX = x;
+        m_lastMouseY = y;
+        
         if (m_mouseMoveCallback) {
             m_mouseMoveCallback(x, y);
         }
@@ -83,12 +89,17 @@ void NUIPlatformBridge::setupEventBridges() {
             event.button = NUIMouseButton::None;
             event.pressed = false;
             event.released = false;
+            event.wheelDelta = 0.0f;
             m_rootComponent->onMouseEvent(event);
         }
     });
 
     // Mouse button
     m_window->setMouseButtonCallback([this](Nomad::MouseButton button, bool pressed, int x, int y) {
+        // Store mouse position for wheel events
+        m_lastMouseX = x;
+        m_lastMouseY = y;
+        
         if (m_mouseButtonCallback) {
             m_mouseButtonCallback(convertMouseButton(button), pressed);
         }
@@ -106,6 +117,7 @@ void NUIPlatformBridge::setupEventBridges() {
             }
             event.pressed = pressed;
             event.released = !pressed;
+            event.wheelDelta = 0.0f;
             m_rootComponent->onMouseEvent(event);
         }
     });
@@ -114,6 +126,17 @@ void NUIPlatformBridge::setupEventBridges() {
     m_window->setMouseWheelCallback([this](float delta) {
         if (m_mouseWheelCallback) {
             m_mouseWheelCallback(delta);
+        }
+        
+        // Forward to root component for NomadUI event handling
+        if (m_rootComponent) {
+            NUIMouseEvent event;
+            event.position = {static_cast<float>(m_lastMouseX), static_cast<float>(m_lastMouseY)};
+            event.button = NUIMouseButton::None;
+            event.pressed = false;
+            event.released = false;
+            event.wheelDelta = delta;
+            m_rootComponent->onMouseEvent(event);
         }
     });
 

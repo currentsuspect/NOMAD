@@ -126,6 +126,7 @@ private:
 2. **Platform abstraction** - All OS-specific code lives in NomadPlat
 3. **No blocking in audio thread** - Use lock-free queues for communication
 4. **Document everything** - Doxygen headers for all public APIs
+5. **⚠️ CRITICAL: NomadUI uses absolute coordinates** - See [NOMADUI_COORDINATE_SYSTEM.md](NOMADUI_COORDINATE_SYSTEM.md) before positioning components
 
 ---
 

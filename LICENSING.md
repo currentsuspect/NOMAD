@@ -95,7 +95,7 @@ and background. Priority will be given to musicians and audio professionals.
 
 ## ⚖️ Legal
 
-- **Copyright**: © 2024-2025 Dylan Makori. All rights reserved.
+- **Copyright**: © 2025 Dylan Makori. All rights reserved.
 - **Trademarks**: NOMAD DAW and the NOMAD logo are trademarks of Dylan Makori
 - **Jurisdiction**: Republic of Kenya
 - **Enforcement**: Unauthorized use will be prosecuted to the fullest extent of the law

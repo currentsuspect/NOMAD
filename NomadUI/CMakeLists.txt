@@ -51,6 +51,25 @@ set(NOMADUI_CORE_SOURCES
     # Core/NUIApp.cpp
 )
 
+# Widget implementations (compile into core library)
+list(APPEND NOMADUI_CORE_SOURCES
+    Widgets/NUIDropdown.cpp
+    Widgets/NUICoreWidgets.h
+    Widgets/NUICoreWidgets.cpp
+    Widgets/NUITransportWidgets.h
+    Widgets/NUITransportWidgets.cpp
+    Widgets/NUIMixerWidgets.h
+    Widgets/NUIMixerWidgets.cpp
+    Widgets/NUIArrangementWidgets.h
+    Widgets/NUIArrangementWidgets.cpp
+    Widgets/NUIVisualWidgets.h
+    Widgets/NUIVisualWidgets.cpp
+    Widgets/NUIUtilityWidgets.h
+    Widgets/NUIUtilityWidgets.cpp
+    Widgets/NUIThematicWidgets.h
+    Widgets/NUIThematicWidgets.cpp
+)
+
 set(NOMADUI_GRAPHICS_SOURCES
     Graphics/NUIRenderer.h
     Graphics/NUIRenderer.cpp
@@ -133,9 +152,10 @@ if(NOMADUI_BUILD_OPENGL)
         ${NOMADUI_OPENGL_SOURCES}
     )
     
+    # Link only GLAD for OpenGL - do NOT link OpenGL::GL (opengl32.lib)
+    # GLAD provides dynamic loading of all OpenGL functions
     target_link_libraries(NomadUI_OpenGL PUBLIC
         NomadUI_Core
-        OpenGL::GL
         glad
         freetype
     )
@@ -269,7 +289,19 @@ if(NOMADUI_BUILD_EXAMPLES)
     set_target_properties(NomadUI_ButtonTest PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     )
-    
+
+    add_executable(NomadUI_WidgetCatalogueDemo
+        Test/NUIWidgetCatalogueDemo.cpp
+    )
+
+    target_link_libraries(NomadUI_WidgetCatalogueDemo PRIVATE
+        NomadUI_Core
+    )
+
+    set_target_properties(NomadUI_WidgetCatalogueDemo PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+
     # Simple Render Test (tests basic OpenGL rendering)
     if(WIN32 AND NOMADUI_BUILD_OPENGL)
         add_executable(NomadUI_SimpleRenderTest
