@@ -1751,10 +1751,77 @@ void NUIRendererGL::flush() {
 
 bool NUIRendererGL::initializeGL() {
     // Load OpenGL functions with GLAD
+    // Note: OpenGL context must already be created by platform layer
     if (!gladLoadGL()) {
-        // Failed to load OpenGL functions
+        std::cerr << "ERROR: Failed to initialize GLAD!" << std::endl;
         return false;
     }
+    
+    // Now that GLAD is loaded, we can use OpenGL functions
+    // Log OpenGL information for diagnostics
+    std::cout << "\n=== OpenGL Information ===" << std::endl;
+    
+    const GLubyte* vendor = glGetString(GL_VENDOR);
+    const GLubyte* renderer = glGetString(GL_RENDERER);
+    const GLubyte* version = glGetString(GL_VERSION);
+    const GLubyte* glslVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
+    
+    std::cout << "Vendor:         " << (vendor ? (const char*)vendor : "Unknown") << std::endl;
+    std::cout << "Renderer:       " << (renderer ? (const char*)renderer : "Unknown") << std::endl;
+    std::cout << "OpenGL Version: " << (version ? (const char*)version : "Unknown") << std::endl;
+    std::cout << "GLSL Version:   " << (glslVersion ? (const char*)glslVersion : "Unknown") << std::endl;
+    
+    // Get numeric version
+    GLint majorVersion = 0, minorVersion = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &majorVersion);
+    glGetIntegerv(GL_MINOR_VERSION, &minorVersion);
+    std::cout << "OpenGL " << majorVersion << "." << minorVersion << " detected" << std::endl;
+    
+    // Check for minimum required version (OpenGL 3.3)
+    if (majorVersion < 3 || (majorVersion == 3 && minorVersion < 3)) {
+        std::cerr << "ERROR: OpenGL 3.3 or higher required!" << std::endl;
+        return false;
+    }
+    
+    // Check for important extensions
+    GLint numExtensions = 0;
+    glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+    std::cout << "Total Extensions: " << numExtensions << std::endl;
+    
+    // Check for specific required/recommended extensions
+    bool hasTextureStorage = false;
+    bool hasDebugOutput = false;
+    bool hasComputeShaders = false;
+    bool hasBufferStorage = false;
+    
+    for (int i = 0; i < numExtensions; ++i) {
+        const char* ext = (const char*)glGetStringi(GL_EXTENSIONS, i);
+        if (strcmp(ext, "GL_ARB_texture_storage") == 0) hasTextureStorage = true;
+        if (strcmp(ext, "GL_ARB_debug_output") == 0 || strcmp(ext, "GL_KHR_debug") == 0) hasDebugOutput = true;
+        if (strcmp(ext, "GL_ARB_compute_shader") == 0) hasComputeShaders = true;
+        if (strcmp(ext, "GL_ARB_buffer_storage") == 0) hasBufferStorage = true;
+    }
+    
+    std::cout << "\n=== Extension Support ===" << std::endl;
+    std::cout << "GL_ARB_texture_storage:  " << (hasTextureStorage ? "YES" : "NO") << std::endl;
+    std::cout << "GL_ARB_debug_output:     " << (hasDebugOutput ? "YES" : "NO") << std::endl;
+    std::cout << "GL_ARB_compute_shader:   " << (hasComputeShaders ? "YES" : "NO") << std::endl;
+    std::cout << "GL_ARB_buffer_storage:   " << (hasBufferStorage ? "YES" : "NO") << std::endl;
+    
+    // Query VRAM if available (NVIDIA extension)
+    GLint totalMemKB = 0;
+    GLint availMemKB = 0;
+    if (glGetIntegerv != nullptr) {
+        glGetIntegerv(0x9048, &totalMemKB);  // GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX
+        glGetIntegerv(0x9049, &availMemKB);  // GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX
+        if (totalMemKB > 0) {
+            std::cout << "\n=== GPU Memory (NVIDIA) ===" << std::endl;
+            std::cout << "Total VRAM: " << (totalMemKB / 1024) << " MB" << std::endl;
+            std::cout << "Available:  " << (availMemKB / 1024) << " MB" << std::endl;
+        }
+    }
+    
+    std::cout << "=========================\n" << std::endl;
     
     // OpenGL context should already be created by platform layer
     return true;

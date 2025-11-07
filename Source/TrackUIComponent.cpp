@@ -325,13 +325,18 @@ void TrackUIComponent::drawWaveform(NomadUI::NUIRenderer& renderer, const NomadU
     if (m_waveformCache.empty()) return;
     
     uint32_t color = m_track->getColor();
-    NomadUI::NUIColor waveformColor = NomadUI::NUIColor(
-        (color >> 16) & 0xFF,
-        (color >> 8) & 0xFF,
-        color & 0xFF,
-        (color >> 24) & 0xFF
-    ) / 255.0f;
-    waveformColor = waveformColor.withAlpha(0.7f);
+    float r = ((color >> 16) & 0xFF) / 255.0f;
+    float g = ((color >> 8) & 0xFF) / 255.0f;
+    float b = (color & 0xFF) / 255.0f;
+    
+    // Make waveform brighter when sample is selected
+    if (m_sampleSelected) {
+        r = std::min(1.0f, r * 1.5f); // Brighten by 50%
+        g = std::min(1.0f, g * 1.5f);
+        b = std::min(1.0f, b * 1.5f);
+    }
+    
+    NomadUI::NUIColor waveformColor = NomadUI::NUIColor(r, g, b, m_sampleSelected ? 0.9f : 0.7f);
     
     int centerY = bounds.y + height / 2;
     
@@ -387,19 +392,25 @@ void TrackUIComponent::drawSampleClip(NomadUI::NUIRenderer& renderer, const Noma
     
     // Get track color
     uint32_t color = m_track->getColor();
-    NomadUI::NUIColor clipColor = NomadUI::NUIColor(
-        (color >> 16) & 0xFF,
-        (color >> 8) & 0xFF,
-        color & 0xFF,
-        (color >> 24) & 0xFF
-    ) / 255.0f;
+    float r = ((color >> 16) & 0xFF) / 255.0f;
+    float g = ((color >> 8) & 0xFF) / 255.0f;
+    float b = (color & 0xFF) / 255.0f;
+    
+    // Make clip brighter when sample is selected
+    if (m_sampleSelected) {
+        r = std::min(1.0f, r * 1.5f); // Brighten by 50%
+        g = std::min(1.0f, g * 1.5f);
+        b = std::min(1.0f, b * 1.5f);
+    }
+    
+    NomadUI::NUIColor clipColor = NomadUI::NUIColor(r, g, b, 1.0f);
     
     // Draw semi-transparent filled background
-    NomadUI::NUIColor bgColor = clipColor.withAlpha(0.15f);
+    NomadUI::NUIColor bgColor = clipColor.withAlpha(m_sampleSelected ? 0.25f : 0.15f);
     renderer.fillRect(clipBounds, bgColor);
     
     // Draw border around the clip
-    NomadUI::NUIColor borderColor = clipColor.withAlpha(0.6f);
+    NomadUI::NUIColor borderColor = clipColor.withAlpha(m_sampleSelected ? 0.9f : 0.6f);
     
     // Top border (thicker, brighter)
     renderer.drawLine(
@@ -757,22 +768,135 @@ bool TrackUIComponent::onMouseEvent(const NomadUI::NUIMouseEvent& event) {
     }
 
     // Handle track-specific mouse events
+    NomadUI::NUIRect bounds = getBounds();
+    
+    // Get layout info to determine if click is in playlist area
+    auto& themeManager = NomadUI::NUIThemeManager::getInstance();
+    const auto& layout = themeManager.getLayoutDimensions();
+    float buttonX = themeManager.getComponentDimension("trackControls", "buttonStartX");
+    float controlAreaWidth = buttonX + layout.controlButtonWidth + 10;
+    float gridStartX = bounds.x + controlAreaWidth + 5;
+    
+    bool clickInPlaylistArea = event.position.x >= gridStartX && event.position.y > bounds.y + 30;
+    
+    // Helper function to check if position is on sample
+    auto isOnSample = [&](float x, float y) -> bool {
+        if (!m_track || m_track->getAudioData().empty()) return false;
+        
+        double startPositionSeconds = m_track->getStartPositionInTimeline();
+        double audioDuration = m_track->getDuration();
+        double bpm = 120.0; // TODO: Get from project settings
+        double secondsPerBeat = 60.0 / bpm;
+        
+        double startPositionInBeats = startPositionSeconds / secondsPerBeat;
+        double durationInBeats = audioDuration / secondsPerBeat;
+        
+        float waveformStartX = gridStartX + static_cast<float>(startPositionInBeats * m_pixelsPerBeat) - m_timelineScrollOffset;
+        float waveformWidthInPixels = static_cast<float>(durationInBeats * m_pixelsPerBeat);
+        float waveformEndX = waveformStartX + waveformWidthInPixels;
+        
+        return x >= waveformStartX && x <= waveformEndX && y > bounds.y + 30;
+    };
+    
+    // Left click: Select sample or track, or deselect if clicking outside
     if (event.pressed && event.button == NomadUI::NUIMouseButton::Left) {
-        NomadUI::NUIRect bounds = getBounds();
         if (bounds.contains(event.position.x, event.position.y)) {
-            // Select this track
-            m_selected = true;
-            
-            // Calculate position within track for waveform/grid click
-            if (m_track && event.position.y > bounds.y + 30) {
-                // Clicked in grid/playlist area - set play position or add clip
-                double clickRatio = static_cast<double>(event.position.x - bounds.x - 120) / (bounds.width - 120); // Account for controls offset
-                double newPosition = clickRatio * m_track->getDuration();
-                m_track->setPosition(newPosition);
-                Log::info("Track position set to: " + std::to_string(newPosition));
+            // Check if clicking on sample
+            if (clickInPlaylistArea && isOnSample(event.position.x, event.position.y)) {
+                m_selected = true;
+                m_sampleSelected = true;
+                m_isDraggingSample = true;
+                m_dragStartPos = event.position;
+                m_dragStartTimelinePos = m_track->getStartPositionInTimeline();
+                
+                Log::info("Sample selected on track: " + m_track->getName());
+                
+                // Invalidate cache for visual update
+                if (m_onCacheInvalidationCallback) {
+                    m_onCacheInvalidationCallback();
+                }
+                
+                return true;
+            } else {
+                // Clicked in empty space (grid or controls) - deselect sample
+                m_selected = true;
+                if (m_sampleSelected) {
+                    m_sampleSelected = false;
+                    Log::info("Sample deselected on track: " + m_track->getName());
+                    if (m_onCacheInvalidationCallback) {
+                        m_onCacheInvalidationCallback();
+                    }
+                }
             }
             
-            return true; // Track consumed the click
+            return true;
+        } else {
+            // Clicked outside this track - deselect sample
+            if (m_sampleSelected) {
+                m_sampleSelected = false;
+                if (m_onCacheInvalidationCallback) {
+                    m_onCacheInvalidationCallback();
+                }
+            }
+        }
+    }
+    
+    // Right click on sample: Delete sample (clear audio data)
+    if (event.pressed && event.button == NomadUI::NUIMouseButton::Right && clickInPlaylistArea) {
+        if (bounds.contains(event.position.x, event.position.y) && isOnSample(event.position.x, event.position.y)) {
+            Log::info("Deleting sample from track: " + m_track->getName());
+            m_track->clearAudioData();
+            m_sampleSelected = false;
+            updateUI(); // Update UI to reflect empty state
+            
+            // Invalidate cache
+            if (m_onCacheInvalidationCallback) {
+                m_onCacheInvalidationCallback();
+            }
+            
+            return true;
+        }
+    }
+    
+    // Handle sample dragging
+    if (m_isDraggingSample && m_track) {
+        if (event.released && event.button == NomadUI::NUIMouseButton::Left) {
+            // Check if dragged to another track (vertical movement)
+            float dragDeltaY = event.position.y - m_dragStartPos.y;
+            if (std::abs(dragDeltaY) > 40.0f && m_onSampleDraggedToTrackCallback) {
+                // Notify parent to handle track-to-track transfer
+                m_onSampleDraggedToTrackCallback(this, event.position.y);
+            }
+            
+            // Stop dragging
+            m_isDraggingSample = false;
+            Log::info("Sample drag ended at timeline position: " + std::to_string(m_track->getStartPositionInTimeline()));
+            return true;
+        }
+        
+        // Update sample position while dragging
+        if (!event.pressed) {
+            float dragDeltaX = event.position.x - m_dragStartPos.x;
+            
+            // Convert pixel delta to time delta
+            double bpm = 120.0; // TODO: Get from project settings
+            double secondsPerBeat = 60.0 / bpm;
+            double beatsDelta = dragDeltaX / m_pixelsPerBeat;
+            double timeDelta = beatsDelta * secondsPerBeat;
+            
+            double newTimelinePos = m_dragStartTimelinePos + timeDelta;
+            
+            // Clamp to valid range (can't go negative)
+            newTimelinePos = std::max(0.0, newTimelinePos);
+            
+            m_track->setStartPositionInTimeline(newTimelinePos);
+            
+            // Invalidate cache for visual update
+            if (m_onCacheInvalidationCallback) {
+                m_onCacheInvalidationCallback();
+            }
+            
+            return true;
         }
     }
 

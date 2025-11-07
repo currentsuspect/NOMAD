@@ -38,6 +38,9 @@ public:
     // Solo coordination (exclusive solo behavior)
     void onTrackSoloToggled(TrackUIComponent* soloedTrack);
     
+    // Sample drag coordination (track-to-track transfer)
+    void onSampleDraggedToTrack(TrackUIComponent* sourceTrack, float mouseY);
+    
     // Piano Roll Panel
     void togglePianoRoll();  // Show/hide piano roll panel
     

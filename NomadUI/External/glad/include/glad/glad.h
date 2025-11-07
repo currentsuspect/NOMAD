@@ -98,9 +98,15 @@ typedef ptrdiff_t GLsizeiptr;
 #define GL_COLOR_ATTACHMENT0 0x8CE0
 #define GL_RGBA8 0x8058
 
-/* OpenGL version */
+/* OpenGL version and info queries */
+#define GL_VENDOR 0x1F00
+#define GL_RENDERER 0x1F01
+#define GL_VERSION 0x1F02
+#define GL_EXTENSIONS 0x1F03
+#define GL_SHADING_LANGUAGE_VERSION 0x8B8C
 #define GL_MAJOR_VERSION 0x821B
 #define GL_MINOR_VERSION 0x821C
+#define GL_NUM_EXTENSIONS 0x821D
 
 /* Legacy immediate mode (for simple quad rendering) */
 #define GL_QUADS 0x0007
@@ -181,6 +187,10 @@ typedef void (APIENTRY *PFNGLENDPROC)(void);
 typedef void (APIENTRY *PFNGLVERTEX2FPROC)(GLfloat x, GLfloat y);
 typedef void (APIENTRY *PFNGLTEXCOORD2FPROC)(GLfloat s, GLfloat t);
 
+/* OpenGL info query functions */
+typedef const GLubyte* (APIENTRY *PFNGLGETSTRINGPROC)(GLenum name);
+typedef const GLubyte* (APIENTRY *PFNGLGETSTRINGIPROC)(GLenum name, GLuint index);
+
 /* Function declarations */
 extern PFNGLCLEARCOLORPROC glClearColor;
 extern PFNGLCLEARPROC glClear;
@@ -241,6 +251,9 @@ extern PFNGLBEGINPROC glBegin;
 extern PFNGLENDPROC glEnd;
 extern PFNGLVERTEX2FPROC glVertex2f;
 extern PFNGLTEXCOORD2FPROC glTexCoord2f;
+
+extern PFNGLGETSTRINGPROC glGetString;
+extern PFNGLGETSTRINGIPROC glGetStringi;
 
 /* Load OpenGL functions */
 int gladLoadGL(void);

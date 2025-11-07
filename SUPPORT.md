@@ -39,7 +39,7 @@ NOMAD DAW is built with a vision to make professional music production accessibl
 
 Choose your preferred platform:
 
-- [Patreon](https://patreon.com/nomad-daw)
+- [Patreon](https://patreon.com/Nomad_Studios?utm_medium=unknown&utm_source=join_link&utm_campaign=creatorshare_creator&utm_content=copyLink)
 - [GitHub Sponsors](https://github.com/sponsors/currentsuspect)
 - [Ko-fi](https://ko-fi.com/nomaddaw)
 

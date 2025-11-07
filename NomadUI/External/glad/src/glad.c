@@ -80,6 +80,9 @@ PFNGLENDPROC glEnd = NULL;
 PFNGLVERTEX2FPROC glVertex2f = NULL;
 PFNGLTEXCOORD2FPROC glTexCoord2f = NULL;
 
+PFNGLGETSTRINGPROC glGetString = NULL;
+PFNGLGETSTRINGIPROC glGetStringi = NULL;
+
 static void* get_proc(const char* name) {
     void* proc = (void*)wglGetProcAddress(name);
     if (!proc) {
@@ -156,8 +159,12 @@ int gladLoadGL(void) {
     glVertex2f = (PFNGLVERTEX2FPROC)get_proc("glVertex2f");
     glTexCoord2f = (PFNGLTEXCOORD2FPROC)get_proc("glTexCoord2f");
     
+    /* Load OpenGL info query functions */
+    glGetString = (PFNGLGETSTRINGPROC)get_proc("glGetString");
+    glGetStringi = (PFNGLGETSTRINGIPROC)get_proc("glGetStringi");
+    
     /* Check if essential functions loaded */
-    if (!glCreateShader || !glGenVertexArrays) {
+    if (!glCreateShader || !glGenVertexArrays || !glGetString) {
         return 0; /* Failed */
     }
     

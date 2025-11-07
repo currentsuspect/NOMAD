@@ -192,9 +192,34 @@ public:
     void clearAudioData();
     
     // Waveform data access (for UI visualization)
-    const std::vector<float>& getAudioData() const { return m_audioData; }
-    uint32_t getSampleRate() const { return m_sampleRate; }
+    // Returns the appropriate buffer for UI display (original if in RealTimeInterpolation mode)
+    const std::vector<float>& getAudioData() const { 
+        return (m_playbackMode == PlaybackMode::RealTimeInterpolation && !m_originalAudioData.empty()) 
+            ? m_originalAudioData 
+            : m_audioData; 
+    }
+    uint32_t getSampleRate() const { 
+        return (m_playbackMode == PlaybackMode::RealTimeInterpolation && m_originalSampleRate > 0)
+            ? m_originalSampleRate
+            : m_sampleRate;
+    }
     uint32_t getNumChannels() const { return m_numChannels; }
+
+    // Playback handling modes. Default is RealTimeInterpolation which avoids
+    // pre-resampling and instead performs on-the-fly interpolation from the
+    // original file buffer. PreResample will resample on load (legacy behavior).
+    enum class PlaybackMode {
+        RealTimeInterpolation, // Keep original data and interpolate at playback time
+        PreResample            // Pre-resample on load to device rate
+    };
+
+    void setPlaybackMode(PlaybackMode mode) { m_playbackMode = mode; }
+    PlaybackMode getPlaybackMode() const { return m_playbackMode; }
+
+    // Update output sample rate (called when audio device sample rate changes)
+    // NOTE: This no longer forcibly re-resamples or clears audio. Playback
+    // will use the current mode to decide how to handle sample-rate differences.
+    void setOutputSampleRate(uint32_t sampleRate);
 
     // Recording
     void startRecording();
@@ -205,19 +230,25 @@ public:
     void play();
     void pause();
     void stop();
+    void reset(); // Reset all DSP state
     bool isPlaying() const { return m_state.load() == TrackState::Playing; }
+    bool isProcessing() const { return m_isProcessing.load(); }
 
+    // Sync playback phase with global playhead (used by TrackManager when starting transport)
+    // globalPlayheadPosition: seconds from project start
+    void syncPlaybackPhaseWithGlobalPlayhead(double globalPlayheadPosition);
     // Position Control
     void setPosition(double seconds);
     double getPosition() const { return m_positionSeconds.load(); }
     double getDuration() const { return m_durationSeconds.load(); }
     
     // Sample Timeline Position (where sample starts in the timeline, in seconds)
-    void setStartPositionInTimeline(double seconds) { m_startPositionInTimeline.store(seconds); }
+    void setStartPositionInTimeline(double seconds);
     double getStartPositionInTimeline() const { return m_startPositionInTimeline.load(); }
 
     // Audio Processing
     void processAudio(float* outputBuffer, uint32_t numFrames, double streamTime);
+    void processAudio(float* outputBuffer, uint32_t numFrames, double streamTime, double globalPlayheadPosition);
 
     // Mixer Integration
     MixerBus* getMixerBus() { return m_mixerBus.get(); }
@@ -251,10 +282,15 @@ private:
     std::atomic<double> m_startPositionInTimeline{0.0};  // Where sample starts in timeline (seconds)
 
     // Audio data
-    std::vector<float> m_audioData;  // Interleaved stereo samples
-    uint32_t m_sampleRate{48000};
+    std::vector<float> m_audioData;  // Interleaved stereo samples (resampled to output rate if pre-resampled)
+    std::vector<float> m_originalAudioData; // Original file buffer (kept for realtime interpolation)
+    uint32_t m_originalSampleRate{0}; // Original file sample rate
+    uint32_t m_sampleRate{48000};  // Output sample rate (from audio device)
     uint32_t m_numChannels{2};
     std::atomic<double> m_playbackPhase{0.0};  // For sample-accurate playback
+    
+    // Playback mode (default set in implementation)
+    PlaybackMode m_playbackMode{PlaybackMode::RealTimeInterpolation};
 
     // Mixer integration
     std::unique_ptr<MixerBus> m_mixerBus;
@@ -262,6 +298,11 @@ private:
     // Recording state
     std::vector<float> m_recordingBuffer;
     std::atomic<bool> m_isRecording{false};
+    std::atomic<bool> m_isProcessing{false};
+
+    // Per-channel dither history for noise shaping (left, right)
+    float m_ditherHistory[2]{0.0f, 0.0f};
+    float m_highPassDitherHistory{0.0f};
     
     // Latency compensation (milliseconds)
     double m_latencyCompensationMs{0.0};  // Total input + output latency for recording
@@ -269,15 +310,16 @@ private:
     // Audio quality settings
     AudioQualitySettings m_qualitySettings;
     double m_dcOffset{0.0};  // Accumulated DC offset for removal
-    
-    // Dithering state (for noise shaping)
-    float m_ditherHistory[2]{0.0f, 0.0f};  // Per-channel dither history for noise shaping
 
-    // Internal audio processing
+    // State for Euphoria Engine effects
+    float m_airDelayBufferL[8]{0};
+    float m_airDelayBufferR[8]{0};
+    int m_airDelayPos{0};
+    float m_driftPhase{0.0f};
+    
+    // Low-level helpers used by audio thread
     void generateSilence(float* buffer, uint32_t numFrames);
     void copyAudioData(float* outputBuffer, uint32_t numFrames);
-    
-    // Interpolation methods
     float interpolateLinear(const float* data, uint32_t totalSamples, double position, uint32_t channel) const;
     float interpolateCubic(const float* data, uint32_t totalSamples, double position, uint32_t channel) const;
     float interpolateSinc(const float* data, uint32_t totalSamples, double position, uint32_t channel) const;
@@ -299,6 +341,12 @@ private:
     void applyTapeCircuit(float* buffer, uint32_t numSamples, float bloomAmount, float smoothing);
     void applyAir(float* buffer, uint32_t numFrames);
     void applyDrift(float* buffer, uint32_t numFrames);
+
+    // Debug tracing: when >0, audio thread will emit per-block summaries for this many blocks
+    std::atomic<int> m_debugTraceBlocksRemaining{0};
+    // Throttled unconditional counter to help confirm audio thread is entering copyAudioData
+    // We log every Nth call to avoid flooding logs during long playback
+    std::atomic<uint32_t> m_copyAudioCallCounter{0};
 };
 
 } // namespace Audio

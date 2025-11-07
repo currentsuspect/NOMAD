@@ -102,6 +102,9 @@ public:
     // Audio Processing
     void processAudio(float* outputBuffer, uint32_t numFrames, double streamTime);
     
+    // Sample rate management (called when audio device sample rate changes)
+    void setOutputSampleRate(uint32_t sampleRate);
+    
     // Multi-threading control
     void setMultiThreadingEnabled(bool enabled) { m_multiThreadingEnabled = enabled; }
     bool isMultiThreadingEnabled() const { return m_multiThreadingEnabled; }
@@ -118,6 +121,9 @@ public:
     // Solo/Mute Management
     void clearAllSolos();
 
+    // Transport command queued to be applied at audio-block boundary to avoid clicks
+    enum class PendingTransportCommand : uint8_t { None = 0, Play = 1, Pause = 2, Stop = 3 };
+
 private:
     // Track collection
     std::vector<std::shared_ptr<Track>> m_tracks;
@@ -126,6 +132,9 @@ private:
     std::atomic<bool> m_isPlaying{false};
     std::atomic<bool> m_isRecording{false};
     std::atomic<double> m_positionSeconds{0.0};
+    
+    // Audio device sample rate
+    std::atomic<uint32_t> m_outputSampleRate{48000};
 
     // Track ID counter
     std::atomic<uint32_t> m_nextTrackId{1};
@@ -150,6 +159,22 @@ private:
     // Processing helpers
     void processAudioSingleThreaded(float* outputBuffer, uint32_t numFrames, double streamTime);
     void processAudioMultiThreaded(float* outputBuffer, uint32_t numFrames, double streamTime);
+
+    std::atomic<PendingTransportCommand> m_pendingTransportCommand{PendingTransportCommand::None};
+
+    // Master fade (applied on audio thread). Values are expressed in samples.
+    // Fade duration is configurable via constant in CPP. These are manipulated
+    // by the audio thread when a pending transport command is applied.
+    std::atomic<int> m_masterFadeSamplesRemaining{0};
+    std::atomic<float> m_masterFadeCurrentGain{1.0f};
+    float m_masterFadeTargetGain{1.0f};
+
+    // Helper to set a pending transport command from the main thread
+    void queueTransportCommand(PendingTransportCommand cmd);
+    // Apply any queued transport command on the audio thread (sampleRate required for fade length)
+    void applyQueuedTransportCommandIfNeeded(uint32_t sampleRate);
+
+    static PendingTransportCommand s_lastAppliedCommand;
 };
 
 } // namespace Audio

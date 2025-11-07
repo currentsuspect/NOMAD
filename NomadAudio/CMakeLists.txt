@@ -178,6 +178,28 @@ target_link_libraries(NomadOscillatorTest
         NomadCore
 )
 
+# Interpolation timing test
+add_executable(NomadInterpolationTimingTest
+    test/InterpolationTimingTest.cpp
+)
+
+target_link_libraries(NomadInterpolationTimingTest
+    PRIVATE
+        NomadAudio
+        NomadCore
+)
+
+# Seek while stopped test
+add_executable(NomadSeekWhileStoppedTest
+    test/SeekWhileStoppedTest.cpp
+)
+
+target_link_libraries(NomadSeekWhileStoppedTest
+    PRIVATE
+        NomadAudio
+        NomadCore
+)
+
 # =============================================================================
 # Status
 # =============================================================================

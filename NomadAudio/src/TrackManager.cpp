@@ -3,6 +3,7 @@
 #include "NomadLog.h"
 #include <algorithm>
 #include <cstring>
+#include <cmath>
 #include <chrono>
 
 #ifdef _WIN32
@@ -125,6 +126,16 @@ void TrackManager::setThreadCount(size_t count) {
     Log::info("TrackManager thread count set to: " + std::to_string(count));
 }
 
+void TrackManager::setOutputSampleRate(uint32_t sampleRate) {
+    Log::info("TrackManager: Setting output sample rate to " + std::to_string(sampleRate) + " Hz");
+    m_outputSampleRate.store(sampleRate);
+    for (auto& track : m_tracks) {
+        if (track) {
+            track->setOutputSampleRate(sampleRate);
+        }
+    }
+}
+
 // Track Management
 std::shared_ptr<Track> TrackManager::addTrack(const std::string& name) {
     std::string trackName = name.empty() ? generateTrackName() : name;
@@ -173,45 +184,75 @@ void TrackManager::clearAllTracks() {
 
 // Transport Control
 void TrackManager::play() {
-    m_isPlaying.store(true);  // CRITICAL: Set to true even when resuming from pause
+    // Queue a Play command to be applied at the next audio-block boundary
     m_isRecording.store(false);
-
-    for (auto& track : m_tracks) {
-        // Skip system tracks (preview, test sound) - they manage their own playback
-        if (!track->isSystemTrack()) {
-            track->play();
-        }
-    }
-
-    Log::info("TrackManager: Play started");
+    queueTransportCommand(PendingTransportCommand::Play);
+    Log::info("TrackManager: Play queued");
 }
 
 void TrackManager::pause() {
-    m_isPlaying.store(false);
-
-    for (auto& track : m_tracks) {
-        // Skip system tracks (preview, test sound) - they manage their own playback
-        if (!track->isSystemTrack()) {
-            track->pause();
-        }
-    }
-
-    Log::info("TrackManager: Paused");
+    // Queue a Pause command so it will be applied safely on the audio thread
+    queueTransportCommand(PendingTransportCommand::Pause);
+    Log::info("TrackManager: Pause queued");
 }
 
 void TrackManager::stop() {
-    m_isPlaying.store(false);
+    // Queue a Stop command to be applied on the audio thread with a short fade-out
     m_isRecording.store(false);
-    m_positionSeconds.store(0.0);
+    queueTransportCommand(PendingTransportCommand::Stop);
+    Log::info("TrackManager: Stop queued");
+}
 
-    for (auto& track : m_tracks) {
-        // Skip system tracks (preview, test sound) - they manage their own playback
-        if (!track->isSystemTrack()) {
-            track->stop();
-        }
+// Queue helper: invoked from main/UI thread to request a transport change
+void TrackManager::queueTransportCommand(PendingTransportCommand cmd) {
+    m_pendingTransportCommand.store(cmd);
+}
+
+// Internal helper: apply any queued transport command on the audio thread
+TrackManager::PendingTransportCommand TrackManager::s_lastAppliedCommand = TrackManager::PendingTransportCommand::None;
+void TrackManager::applyQueuedTransportCommandIfNeeded(uint32_t sampleRate) {
+    using Cmd = PendingTransportCommand;
+
+    Cmd pending = m_pendingTransportCommand.exchange(Cmd::None);
+    if (pending == Cmd::None) {
+        return;
     }
 
-    Log::info("TrackManager: Stopped");
+    // Fade duration (ms)
+    constexpr double kFadeMs = 5.0;
+    int fadeSamples = static_cast<int>(std::ceil((kFadeMs / 1000.0) * static_cast<double>(sampleRate)));
+
+    if (pending == Cmd::Play) {
+        // Sync and start non-system tracks immediately on audio thread, then schedule fade-in
+        double globalPos = m_positionSeconds.load();
+        for (auto& track : m_tracks) {
+            if (!track->isSystemTrack()) {
+                track->syncPlaybackPhaseWithGlobalPlayhead(globalPos);
+                track->play();
+            }
+        }
+        m_isPlaying.store(true);
+        // Start fade-in from 0 -> 1
+        m_masterFadeCurrentGain.store(0.0f);
+        m_masterFadeTargetGain = 1.0f;
+        m_masterFadeSamplesRemaining.store(fadeSamples);
+        s_lastAppliedCommand = Cmd::Play;
+        Log::info("TrackManager: Play applied on audio thread (fade-in)");
+    } else if (pending == Cmd::Pause) {
+        // Schedule fade-out; after fade completes we'll pause (preserve position)
+        m_masterFadeCurrentGain.store(1.0f);
+        m_masterFadeTargetGain = 0.0f;
+        m_masterFadeSamplesRemaining.store(fadeSamples);
+        s_lastAppliedCommand = Cmd::Pause;
+        Log::info("TrackManager: Pause applied on audio thread (scheduled fade-out)");
+    } else if (pending == Cmd::Stop) {
+        // Schedule fade-out; after fade completes we'll stop and reset position
+        m_masterFadeCurrentGain.store(1.0f);
+        m_masterFadeTargetGain = 0.0f;
+        m_masterFadeSamplesRemaining.store(fadeSamples);
+        s_lastAppliedCommand = Cmd::Stop;
+        Log::info("TrackManager: Stop applied on audio thread (scheduled fade-out)");
+    }
 }
 
 void TrackManager::record() {
@@ -287,6 +328,10 @@ void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numF
         return;
     }
 
+    // Apply any queued transport command at the start of the audio block
+    uint32_t sampleRate = m_outputSampleRate.load();
+    applyQueuedTransportCommandIfNeeded(sampleRate);
+
     // Check if any track is soloed (for exclusive solo behavior)
     bool anySoloed = false;
     std::string soloedTrackName;
@@ -314,7 +359,7 @@ void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numF
         // System tracks (preview) always process if playing
         // Regular tracks only process if transport is playing OR if they're explicitly playing
         if (track && track->isPlaying()) {
-            // System tracks (preview, test sound) always play regardless of solo state
+            // System tracks (preview) always play regardless of solo state
             bool isSystemTrack = track->isSystemTrack();
             
             // If any track is soloed, only process soloed tracks (unless track is muted)
@@ -323,7 +368,9 @@ void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numF
                 continue; // Skip non-soloed tracks when solo is active
             }
             
-            track->processAudio(outputBuffer, numFrames, streamTime);
+            // Pass global playhead position for timeline-based playback
+            double globalPosition = m_positionSeconds.load();
+            track->processAudio(outputBuffer, numFrames, streamTime, globalPosition);
         }
     }
 
@@ -341,13 +388,81 @@ void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numF
         }
         
         // Call visualizer callback with deinterleaved channels
-        m_onAudioOutput(leftChannel.data(), rightChannel.data(), numFrames, 48000.0);
+        m_onAudioOutput(leftChannel.data(), rightChannel.data(), numFrames, static_cast<double>(m_outputSampleRate.load()));
+    }
+
+    // Apply master fade if active (linear ramp applied per-sample)
+    int samplesRemaining = m_masterFadeSamplesRemaining.load();
+    if (samplesRemaining > 0 || m_masterFadeCurrentGain.load() != m_masterFadeTargetGain) {
+        // We'll step the master gain across the block
+        int frames = static_cast<int>(numFrames);
+        float currentGain = m_masterFadeCurrentGain.load();
+        float targetGain = m_masterFadeTargetGain;
+        int remaining = samplesRemaining;
+
+        // Compute per-sample increment for full remaining window (if remaining==0 treat as immediate)
+        if (remaining <= 0) {
+            currentGain = targetGain;
+            m_masterFadeCurrentGain.store(currentGain);
+            m_masterFadeSamplesRemaining.store(0);
+            remaining = 0;
+        }
+
+        for (int i = 0; i < frames; ++i) {
+            float stepGain = currentGain;
+            // Apply to stereo interleaved buffer
+            int idx = i * 2;
+            outputBuffer[idx] *= stepGain;
+            outputBuffer[idx + 1] *= stepGain;
+
+            if (remaining > 0) {
+                // advance gain towards target
+                float delta = (targetGain - currentGain) / static_cast<float>(remaining);
+                currentGain += delta;
+                --remaining;
+            }
+        } // else { currentGain = targetGain; } -- This line was removed from the original replace string, but it's not part of the original search string.
+
+        // Store updated state
+        m_masterFadeCurrentGain.store(currentGain);
+        m_masterFadeSamplesRemaining.store(remaining);
+
+        // If fade completed, perform any pending finalization (pause/stop)
+        if (remaining == 0 && (s_lastAppliedCommand == PendingTransportCommand::Pause || s_lastAppliedCommand == PendingTransportCommand::Stop)) {
+            if (s_lastAppliedCommand == PendingTransportCommand::Pause) {
+                // Pause all non-system tracks and mark transport stopped
+                m_isPlaying.store(false);
+                for (auto& track : m_tracks) {
+                    if (!track->isSystemTrack()) {
+                        track->pause();
+                    }
+                }
+                Log::info("TrackManager: Pause finalized after fade-out");
+            } else if (s_lastAppliedCommand == PendingTransportCommand::Stop) {
+                m_isPlaying.store(false);
+                m_positionSeconds.store(0.0);
+                for (auto& track : m_tracks) {
+                    if (!track->isSystemTrack()) {
+                        track->stop();
+                        track->reset();
+                    }
+                }
+                if (m_onPositionUpdate) {
+                    m_onPositionUpdate(0.0);
+                }
+                Log::info("TrackManager: Stop finalized after fade-out");
+            }
+
+            // Clear last applied command so we don't repeat
+            s_lastAppliedCommand = PendingTransportCommand::None;
+        }
     }
 
     // Update position
     if (m_isPlaying.load()) {
         double currentPos = m_positionSeconds.load();
-        double newPosition = currentPos + (numFrames / 48000.0);
+        uint32_t sampleRate = m_outputSampleRate.load();
+        double newPosition = currentPos + (static_cast<double>(numFrames) / static_cast<double>(sampleRate));
         double maxDuration = getTotalDuration();
         
         // Check for loop boundary - reset to 0 if we've exceeded duration
@@ -377,6 +492,9 @@ void TrackManager::processAudioMultiThreaded(float* outputBuffer, uint32_t numFr
     if (!outputBuffer || numFrames == 0 || !m_threadPool) {
         return;
     }
+    // Apply any queued transport command at the start of the audio block
+    uint32_t sampleRate = m_outputSampleRate.load();
+    applyQueuedTransportCommandIfNeeded(sampleRate);
     
     // Resize per-track buffer storage if needed
     size_t bufferSize = numFrames * 2; // Stereo
@@ -418,8 +536,9 @@ void TrackManager::processAudioMultiThreaded(float* outputBuffer, uint32_t numFr
             }
             
             // Submit track processing task to thread pool
-            m_threadPool->enqueue([track, &buffer = m_trackBuffers[i], numFrames, streamTime]() {
-                track->processAudio(buffer.data(), numFrames, streamTime);
+            double globalPosition = m_positionSeconds.load();
+            m_threadPool->enqueue([track, &buffer = m_trackBuffers[i], numFrames, streamTime, globalPosition]() {
+                track->processAudio(buffer.data(), numFrames, streamTime, globalPosition);
             });
         }
     }
@@ -449,13 +568,14 @@ void TrackManager::processAudioMultiThreaded(float* outputBuffer, uint32_t numFr
             rightChannel[i] = outputBuffer[i * 2 + 1];
         }
         
-        m_onAudioOutput(leftChannel.data(), rightChannel.data(), numFrames, 48000.0);
+        m_onAudioOutput(leftChannel.data(), rightChannel.data(), numFrames, static_cast<double>(m_outputSampleRate.load()));
     }
     
     // Update position
     if (m_isPlaying.load()) {
         double currentPos = m_positionSeconds.load();
-        double newPosition = currentPos + (numFrames / 48000.0);
+        uint32_t sampleRate = m_outputSampleRate.load();
+        double newPosition = currentPos + (static_cast<double>(numFrames) / static_cast<double>(sampleRate));
         double maxDuration = getTotalDuration();
         
         if (maxDuration > 0.0 && newPosition >= maxDuration) {
@@ -473,6 +593,67 @@ void TrackManager::processAudioMultiThreaded(float* outputBuffer, uint32_t numFr
             }
         } else {
             m_positionSeconds.store(newPosition);
+        }
+    }
+
+    // Apply master fade if active (linear ramp applied per-sample)
+    int samplesRemaining = m_masterFadeSamplesRemaining.load();
+    if (samplesRemaining > 0 || m_masterFadeCurrentGain.load() != m_masterFadeTargetGain) {
+        int frames = static_cast<int>(numFrames);
+        float currentGain = m_masterFadeCurrentGain.load();
+        float targetGain = m_masterFadeTargetGain;
+        int remaining = samplesRemaining;
+
+        if (remaining <= 0) {
+            currentGain = targetGain;
+            m_masterFadeCurrentGain.store(currentGain);
+            m_masterFadeSamplesRemaining.store(0);
+            remaining = 0;
+        }
+
+        for (int i = 0; i < frames; ++i) {
+            float stepGain = currentGain;
+            int idx = i * 2;
+            outputBuffer[idx] *= stepGain;
+            outputBuffer[idx + 1] *= stepGain;
+
+            if (remaining > 0) {
+                float delta = (targetGain - currentGain) / static_cast<float>(remaining);
+                currentGain += delta;
+                --remaining;
+            } else {
+                currentGain = targetGain;
+            }
+        }
+
+        m_masterFadeCurrentGain.store(currentGain);
+        m_masterFadeSamplesRemaining.store(remaining);
+
+        if (remaining == 0 && (s_lastAppliedCommand == PendingTransportCommand::Pause || s_lastAppliedCommand == PendingTransportCommand::Stop)) {
+            if (s_lastAppliedCommand == PendingTransportCommand::Pause) {
+                m_isPlaying.store(false);
+                for (auto& track : m_tracks) {
+                    if (!track->isSystemTrack()) {
+                        track->pause();
+                    }
+                }
+                Log::info("TrackManager: Pause finalized after fade-out");
+            } else if (s_lastAppliedCommand == PendingTransportCommand::Stop) {
+                m_isPlaying.store(false);
+                m_positionSeconds.store(0.0);
+                for (auto& track : m_tracks) {
+                    if (!track->isSystemTrack()) {
+                        track->stop();
+                        track->reset();
+                    }
+                }
+                if (m_onPositionUpdate) {
+                    m_onPositionUpdate(0.0);
+                }
+                Log::info("TrackManager: Stop finalized after fade-out");
+            }
+
+            s_lastAppliedCommand = PendingTransportCommand::None;
         }
     }
 }

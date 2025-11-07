@@ -33,6 +33,22 @@ public:
     // Callback for when UI needs cache invalidation (button hover, etc.)
     void setOnCacheInvalidationNeeded(std::function<void()> callback) { m_onCacheInvalidationCallback = callback; }
     
+    // Callback for when sample is dragged to another track (returns target track Y position)
+    void setOnSampleDraggedToTrack(std::function<void(TrackUIComponent*, float)> callback) { m_onSampleDraggedToTrackCallback = callback; }
+    
+    // Deselect sample (called from parent when clicking outside)
+    void deselectSample() { 
+        if (m_sampleSelected) {
+            m_sampleSelected = false;
+            if (m_onCacheInvalidationCallback) {
+                m_onCacheInvalidationCallback();
+            }
+        }
+    }
+    
+    // Check if sample is selected
+    bool isSampleSelected() const { return m_sampleSelected; }
+    
     // Selection state
     void setSelected(bool selected) { m_selected = selected; }
     bool isSelected() const { return m_selected; }
@@ -58,10 +74,15 @@ private:
     std::shared_ptr<Track> m_track;
     TrackManager* m_trackManager; // For coordinating solo exclusivity
     bool m_selected = false; // Track selection state
+    bool m_sampleSelected = false; // Sample/clip selection state
+    bool m_isDraggingSample = false; // Sample drag state
+    NomadUI::NUIPoint m_dragStartPos; // Mouse position when drag started
+    double m_dragStartTimelinePos; // Sample timeline position when drag started
     
     // Callbacks
     std::function<void(TrackUIComponent*)> m_onSoloToggledCallback;
     std::function<void()> m_onCacheInvalidationCallback;
+    std::function<void(TrackUIComponent*, float)> m_onSampleDraggedToTrackCallback; // (source track, mouse Y position)
     
     // Timeline settings (synced from TrackManagerUI)
     float m_pixelsPerBeat = 50.0f;

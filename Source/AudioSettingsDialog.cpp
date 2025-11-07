@@ -903,6 +903,12 @@ void AudioSettingsDialog::applySettings() {
         if (m_audioManager->setPreferredDriverType(m_selectedDriverType)) {
             m_originalDriverType = m_selectedDriverType;
             Log::info("Driver type applied successfully");
+            
+            // Update all tracks to use current output sample rate
+            if (m_trackManager && m_audioManager) {
+                auto config = m_audioManager->getCurrentConfig();
+                m_trackManager->setOutputSampleRate(config.sampleRate);
+            }
         } else {
             Log::error("Failed to apply driver type - falling back to working driver");
             
@@ -927,6 +933,11 @@ void AudioSettingsDialog::applySettings() {
         if (m_audioManager->setSampleRate(m_selectedSampleRate)) {
             m_originalSampleRate = m_selectedSampleRate;
             Log::info("Sample rate applied successfully");
+            
+            // Update all tracks to use new output sample rate for resampling
+            if (m_trackManager) {
+                m_trackManager->setOutputSampleRate(m_selectedSampleRate);
+            }
         } else {
             Log::error("Failed to apply sample rate");
             m_errorMessage = "Failed to change sample rate - restored previous setting";

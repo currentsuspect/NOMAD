@@ -161,6 +161,11 @@ void TrackManagerUI::addTrack(const std::string& name) {
             this->invalidateCache();
         });
         
+        // Register callback for sample drag to another track
+        trackUI->setOnSampleDraggedToTrack([this](TrackUIComponent* sourceTrack, float mouseY) {
+            this->onSampleDraggedToTrack(sourceTrack, mouseY);
+        });
+        
         m_trackUIComponents.push_back(trackUI);
         addChild(trackUI);
 
@@ -194,6 +199,11 @@ void TrackManagerUI::refreshTracks() {
             // Register callback for cache invalidation (button hover, etc.)
             trackUI->setOnCacheInvalidationNeeded([this]() {
                 this->invalidateCache();
+            });
+            
+            // Register callback for sample drag to another track
+            trackUI->setOnSampleDraggedToTrack([this](TrackUIComponent* sourceTrack, float mouseY) {
+                this->onSampleDraggedToTrack(sourceTrack, mouseY);
             });
             
             // Sync zoom settings to new track
@@ -235,6 +245,56 @@ void TrackManagerUI::onTrackSoloToggled(TrackUIComponent* soloedTrack) {
     }
     
     Log::info("Solo coordination: Cleared all other solos");
+}
+
+void TrackManagerUI::onSampleDraggedToTrack(TrackUIComponent* sourceTrack, float mouseY) {
+    if (!m_trackManager || !sourceTrack) return;
+    
+    auto sourceTrackPtr = sourceTrack->getTrack();
+    if (!sourceTrackPtr || sourceTrackPtr->getAudioData().empty()) return;
+    
+    // Find which track the mouse is over based on Y position
+    TrackUIComponent* targetTrackUI = nullptr;
+    for (auto& trackUI : m_trackUIComponents) {
+        NomadUI::NUIRect trackBounds = trackUI->getBounds();
+        if (mouseY >= trackBounds.y && mouseY <= trackBounds.y + trackBounds.height) {
+            targetTrackUI = trackUI.get();
+            break;
+        }
+    }
+    
+    // If we found a target track and it's different from source
+    if (targetTrackUI && targetTrackUI != sourceTrack) {
+        auto targetTrackPtr = targetTrackUI->getTrack();
+        if (targetTrackPtr) {
+            Log::info("Transferring sample from '" + sourceTrackPtr->getName() + "' to '" + targetTrackPtr->getName() + "'");
+            
+            // Copy audio data from source to target
+            const auto& audioData = sourceTrackPtr->getAudioData();
+            uint32_t sampleRate = sourceTrackPtr->getSampleRate();
+            uint32_t numChannels = sourceTrackPtr->getNumChannels();
+            double timelinePos = sourceTrackPtr->getStartPositionInTimeline();
+            
+            // Set audio data on target track
+            targetTrackPtr->setAudioData(audioData.data(), 
+                                        static_cast<uint32_t>(audioData.size() / numChannels), 
+                                        sampleRate, 
+                                        numChannels);
+            targetTrackPtr->setStartPositionInTimeline(timelinePos);
+            
+            // Clear source track
+            sourceTrackPtr->clearAudioData();
+            
+            // Update UIs
+            sourceTrack->updateUI();
+            targetTrackUI->updateUI();
+            
+            // Invalidate cache
+            invalidateCache();
+            
+            Log::info("Sample transfer complete");
+        }
+    }
 }
 
 void TrackManagerUI::togglePianoRoll() {
@@ -705,32 +765,46 @@ bool TrackManagerUI::onMouseEvent(const NomadUI::NUIMouseEvent& event) {
     NomadUI::NUIRect rulerRect(0, headerHeight + horizontalScrollbarHeight, bounds.width, rulerHeight);
     
     if (event.wheelDelta != 0.0f && rulerRect.contains(localPos)) {
-        // Zoom in/out with mouse wheel
+        // Zoom in/out with mouse wheel (cursor-anchored)
         float oldZoom = m_pixelsPerBeat;
         float zoomDelta = event.wheelDelta > 0 ? 1.2f : 0.8f; // 20% zoom steps
+
+        // Compute grid start X (same as used by playhead calculations)
+        auto& themeManager = NomadUI::NUIThemeManager::getInstance();
+        const auto& layout = themeManager.getLayoutDimensions();
+        float buttonX = themeManager.getComponentDimension("trackControls", "buttonStartX");
+        float controlAreaWidth = buttonX + layout.controlButtonWidth + 10;
+        float gridStartX = controlAreaWidth + 5;
+
+        // Mouse position in timeline-content pixels (account for current scroll)
+        float mouseX = localPos.x - gridStartX + m_timelineScrollOffset;
+
+        // Compute time (in beats) under cursor before zoom change
+        double positionInBeats = 0.0;
+        if (oldZoom > 0.0f) positionInBeats = static_cast<double>(mouseX) / static_cast<double>(oldZoom);
+
+        // Apply requested zoom and clamp
         m_pixelsPerBeat *= zoomDelta;
-        
-        // Clamp zoom level (min 10 pixels per beat, max 200 pixels per beat)
         m_pixelsPerBeat = std::max(10.0f, std::min(200.0f, m_pixelsPerBeat));
-        
-        // Sync zoom to all tracks
+
+        // Recompute scroll offset so the same time stays under the cursor
+        double newMousePosPixels = positionInBeats * static_cast<double>(m_pixelsPerBeat);
+        float newOffset = static_cast<float>(newMousePosPixels - (localPos.x - gridStartX));
+        // Clamp to non-negative scroll offset; other clamping happens when setting scrollbar range
+        m_timelineScrollOffset = std::max(0.0f, newOffset);
+
+        // Sync zoom & scroll to all tracks
         for (auto& trackUI : m_trackUIComponents) {
             trackUI->setPixelsPerBeat(m_pixelsPerBeat);
             trackUI->setBeatsPerBar(m_beatsPerBar);
-        }
-        
-        // Update scrollbar range for new zoom level
-        updateHorizontalScrollbar();
-        
-        // No clamping needed - infinite timeline with culling handles everything
-        
-        // Sync scroll offset to all tracks
-        for (auto& trackUI : m_trackUIComponents) {
             trackUI->setTimelineScrollOffset(m_timelineScrollOffset);
         }
-        
+
+        // Update scrollbar range for new zoom level (this will also clamp m_timelineScrollOffset if needed)
+        updateHorizontalScrollbar();
+
         m_cacheInvalidated = true;  // Invalidate cache when zoom changes
-        Log::info("Zoom: " + std::to_string(m_pixelsPerBeat) + " pixels per beat");
+        Log::info("Zoom: " + std::to_string(m_pixelsPerBeat) + " pixels per beat (anchored)");
         return true;
     }
     
@@ -930,9 +1004,18 @@ void TrackManagerUI::updateHorizontalScrollbar() {
     float minTimelineWidth = gridWidth * 3.0f;  // Minimum: 3 screens
     float currentViewEnd = m_timelineScrollOffset + gridWidth;
     float totalTimelineWidth = std::max(minTimelineWidth, currentViewEnd * 1.5f);  // 50% padding beyond current position
-    
-    // Set horizontal scrollbar range
+
+    // Cap the timeline to a safe maximum to avoid runaway values which result in tiny scrollbar thumbs
+    const float kMaxTimelineWidth = 10000000.0f; // 10 million pixels (approx safety cap)
+    totalTimelineWidth = std::min(totalTimelineWidth, kMaxTimelineWidth);
+
+    // Set horizontal scrollbar range and enforce a minimum thumb size proportion so the thumb stays usable
     m_horizontalScrollbar->setRangeLimit(0, totalTimelineWidth);
+
+    // Compute sensible minimum thumb proportion (min 1% of track, max 25%), but ensure it's not smaller than ~10px
+    float minThumbProportion = std::clamp(10.0f / std::max(1.0f, gridWidth), 0.01f, 0.25f);
+    m_horizontalScrollbar->setMinimumThumbSize(minThumbProportion);
+
     m_horizontalScrollbar->setCurrentRange(m_timelineScrollOffset, gridWidth);
     m_horizontalScrollbar->setAutoHide(totalTimelineWidth <= gridWidth);
 }

@@ -35,6 +35,7 @@
 #include "PerformanceHUD.h"
 #include "TrackManagerUI.h"
 #include "FPSDisplay.h"
+#include "../NomadUI/Widgets/NUIDebugOverlay.h"
 
 #include <memory>
 #include <iostream>
@@ -160,6 +161,10 @@ public:
         m_previewTrack->setVolume(0.5f); // Lower volume for preview
         m_previewTrack->setColor(0xFFFF8800); // Orange color for preview track
         m_previewTrack->setSystemTrack(true); // Mark as system track (not affected by transport)
+        
+        // Apply high-quality resampling to preview track for better sample rate conversion
+        auto previewQuality = Nomad::Audio::AudioQualitySettings::HighFidelity();
+        m_previewTrack->setQualitySettings(previewQuality);
         m_previewIsPlaying = false;
         m_previewStartTime = std::chrono::steady_clock::time_point(); // Default construct
         m_previewDuration = 5.0; // 5 seconds preview
@@ -577,8 +582,17 @@ public:
         addChild(m_performanceHUD);
     }
     
+    void setDebugOverlay(std::shared_ptr<NomadUI::NUIDebugOverlay> debugOverlay) {
+        m_debugOverlay = debugOverlay;
+        addChild(m_debugOverlay);
+    }
+    
     std::shared_ptr<PerformanceHUD> getPerformanceHUD() const {
         return m_performanceHUD;
+    }
+    
+    std::shared_ptr<NomadUI::NUIDebugOverlay> getDebugOverlay() const {
+        return m_debugOverlay;
     }
     
     void onRender(NUIRenderer& renderer) override {
@@ -609,6 +623,7 @@ private:
     std::shared_ptr<AudioSettingsDialog> m_audioSettingsDialog;
     std::shared_ptr<FPSDisplay> m_fpsDisplay;
     std::shared_ptr<PerformanceHUD> m_performanceHUD;
+    std::shared_ptr<NomadUI::NUIDebugOverlay> m_debugOverlay;
 };
 
 /**
@@ -831,21 +846,33 @@ public:
         m_content->setAudioStatus(m_audioInitialized);
         m_customWindow->setContent(m_content.get());
         
-        // Configure latency compensation for all tracks (if audio was initialized)
+        // Configure latency compensation and audio quality for all tracks (if audio was initialized)
         if (m_audioInitialized && m_audioManager && m_content->getTrackManager()) {
             double inputLatencyMs = 0.0;
             double outputLatencyMs = 0.0;
             m_audioManager->getLatencyCompensationValues(inputLatencyMs, outputLatencyMs);
             
-            // Apply latency compensation to all tracks
+            // Apply latency compensation and high-quality resampling to all tracks
             auto trackManager = m_content->getTrackManager();
+            
+            // Set output sample rate to match audio device
+            trackManager->setOutputSampleRate(m_mainStreamConfig.sampleRate);
+            Log::info("Set output sample rate to " + std::to_string(m_mainStreamConfig.sampleRate) + " Hz for all tracks");
+            
             size_t trackCount = trackManager->getTrackCount();
+            
+            // Use High-Fidelity preset for better sample rate conversion
+            auto highQualitySettings = Nomad::Audio::AudioQualitySettings::HighFidelity();
+            
             for (size_t i = 0; i < trackCount; ++i) {
                 auto track = trackManager->getTrack(i);
                 if (track && !track->isSystemTrack()) {
                     track->setLatencyCompensation(inputLatencyMs, outputLatencyMs);
+                    track->setQualitySettings(highQualitySettings);
                 }
             }
+            
+            Log::info("Audio quality set to High-Fidelity (High resampling) for all tracks");
         }
         
         // Wire up transport bar callbacks
@@ -934,6 +961,11 @@ public:
                 if (m_audioManager->startStream()) {
                     Log::info("Main audio stream restored successfully");
                     m_audioInitialized = true;
+                    
+                    // Update output sample rate for all tracks
+                    if (m_content && m_content->getTrackManager()) {
+                        m_content->getTrackManager()->setOutputSampleRate(m_mainStreamConfig.sampleRate);
+                    }
                 } else {
                     Log::error("Failed to start restored audio stream");
                     m_audioInitialized = false;
@@ -965,6 +997,14 @@ public:
         m_rootComponent->setPerformanceHUD(perfHUD);
         m_performanceHUD = perfHUD;
         Log::info("Performance HUD created (press F12 to toggle)");
+        
+        // Create and add Debug Overlay (F12 to toggle)
+        auto debugOverlay = std::make_shared<NomadUI::NUIDebugOverlay>();
+        debugOverlay->setPosition(10.0f, 10.0f);
+        debugOverlay->setGraphSize(400, 120);
+        debugOverlay->hide(); // Hidden by default
+        m_rootComponent->setDebugOverlay(debugOverlay);
+        Log::info("Debug Overlay created (press F12 to toggle)");
         
         // Debug: Verify dialog was added
         std::stringstream ss2;
@@ -1280,13 +1320,17 @@ private:
                 m_adaptiveFPS->setMode(newMode);
                 
             } else if (key == static_cast<int>(KeyCode::F12) && pressed) {
-                // F12 key to toggle FPS display overlay AND Performance HUD
+                // F12 key to toggle FPS display overlay, Performance HUD, AND Debug Overlay
                 if (m_fpsDisplay) {
                     m_fpsDisplay->toggle();
                 }
                 
                 if (m_performanceHUD) {
                     m_performanceHUD->toggle();
+                }
+                
+                if (m_rootComponent && m_rootComponent->getDebugOverlay()) {
+                    m_rootComponent->getDebugOverlay()->toggle();
                 }
             } else if (key == static_cast<int>(KeyCode::L) && pressed) {
                 // L key to toggle adaptive FPS logging

@@ -494,16 +494,41 @@ bool AudioDeviceManager::validateDeviceConfig(uint32_t deviceId, uint32_t sample
                 return false;
             }
 
-            // Check if sample rate is supported
-            bool sampleRateSupported = false;
-            for (uint32_t supportedRate : device.supportedSampleRates) {
-                if (supportedRate == sampleRate) {
-                    sampleRateSupported = true;
+            // Check if sample rate is a standard audio rate
+            // We now support resampling, so we can accept any standard rate
+            // and the device will handle it (either natively or through driver resampling)
+            const uint32_t standardRates[] = {44100, 48000, 88200, 96000, 176400, 192000};
+            bool isStandardRate = false;
+            for (uint32_t standardRate : standardRates) {
+                if (standardRate == sampleRate) {
+                    isStandardRate = true;
                     break;
                 }
             }
+            
+            if (!isStandardRate) {
+                std::cerr << "[AudioDeviceManager] Sample rate " << sampleRate << " Hz is not a standard rate" << std::endl;
+                return false;
+            }
 
-            return sampleRateSupported;
+            // If device explicitly lists supported rates, prefer those
+            // But if the device's list is empty or incomplete, allow any standard rate
+            if (!device.supportedSampleRates.empty()) {
+                bool deviceSupportsRate = false;
+                for (uint32_t supportedRate : device.supportedSampleRates) {
+                    if (supportedRate == sampleRate) {
+                        deviceSupportsRate = true;
+                        break;
+                    }
+                }
+                
+                if (!deviceSupportsRate) {
+                    std::cout << "[AudioDeviceManager] Device doesn't explicitly support " << sampleRate 
+                             << " Hz, but will attempt anyway (driver may resample)" << std::endl;
+                }
+            }
+
+            return true; // Accept any standard rate - let the driver/device handle it
         }
     }
 
