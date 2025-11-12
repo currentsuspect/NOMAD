@@ -160,6 +160,8 @@ private:
     std::shared_ptr<NomadUI::NUILabel> m_sampleRateLabel;
     std::shared_ptr<NomadUI::NUILabel> m_bufferSizeLabel;
     std::shared_ptr<NomadUI::NUILabel> m_asioInfoLabel;
+    std::shared_ptr<NomadUI::NUILabel> m_hardwareSectionLabel;
+    std::shared_ptr<NomadUI::NUILabel> m_performanceSectionLabel;
     std::shared_ptr<NomadUI::NUILabel> m_qualitySectionLabel;
     std::shared_ptr<NomadUI::NUILabel> m_qualityPresetLabel;
     std::shared_ptr<NomadUI::NUILabel> m_resamplingLabel;
