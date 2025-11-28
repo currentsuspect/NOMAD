@@ -12,6 +12,9 @@
 namespace Nomad {
 namespace Audio {
 
+// Maximum buffer size for pre-allocation (16384 frames is plenty for any reasonable latency)
+static constexpr size_t MAX_AUDIO_BUFFER_SIZE = 16384;
+
 //==============================================================================
 // AudioThreadPool Implementation
 //==============================================================================
@@ -133,6 +136,14 @@ std::shared_ptr<Track> TrackManager::addTrack(const std::string& name) {
     auto track = std::make_shared<Track>(trackName, trackId);
     m_tracks.push_back(track);
 
+    // Pre-allocate buffer for the new track
+    // We resize m_trackBuffers to match m_tracks size
+    // And ensure the new buffer is large enough
+    if (m_trackBuffers.size() < m_tracks.size()) {
+        m_trackBuffers.resize(m_tracks.size());
+        m_trackBuffers.back().resize(MAX_AUDIO_BUFFER_SIZE * 2, 0.0f); // Stereo
+    }
+
     Log::info("Added track: " + trackName + " (ID: " + std::to_string(trackId) + ")");
     return track;
 }
@@ -155,6 +166,11 @@ void TrackManager::removeTrack(size_t index) {
     if (index < m_tracks.size()) {
         std::string trackName = m_tracks[index]->getName();
         m_tracks.erase(m_tracks.begin() + index);
+        
+        // Keep buffers in sync
+        if (index < m_trackBuffers.size()) {
+            m_trackBuffers.erase(m_trackBuffers.begin() + index);
+        }
 
         Log::info("Removed track: " + trackName);
     }
@@ -168,6 +184,7 @@ void TrackManager::clearAllTracks() {
     }
 
     m_tracks.clear();
+    m_trackBuffers.clear();
     Log::info("Cleared all tracks");
 }
 
@@ -259,14 +276,19 @@ double TrackManager::getTotalDuration() const {
 void TrackManager::processAudio(float* outputBuffer, uint32_t numFrames, double streamTime) {
     // Start timing
     auto startTime = std::chrono::high_resolution_clock::now();
+
+    double outputSampleRate = m_outputSampleRate.load();
+    if (outputSampleRate <= 0.0) {
+        outputSampleRate = 48000.0;
+    }
     
     // Dispatch to single-threaded or multi-threaded implementation
     if (m_multiThreadingEnabled && m_threadPool && m_tracks.size() > 2) {
         // Use multi-threading for 3+ tracks
-        processAudioMultiThreaded(outputBuffer, numFrames, streamTime);
+        processAudioMultiThreaded(outputBuffer, numFrames, streamTime, outputSampleRate);
     } else {
         // Use single-threaded for 1-2 tracks or when multi-threading is disabled
-        processAudioSingleThreaded(outputBuffer, numFrames, streamTime);
+        processAudioSingleThreaded(outputBuffer, numFrames, streamTime, outputSampleRate);
     }
     
     // End timing and calculate load percentage
@@ -274,15 +296,14 @@ void TrackManager::processAudio(float* outputBuffer, uint32_t numFrames, double 
     double processingTimeUs = std::chrono::duration<double, std::micro>(endTime - startTime).count();
     
     // Calculate available time for this buffer (in microseconds)
-    // Assuming 44.1kHz sample rate (will work for other rates too)
-    double availableTimeUs = (numFrames / 44100.0) * 1000000.0;
+    double availableTimeUs = (numFrames / outputSampleRate) * 1000000.0;
     
     // Calculate load percentage
     double loadPercent = (processingTimeUs / availableTimeUs) * 100.0;
     m_audioLoadPercent.store(loadPercent);
 }
 
-void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numFrames, double streamTime) {
+void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numFrames, double streamTime, double outputSampleRate) {
     if (!outputBuffer || numFrames == 0) {
         return;
     }
@@ -298,12 +319,12 @@ void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numF
         }
     }
     
-    // Debug: Log solo state once every ~1 second (48000 samples / 512 frames = ~94 calls/sec, log every 100 calls)
+    // Debug: Log solo state once every ~1 second (approx based on outputSampleRate)
     static int debugCounter = 0;
     if (++debugCounter >= 100) {
         debugCounter = 0;
         if (anySoloed) {
-            Log::info("Solo active - only processing: " + soloedTrackName);
+            // Log::info("Solo active - only processing: " + soloedTrackName);
         }
     }
 
@@ -323,7 +344,7 @@ void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numF
                 continue; // Skip non-soloed tracks when solo is active
             }
             
-            track->processAudio(outputBuffer, numFrames, streamTime);
+            track->processAudio(outputBuffer, numFrames, streamTime, outputSampleRate);
         }
     }
 
@@ -332,8 +353,14 @@ void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numF
     if (m_onAudioOutput) {
         // Assume stereo interleaved output: [L0, R0, L1, R1, L2, R2, ...]
         // We need to deinterleave for the visualizer
-        std::vector<float> leftChannel(numFrames);
-        std::vector<float> rightChannel(numFrames);
+        if (m_leftScratch.size() < numFrames) {
+            m_leftScratch.resize(numFrames);
+        }
+        if (m_rightScratch.size() < numFrames) {
+            m_rightScratch.resize(numFrames);
+        }
+        float* leftChannel = m_leftScratch.data();
+        float* rightChannel = m_rightScratch.data();
         
         for (uint32_t i = 0; i < numFrames; ++i) {
             leftChannel[i] = outputBuffer[i * 2];      // Left channel
@@ -341,13 +368,13 @@ void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numF
         }
         
         // Call visualizer callback with deinterleaved channels
-        m_onAudioOutput(leftChannel.data(), rightChannel.data(), numFrames, 48000.0);
+        m_onAudioOutput(leftChannel, rightChannel, numFrames, outputSampleRate);
     }
 
     // Update position
     if (m_isPlaying.load()) {
         double currentPos = m_positionSeconds.load();
-        double newPosition = currentPos + (numFrames / 48000.0);
+        double newPosition = currentPos + (numFrames / outputSampleRate);
         double maxDuration = getTotalDuration();
         
         // Check for loop boundary - reset to 0 if we've exceeded duration
@@ -373,23 +400,31 @@ void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numF
     }
 }
 
-void TrackManager::processAudioMultiThreaded(float* outputBuffer, uint32_t numFrames, double streamTime) {
+void TrackManager::processAudioMultiThreaded(float* outputBuffer, uint32_t numFrames, double streamTime, double outputSampleRate) {
     if (!outputBuffer || numFrames == 0 || !m_threadPool) {
         return;
     }
     
-    // Resize per-track buffer storage if needed
     size_t bufferSize = numFrames * 2; // Stereo
-    if (m_trackBuffers.size() != m_tracks.size()) {
-        m_trackBuffers.resize(m_tracks.size());
-        for (auto& buffer : m_trackBuffers) {
-            buffer.resize(bufferSize, 0.0f);
-        }
-    }
     
+    // Resize per-track buffer storage if needed
+    // CRITICAL: We avoid resizing here to prevent allocations in audio thread
+    // Buffers should be pre-allocated in addTrack
+    
+    // Safety check for buffer size
+    if (numFrames * 2 > MAX_AUDIO_BUFFER_SIZE) {
+        // This should never happen with reasonable buffer sizes
+        return;
+    }
+
     // Clear all track buffers
-    for (auto& buffer : m_trackBuffers) {
-        std::memset(buffer.data(), 0, bufferSize * sizeof(float));
+    // We only clear up to the needed size
+    size_t bytesToClear = numFrames * 2 * sizeof(float);
+    for (size_t i = 0; i < m_trackBuffers.size(); ++i) {
+        // Safety check for vector size
+        if (m_trackBuffers[i].size() >= numFrames * 2) {
+            std::memset(m_trackBuffers[i].data(), 0, bytesToClear);
+        }
     }
     
     // Check if any track is soloed (for exclusive solo behavior)
@@ -418,8 +453,8 @@ void TrackManager::processAudioMultiThreaded(float* outputBuffer, uint32_t numFr
             }
             
             // Submit track processing task to thread pool
-            m_threadPool->enqueue([track, &buffer = m_trackBuffers[i], numFrames, streamTime]() {
-                track->processAudio(buffer.data(), numFrames, streamTime);
+            m_threadPool->enqueue([track, &buffer = m_trackBuffers[i], numFrames, streamTime, outputSampleRate]() {
+                track->processAudio(buffer.data(), numFrames, streamTime, outputSampleRate);
             });
         }
     }
@@ -441,21 +476,27 @@ void TrackManager::processAudioMultiThreaded(float* outputBuffer, uint32_t numFr
     // Send master output to visualizer callback (if registered)
     if (m_onAudioOutput) {
         // Deinterleave stereo channels for visualizer
-        std::vector<float> leftChannel(numFrames);
-        std::vector<float> rightChannel(numFrames);
+        if (m_leftScratch.size() < numFrames) {
+            m_leftScratch.resize(numFrames);
+        }
+        if (m_rightScratch.size() < numFrames) {
+            m_rightScratch.resize(numFrames);
+        }
+        float* leftChannel = m_leftScratch.data();
+        float* rightChannel = m_rightScratch.data();
         
         for (uint32_t i = 0; i < numFrames; ++i) {
             leftChannel[i] = outputBuffer[i * 2];
             rightChannel[i] = outputBuffer[i * 2 + 1];
         }
         
-        m_onAudioOutput(leftChannel.data(), rightChannel.data(), numFrames, 48000.0);
+        m_onAudioOutput(leftChannel, rightChannel, numFrames, outputSampleRate);
     }
     
     // Update position
     if (m_isPlaying.load()) {
         double currentPos = m_positionSeconds.load();
-        double newPosition = currentPos + (numFrames / 48000.0);
+        double newPosition = currentPos + (numFrames / outputSampleRate);
         double maxDuration = getTotalDuration();
         
         if (maxDuration > 0.0 && newPosition >= maxDuration) {

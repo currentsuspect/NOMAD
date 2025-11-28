@@ -217,7 +217,7 @@ public:
     double getStartPositionInTimeline() const { return m_startPositionInTimeline.load(); }
 
     // Audio Processing
-    void processAudio(float* outputBuffer, uint32_t numFrames, double streamTime);
+    void processAudio(float* outputBuffer, uint32_t numFrames, double streamTime, double outputSampleRate);
 
     // Mixer Integration
     MixerBus* getMixerBus() { return m_mixerBus.get(); }
@@ -273,9 +273,12 @@ private:
     // Dithering state (for noise shaping)
     float m_ditherHistory[2]{0.0f, 0.0f};  // Per-channel dither history for noise shaping
 
+    // Temporary buffer reused per process call to avoid allocations
+    mutable std::vector<float> m_tempBuffer;
+
     // Internal audio processing
     void generateSilence(float* buffer, uint32_t numFrames);
-    void copyAudioData(float* outputBuffer, uint32_t numFrames);
+    void copyAudioData(float* outputBuffer, uint32_t numFrames, double outputSampleRate);
     
     // Interpolation methods
     float interpolateLinear(const float* data, uint32_t totalSamples, double position, uint32_t channel) const;
