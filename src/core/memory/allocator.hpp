@@ -67,11 +67,17 @@ public:
     /**
      * @brief Reallocate memory to a new size
      * @param ptr Pointer to existing memory (or nullptr for new allocation)
+     * @param oldSize Previous allocation size (required to copy existing data)
      * @param newSize New size in bytes
      * @param alignment Required alignment
      * @return Pointer to reallocated memory, or nullptr on failure
+     * 
+     * @note The default implementation copies min(oldSize, newSize) bytes from
+     *       the old allocation to the new one. Derived classes should override
+     *       for better performance if they track allocation sizes internally.
      */
-    [[nodiscard]] virtual void* reallocate(void* ptr, usize newSize, usize alignment = alignof(std::max_align_t)) {
+    [[nodiscard]] virtual void* reallocate(void* ptr, usize oldSize, usize newSize, 
+                                           usize alignment = alignof(std::max_align_t)) {
         if (ptr == nullptr) {
             return allocate(newSize, alignment);
         }
@@ -80,10 +86,11 @@ public:
             return nullptr;
         }
         
-        // Default implementation: allocate new, copy, free old
+        // Allocate new block
         void* newPtr = allocate(newSize, alignment);
         if (newPtr) {
-            // Note: This is not optimal - derived classes should override
+            // Copy the smaller of old/new sizes to preserve existing data
+            std::memcpy(newPtr, ptr, oldSize < newSize ? oldSize : newSize);
             deallocate(ptr);
         }
         return newPtr;
