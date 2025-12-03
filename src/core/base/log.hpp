@@ -21,6 +21,7 @@
 #include <string_view>
 #include <sstream>
 #include <mutex>
+#include <thread>
 #include <chrono>
 #include <memory>
 #include <vector>

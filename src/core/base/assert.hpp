@@ -107,10 +107,19 @@ inline void assertFailed(const char* expression, const char* message,
 
 #define NOMAD_ASSERT(expr)              ((void)0)
 #define NOMAD_ASSERT_MSG(expr, msg)     ((void)0)
-#define NOMAD_UNREACHABLE()             __assume(0)
 #define NOMAD_ASSERT_THREAD(thread_id)  ((void)0)
 #define NOMAD_ASSERT_AUDIO_THREAD()     ((void)0)
 #define NOMAD_ASSERT_NOT_AUDIO_THREAD() ((void)0)
+
+// Portable NOMAD_UNREACHABLE() for release builds
+// Tells the compiler this code path is never reached, enabling optimizations
+#if defined(_MSC_VER)
+    #define NOMAD_UNREACHABLE() __assume(0)
+#elif defined(__GNUC__) || defined(__clang__)
+    #define NOMAD_UNREACHABLE() __builtin_unreachable()
+#else
+    #define NOMAD_UNREACHABLE() ((void)0)
+#endif
 
 #endif // NOMAD_BUILD_DEBUG
 
