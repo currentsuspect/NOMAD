@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <cmath>
+
 // Include the existing implementation  
 #include "NomadCore/include/NomadMath.h"
 
@@ -34,22 +36,22 @@ constexpr float HALF_PI_F = PI_F * 0.5f;
 //=============================================================================
 
 /// Convert decibels to linear gain
-inline constexpr float dbToLinear(float db) {
+inline float dbToLinear(float db) {
     return (db <= -96.0f) ? 0.0f : std::pow(10.0f, db / 20.0f);
 }
 
 /// Convert linear gain to decibels
-inline constexpr float linearToDb(float linear) {
+inline float linearToDb(float linear) {
     return (linear <= 0.0f) ? -96.0f : 20.0f * std::log10(linear);
 }
 
 /// Convert MIDI note to frequency (A4 = 440Hz)
-inline constexpr float midiToFreq(float note, float tuning = 440.0f) {
+inline float midiToFreq(float note, float tuning = 440.0f) {
     return tuning * std::pow(2.0f, (note - 69.0f) / 12.0f);
 }
 
 /// Convert frequency to MIDI note
-inline constexpr float freqToMidi(float freq, float tuning = 440.0f) {
+inline float freqToMidi(float freq, float tuning = 440.0f) {
     return 69.0f + 12.0f * std::log2(freq / tuning);
 }
 

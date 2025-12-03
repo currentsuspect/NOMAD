@@ -8,6 +8,9 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
+
 // Include YOUR existing track implementation
 #include "NomadAudio/include/Track.h"
 #include "NomadAudio/include/TrackManager.h"

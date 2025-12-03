@@ -8,6 +8,9 @@
 
 #pragma once
 
+#include <string>
+#include <cstdint>
+
 // Include the existing implementation
 #include "NomadCore/include/NomadLog.h"
 
@@ -55,7 +58,7 @@ inline void setLevel(Level level) {
 // Category-based logging (extension for new code)
 //=============================================================================
 
-enum class Category : u8 {
+enum class Category : std::uint8_t {
     Core = 0,
     Audio,
     DSP,

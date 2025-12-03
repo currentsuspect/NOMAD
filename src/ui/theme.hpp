@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <string>
+
 // Include YOUR existing theme system
 #include "NomadUI/Core/NUITheme.h"
 #include "NomadUI/Core/NUIThemeSystem.h"
