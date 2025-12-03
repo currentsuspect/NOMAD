@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <vector>
+
 // Include YOUR existing audio device implementations
 #include "NomadAudio/include/AudioDeviceManager.h"
 #include "NomadAudio/include/AudioDriver.h"

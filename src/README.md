@@ -13,7 +13,7 @@ It uses facade/adapter patterns to wrap existing code from:
 
 ## Migration Strategy
 
-## Phase 1: Header Migration
+### Phase 0: Wrapper Headers (Current)
 
 1. New headers in src/ include existing headers from Nomad*/
 2. Re-export in new namespace structure (nomad::core, nomad::audio, etc.)

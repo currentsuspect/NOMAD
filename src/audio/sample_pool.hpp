@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <string>
+
 // Include YOUR existing sample pool implementation
 #include "NomadAudio/include/SamplePool.h"
 
