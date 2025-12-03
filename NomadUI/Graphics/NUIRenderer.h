@@ -183,12 +183,11 @@ public:
     virtual NUISize measureText(const std::string& text, float fontSize) = 0;
     
     /**
-     * Calculate baseline-aligned Y position for vertically centered text.
-     * This accounts for the MSDF renderer's baseline coordinate system.
-     * 
-     * @param rect The rectangle to center text within
-     * @param fontSize The font size
-     * @return Baseline Y coordinate for centered text
+     * Calculate baseline-aligned Y position for vertically centered text within a rectangle, compensating for the MSDF baseline coordinate system.
+     *
+     * @param rect Rectangle to center text within.
+     * @param fontSize Font size in pixels.
+     * @return Y coordinate of the text baseline for vertically centered text within rect.
      */
     float calculateTextBaselineY(const NUIRect& rect, float fontSize) const {
         // Center vertically then offset to baseline (compensate for font ascent)
@@ -196,12 +195,12 @@ public:
     }
     
     /**
-     * Calculate baseline-aligned Y position for vertically centered text using measured size.
-     * This accounts for the MSDF renderer's baseline coordinate system.
-     * 
-     * @param rect The rectangle to center text within
-     * @param textSize The measured text size from measureText()
-     * @return Baseline Y coordinate for centered text
+     * Compute the Y coordinate of the text baseline required to vertically center text within a rectangle,
+     * taking the MSDF renderer's baseline coordinate system into account.
+     *
+     * @param rect Rectangle to center text within.
+     * @param textSize Measured text dimensions from measureText().
+     * @returns Baseline Y coordinate for vertically centered text inside `rect`.
      */
     float calculateTextBaselineY(const NUIRect& rect, const NUISize& textSize) const {
         // Center vertically using measured height, then offset to baseline

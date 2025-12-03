@@ -15,6 +15,15 @@ using namespace Nomad;
 
 namespace NomadUI {
 
+/**
+ * @brief Construct a FileBrowser UI component with default state, visuals, and directory contents.
+ *
+ * Initializes internal state (selection, scrolling, item sizing, scrollbar and preview panel settings,
+ * search/filter and breadcrumb support, navigation history) and configures theme-driven visuals
+ * including SVG icons and color values. Sets the initial size from the theme, sets the current
+ * path to the process working directory, initializes navigation history, and loads the directory
+ * contents for the initial view.
+ */
 FileBrowser::FileBrowser()
     : NUIComponent()
     , selectedFile_(nullptr)
@@ -247,6 +256,16 @@ FileBrowser::FileBrowser()
     borderColor_ = themeManager.getColor("border");                   // #2e2e35 - Subtle separation lines
 }
 
+/**
+ * @brief Render the file browser UI into the provided renderer.
+ *
+ * Renders the file browser background and borders, the toolbar, interactive breadcrumbs,
+ * the virtualized file list and its scrollbar, and—when visible and a non-directory
+ * item is selected—the preview panel. When the preview panel is active the content
+ * area is shrunk to accommodate the preview.
+ *
+ * If the component bounds are empty, no drawing is performed.
+ */
 void FileBrowser::onRender(NUIRenderer& renderer) {
     NUIRect bounds = getBounds();
     if (bounds.isEmpty()) return;
@@ -287,6 +306,15 @@ void FileBrowser::onRender(NUIRenderer& renderer) {
     }
 }
 
+/**
+ * @brief Advances internal state and UI animation for the file browser.
+ *
+ * Performs smooth interpolation of the visible scroll position toward the target scroll offset,
+ * updates the current scroll velocity, marks the component dirty when rendering must be refreshed,
+ * and recalculates the scrollbar thumb position for the active view (filtered or full).
+ *
+ * @param deltaTime Time elapsed since the last update, in seconds.
+ */
 void FileBrowser::onUpdate(double deltaTime) {
     NUIComponent::onUpdate(deltaTime);
     
@@ -339,6 +367,17 @@ void FileBrowser::onResize(int width, int height) {
 
 }
 
+/**
+ * @brief Handle mouse input for the file browser, including scrolling, selection, navigation, breadcrumbs, and preview actions.
+ *
+ * Processes wheel scrolling and scrollbar dragging, toolbar back/forward clicks, breadcrumb interaction, file list hover,
+ * single- and multi-select (Ctrl/Shift), double-click detection, directory navigation, and audio preview triggering.
+ * Updates hover and selection state, adjusts target scroll offset, and invokes callbacks such as `onFileSelected_`,
+ * `onSoundPreview_`, and navigation helpers (`navigateBack`, `navigateForward`, `navigateTo`) as appropriate.
+ *
+ * @param event Mouse event to handle.
+ * @return bool `true` if the event was consumed by the file browser, `false` otherwise.
+ */
 bool FileBrowser::onMouseEvent(const NUIMouseEvent& event) {
     NUIRect bounds = getBounds();
     const auto& view = searchQuery_.empty() ? files_ : filteredFiles_;
@@ -506,6 +545,14 @@ bool FileBrowser::onMouseEvent(const NUIMouseEvent& event) {
     return false;
 }
 
+/**
+ * @brief Handle keyboard navigation and activation within the file browser.
+ *
+ * Processes Up/Down to move the selection, Enter to open the selected entry (navigate into directories or invoke the open callback for files), and Backspace to navigate up one directory. Updates selection state, scrolls the view to keep the selection visible, and invokes selection, open, and sound-preview callbacks when applicable.
+ *
+ * @param event The key event to process.
+ * @return bool `true` if the event was handled and consumed by the file browser, `false` otherwise.
+ */
 bool FileBrowser::onKeyEvent(const NUIKeyEvent& event) {
     if (!event.pressed) return false;
     
@@ -589,6 +636,15 @@ bool FileBrowser::onKeyEvent(const NUIKeyEvent& event) {
     return false;
 }
 
+/**
+ * @brief Change the browser's current directory and update view state.
+ *
+ * Sets the current path to the provided filesystem path, reloads directory contents and breadcrumbs,
+ * resets scrolling state, updates navigation history (unless navigating history), invokes the
+ * onPathChanged_ callback if present, and marks the component dirty for redraw.
+ *
+ * @param path Filesystem path to set as the new current directory.
+ */
 void FileBrowser::setCurrentPath(const std::string& path) {
     if (currentPath_ == path) {
         return;
@@ -614,6 +670,15 @@ void FileBrowser::setCurrentPath(const std::string& path) {
     setDirty(true);
 }
 
+/**
+ * @brief Append a path to the navigation history, trimming any forward history when branching.
+ *
+ * If the current history index is not at the end, subsequent entries after the current
+ * index are removed before the new path is appended. The history index is then set to
+ * the newly appended entry.
+ *
+ * @param path Filesystem path to push onto the navigation history.
+ */
 void FileBrowser::pushToHistory(const std::string& path) {
     // Trim forward history if we branched
     if (navHistoryIndex_ >= 0 && navHistoryIndex_ < static_cast<int>(navHistory_.size()) - 1) {
@@ -624,6 +689,13 @@ void FileBrowser::pushToHistory(const std::string& path) {
     navHistoryIndex_ = static_cast<int>(navHistory_.size()) - 1;
 }
 
+/**
+ * @brief Navigate to the previous entry in the browser's navigation history.
+ *
+ * Updates the current path to the previous history entry and decrements the history index;
+ * no action is taken if already at the earliest history entry. While performing the navigation
+ * it temporarily suppresses adding a new history entry.
+ */
 void FileBrowser::navigateBack() {
     if (navHistoryIndex_ > 0) {
         isNavigatingHistory_ = true;
@@ -633,6 +705,12 @@ void FileBrowser::navigateBack() {
     }
 }
 
+/**
+ * @brief Advances the navigation history to the next entry and updates the current path.
+ *
+ * If a forward history entry exists, increments the history index and sets the current path to that entry.
+ * If already at the newest history entry, no action is taken.
+ */
 void FileBrowser::navigateForward() {
     if (navHistoryIndex_ >= 0 && navHistoryIndex_ < static_cast<int>(navHistory_.size()) - 1) {
         isNavigatingHistory_ = true;
@@ -642,6 +720,11 @@ void FileBrowser::navigateForward() {
     }
 }
 
+/**
+ * @brief Reloads the current directory listing and schedules the component to redraw.
+ *
+ * Updates the file list from the current path and marks the FileBrowser as dirty so it will be re-rendered.
+ */
 void FileBrowser::refresh() {
     loadDirectoryContents();
     setDirty(true);
@@ -698,6 +781,19 @@ void FileBrowser::setSortAscending(bool ascending) {
     setDirty(true);
 }
 
+/**
+ * @brief Loads and refreshes the current directory's file list into the browser state.
+ *
+ * Populates the internal file list from the filesystem for the current path, including a parent
+ * ("..") entry when applicable, and sorts the results. Updates selection state (auto-selects the
+ * first entry when any files are present), clears or updates filtered view based on the active
+ * search query, and recalculates scrollbar visibility.
+ *
+ * On filesystem access errors (for example, permission-denied while iterating or reading file
+ * attributes), the method skips unreadable entries and, if the entire directory cannot be read,
+ * inserts user-facing placeholder entries indicating access was denied. Errors are logged to stderr
+ * but do not throw.
+ */
 void FileBrowser::loadDirectoryContents() {
     files_.clear();
     selectedFile_ = nullptr;
@@ -864,6 +960,18 @@ std::shared_ptr<NUIIcon> FileBrowser::getIconForFileType(FileType type) {
     }
 }
 
+/**
+ * @brief Renders the scrollable, virtualized list of files and directories.
+ *
+ * Renders only the visible portion of the current view (filtered or full file list) into the file list area,
+ * drawing per-item background (selection/hover/alternating rows), divider lines, type icons, truncated display names,
+ * and optional size metadata. The method sets a clip rectangle for the list area while rendering and clears it before returning.
+ *
+ * This routine also maintains and updates per-file rendering caches (display name and formatted size) used to
+ * avoid repeated measurements across frames, and it invalidates those caches if the component width changes.
+ *
+ * @param renderer Renderer used to draw UI primitives and text.
+ */
 void FileBrowser::renderFileList(NUIRenderer& renderer) {
     // Get component dimensions from theme ONCE outside the loop
     auto& themeManager = NUIThemeManager::getInstance();
@@ -1019,6 +1127,15 @@ void FileBrowser::renderFileList(NUIRenderer& renderer) {
     renderer.clearClipRect();
 }
 
+/**
+ * @brief Renders the file browser toolbar containing navigation controls, a refresh label, and the sort-mode indicator.
+ *
+ * The toolbar is drawn using theme-provided layout and dimensions. Navigation buttons (back/forward) are rendered with visual
+ * disabled state when history is unavailable. The refresh label and sort indicator are aligned within the toolbar and are
+ * truncated to fit available space when necessary.
+ *
+ * @param renderer Renderer used to draw the toolbar.
+ */
 void FileBrowser::renderToolbar(NUIRenderer& renderer) {
     // Get layout dimensions from theme
     auto& themeManager = NUIThemeManager::getInstance();
@@ -1094,6 +1211,15 @@ void FileBrowser::renderToolbar(NUIRenderer& renderer) {
     renderer.drawText(sortText, NUIPoint(sortX, textY), toolbarFont, textColor_.withAlpha(0.7f));
 }
 
+/**
+ * @brief Ensures the currently selected item is visible within the file list viewport.
+ *
+ * Adjusts the internal scroll offset to bring the selected entry into view (using the active view
+ * — filtered results when a search query is present, otherwise the full file list). The scroll
+ * offset is clamped to the valid range for the content height, the target scroll offset is synced
+ * to the resulting value, and scroll velocity is reset. The scrollbar's visibility and thumb
+ * position are updated to reflect the new scroll state.
+ */
 void FileBrowser::updateScrollPosition() {
     if (selectedIndex_ < 0) return;
 
@@ -1129,6 +1255,16 @@ void FileBrowser::updateScrollPosition() {
     updateScrollbarVisibility();
 }
 
+/**
+ * @brief Renders the list scrollbar when the directory view content exceeds the visible area.
+ *
+ * Draws a flush-right scrollbar track, a solid background panel beneath it, and the scrollbar thumb
+ * using the precomputed thumb position and height. The active view is the filtered view when a search
+ * query is present; otherwise the full file list is used. No drawing occurs if the view is empty or
+ * the content fits without scrolling.
+ *
+ * @param renderer Renderer used to perform drawing operations.
+ */
 void FileBrowser::renderScrollbar(NUIRenderer& renderer) {
     // Get component dimensions from theme
     auto& themeManager = NUIThemeManager::getInstance();
@@ -1167,6 +1303,17 @@ void FileBrowser::renderScrollbar(NUIRenderer& renderer) {
                              4, thumbColor);
 }
 
+/**
+ * @brief Handle mouse interactions with the file list scrollbar.
+ *
+ * Processes clicks, track clicks, and thumb dragging for the scrollbar: starts and stops
+ * thumb dragging, updates scroll and target scroll offsets (including immediate jumps
+ * when clicking the track), and clamps offsets to valid ranges. While a drag is active,
+ * the handler continues to update scroll position regardless of cursor location.
+ *
+ * @param event Mouse event to handle.
+ * @return true if the event was consumed by the scrollbar (including drag handling), `false` otherwise.
+ */
 bool FileBrowser::handleScrollbarMouseEvent(const NUIMouseEvent& event) {
     // Get component dimensions from theme
     auto& themeManager = NUIThemeManager::getInstance();
@@ -1263,6 +1410,19 @@ bool FileBrowser::handleScrollbarMouseEvent(const NUIMouseEvent& event) {
     return false;
 }
 
+/**
+ * @brief Computes scrollbar necessity and updates scrollbar metrics for the current file view.
+ *
+ * Determines whether a vertical scrollbar is required based on the total content height
+ * of the active view (filtered or full file list) compared to the scrollbar track height,
+ * and updates internal state used for rendering and interaction.
+ *
+ * Updates the following member state when called:
+ * - scrollbarVisible_: whether the scrollbar should be shown.
+ * - scrollbarOpacity_: opacity to use for the scrollbar.
+ * - scrollbarThumbHeight_: height of the scrollbar thumb (clamped to a minimum).
+ * - scrollbarThumbY_: vertical position of the scrollbar thumb within the track.
+ */
 void FileBrowser::updateScrollbarVisibility() {
     // Get component dimensions from theme
     auto& themeManager = NUIThemeManager::getInstance();
@@ -1297,7 +1457,18 @@ void FileBrowser::updateScrollbarVisibility() {
 
 // ========================================================================
 // Selection / Filtering / Breadcrumb helpers
-// ========================================================================
+/**
+ * @brief Update selection state for an item index using typical single/ctrl/shift semantics.
+ *
+ * Updates the browser's selection members (selectedIndices_, selectedIndex_, lastShiftSelectIndex_)
+ * based on the active view (filteredFiles_ when a search query is present, otherwise files_).
+ * If the provided index is out of range, the selection is cleared.
+ *
+ * @param index Index of the item in the active view to select or toggle.
+ * @param ctrlPressed If true, toggles the item's membership in the multi-selection set.
+ * @param shiftPressed If true and a valid previous shift anchor exists, selects the inclusive range
+ *                     between the previous anchor and `index`.
+ */
 
 void FileBrowser::toggleFileSelection(int index, bool ctrlPressed, bool shiftPressed) {
     const auto& view = searchQuery_.empty() ? files_ : filteredFiles_;
@@ -1333,6 +1504,13 @@ void FileBrowser::toggleFileSelection(int index, bool ctrlPressed, bool shiftPre
     }
 }
 
+/**
+ * @brief Clears the current file selection and resets selection state.
+ *
+ * Resets all selection-related state: empties the set of selected indices,
+ * sets the active selected index to -1, clears the selected file pointer,
+ * and resets the last shift-selection anchor index to -1.
+ */
 void FileBrowser::clearSelection() {
     selectedIndices_.clear();
     selectedIndex_ = -1;
@@ -1340,11 +1518,25 @@ void FileBrowser::clearSelection() {
     lastShiftSelectIndex_ = -1;
 }
 
+/**
+ * @brief Sets the search query used to filter the displayed files.
+ *
+ * Updates the active query used for name-based filtering; an empty string clears the filter.
+ *
+ * @param query Case-insensitive substring to match against file names.
 void FileBrowser::setSearchQuery(const std::string& query) {
     searchQuery_ = query;
     applyFilter();
 }
 
+/**
+ * @brief Applies the active search query to produce the current filtered view.
+ *
+ * If the search query is empty, clears any existing filtered results. Otherwise,
+ * populates filteredFiles_ with entries from files_ whose names contain the
+ * query as a case-insensitive substring. Clears selection, updates scrollbar
+ * visibility, and marks the view dirty after applying the filter.
+ */
 void FileBrowser::applyFilter() {
     filteredFiles_.clear();
     if (searchQuery_.empty()) {
@@ -1367,6 +1559,14 @@ void FileBrowser::applyFilter() {
     setDirty(true);
 }
 
+/**
+ * @brief Rebuilds the breadcrumb items from the current path for rendering and hit-testing.
+ *
+ * Iterates the components of `currentPath_` and populates `breadcrumbs_` with each
+ * breadcrumb's display name, accumulated path, approximate x position and an
+ * initial approximate width used by the renderer. If `currentPath_` is empty,
+ * no breadcrumbs are produced.
+ */
 void FileBrowser::updateBreadcrumbs() {
     breadcrumbs_.clear();
     if (currentPath_.empty()) return;
@@ -1388,11 +1588,25 @@ void FileBrowser::updateBreadcrumbs() {
     }
 }
 
+/**
+ * @brief Navigate to the directory represented by a breadcrumb entry.
+ *
+ * Navigates the browser to the path associated with the breadcrumb at the given index.
+ *
+ * @param index Zero-based index of the breadcrumb to navigate to.
+ *
+ * Does nothing if the index is out of range.
+ */
 void FileBrowser::navigateToBreadcrumb(int index) {
     if (index < 0 || index >= static_cast<int>(breadcrumbs_.size())) return;
     navigateTo(breadcrumbs_[index].path);
 }
 
+/**
+ * @brief Renders the interactive breadcrumb trail for the current path and updates internal breadcrumb hit areas.
+ *
+ * Draws each path segment using theme metrics, highlights the last segment using the primary text color, renders chevron icons between segments when available, and populates the internal breadcrumbs_ list with each segment's label, full path, x position, and width for hit testing.
+ */
 void FileBrowser::renderInteractiveBreadcrumbs(NUIRenderer& renderer) {
     if (breadcrumbs_.empty()) {
         updateBreadcrumbs();
@@ -1438,6 +1652,15 @@ void FileBrowser::renderInteractiveBreadcrumbs(NUIRenderer& renderer) {
         buildPath /= parts[i];
     }
 }
+/**
+ * @brief Handle mouse interaction with the breadcrumb trail and navigate when a breadcrumb is clicked.
+ *
+ * Tests the provided mouse event against the breadcrumb hit areas and, on a left-button press
+ * inside a breadcrumb, navigates to that breadcrumb's path.
+ *
+ * @param event Mouse event to evaluate.
+ * @return true if the event was consumed (a breadcrumb was clicked and navigation occurred), false otherwise.
+ */
 bool FileBrowser::handleBreadcrumbMouseEvent(const NUIMouseEvent& event) {
     if (breadcrumbs_.empty()) return false;
     auto& themeManager = NUIThemeManager::getInstance();
@@ -1459,16 +1682,32 @@ bool FileBrowser::handleBreadcrumbMouseEvent(const NUIMouseEvent& event) {
     return false;
 }
 
+/**
+ * @brief Handler for mouse events targeting the search box; currently a non-interactive placeholder.
+ *
+ * @return `false` indicating the event was not consumed.
+ */
 bool FileBrowser::handleSearchBoxMouseEvent(const NUIMouseEvent& event) {
     // Placeholder: no interactive search box yet
     return false;
 }
 
+/**
+ * @brief Show or hide the file preview panel.
+ *
+ * @param visible `true` to display the preview panel, `false` to hide it.
+ */
 void FileBrowser::setPreviewPanelVisible(bool visible) {
     previewPanelVisible_ = visible;
 }
 
-// Placeholder for preview panel (waveform/metadata) to satisfy linkage
+/**
+ * @brief Renders the preview panel (waveform, metadata, and mini transport).
+ *
+ * Currently a placeholder that performs no drawing.
+ *
+ * @param renderer Renderer used to draw the preview panel.
+ */
 void FileBrowser::renderPreviewPanel(NUIRenderer& renderer) {
     (void)renderer;
     // To be implemented in preview phase (waveform + metadata + mini transport)

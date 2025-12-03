@@ -88,6 +88,42 @@ public:
     void setPosition(double seconds);
     double getPosition() const { return m_positionSeconds.load(); }
 
+    /**
+     * Compute the total playback duration across all tracks.
+     *
+     * @returns The length, in seconds, of the project determined by the longest track content duration (ignoring per-track start offsets).
+     */
+    /**
+     * Determine the maximum timeline extent including track offsets.
+     *
+     * @returns The furthest time, in seconds, reached when each track's start offset and content duration are both considered.
+     */
+    /**
+     * Move a clip from one track to another.
+     *
+     * @param fromIndex Index of the source track containing the clip to move.
+     * @param toIndex Index of the destination track to receive the clip.
+     * @returns `true` if the clip was moved successfully, `false` otherwise (for example, invalid indices or incompatible track states).
+     */
+    /**
+     * Slice a clip on a track at a specific time and return the resulting segment.
+     *
+     * @param trackIndex Index of the track containing the clip to slice.
+     * @param sliceTimeSeconds Time, in seconds (relative to the project timeline), at which to perform the slice.
+     * @returns A shared pointer to the new track/clip segment created by the slice, or `nullptr` if the operation failed.
+     */
+    /**
+     * Move a clip within its track to a new start time.
+     *
+     * @param trackIndex Index of the track containing the clip to move.
+     * @param newStartSeconds New start time, in seconds (relative to the project timeline), to place the clip.
+     * @returns `true` if the clip was repositioned successfully, `false` otherwise (for example, invalid index or conflicting timeline placement).
+     */
+    /**
+     * Register a callback invoked when the transport position updates.
+     *
+     * @param callback Function called with the current position in seconds whenever the transport position changes (e.g., during playback).
+     */
     double getTotalDuration() const;
     // Max extent considering track start offsets
     double getMaxTimelineExtent() const;
@@ -108,10 +144,19 @@ public:
 
     // Audio Processing
     void processAudio(float* outputBuffer, uint32_t numFrames, double streamTime);
-    void setOutputSampleRate(double sampleRate) { m_outputSampleRate.store(sampleRate); }
+    /**
+ * Set the output sample rate used for audio processing.
+ *
+ * @param sampleRate Output sample rate in Hertz (e.g., 48000.0). This value is stored and used by audio processing paths.
+ */
+void setOutputSampleRate(double sampleRate) { m_outputSampleRate.store(sampleRate); }
     double getOutputSampleRate() const { return m_outputSampleRate.load(); }
     
-    // Multi-threading control
+    /**
+ * Enable or disable multi-threaded audio processing.
+ *
+ * @param enabled `true` to enable multi-threaded processing; `false` to disable it and use the single-threaded path.
+ */
     void setMultiThreadingEnabled(bool enabled) { m_multiThreadingEnabled = enabled; }
     bool isMultiThreadingEnabled() const { return m_multiThreadingEnabled; }
     

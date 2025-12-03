@@ -11,12 +11,26 @@ namespace fs = std::filesystem;
 namespace Nomad {
 namespace Audio {
 
+/**
+ * @brief Accesses the global SamplePool singleton.
+ *
+ * @return Reference to the single shared SamplePool instance.
+ */
 SamplePool& SamplePool::getInstance() {
     static SamplePool instance;
     return instance;
 }
 
-// static: No instance state needed
+/**
+ * @brief Create a SampleKey for identifying a sample file.
+ *
+ * Constructs a key using the file's absolute path and the file's last-write timestamp.
+ *
+ * @param path File path (may be relative or absolute); used to produce the key's filePath.
+ * @return SampleKey Contains `filePath` set to the absolute path when available and `modTime`
+ *         set to the file's last-write time (duration count since epoch). If the file cannot be
+ *         stat'ed, `filePath` will be the original `path` and `modTime` will be `0`.
+ */
 SampleKey SamplePool::makeKey(const std::string& path) {
     SampleKey key;
     try {
@@ -32,10 +46,24 @@ SampleKey SamplePool::makeKey(const std::string& path) {
     return key;
 }
 
+/**
+ * @brief Computes the memory footprint of an audio buffer's sample data in bytes.
+ *
+ * @param buffer AudioBuffer whose contiguous float sample data will be measured.
+ * @return size_t Number of bytes occupied by buffer.data (number of floats multiplied by sizeof(float)).
+ */
 size_t SamplePool::calculateBufferBytes(const AudioBuffer& buffer) {
     return buffer.data.size() * sizeof(float);
 }
 
+/**
+ * @brief Recomputes the current memory usage of cached audio buffers and stores the result.
+ *
+ * Recalculates total bytes held by all live (non-expired) samples tracked in the pool and updates
+ * the atomic m_memoryCurrent with the new total.
+ *
+ * @note Caller must hold the pool mutex (function is the locked variant).
+ */
 void SamplePool::updateMemoryUsageLocked() {
     size_t total = 0;
     for (const auto& [_, weakBuf] : m_samples) {
@@ -46,6 +74,18 @@ void SamplePool::updateMemoryUsageLocked() {
     m_memoryCurrent.store(total);
 }
 
+/**
+ * @brief Obtain a cached audio buffer for a file path, loading and caching it if missing.
+ *
+ * Looks up a sample by file-derived key and returns an existing buffer when available.
+ * If the sample is not cached, attempts to load it using the provided loader, inserts the
+ * loaded buffer into the cache, updates memory accounting, and may evict other entries
+ * to satisfy the memory budget. The buffer's last-access timestamp is updated on use.
+ *
+ * @param path Filesystem path identifying the sample.
+ * @param loader Callable that fills an AudioBuffer and returns `true` on success. If empty, no load is attempted.
+ * @return std::shared_ptr<AudioBuffer> The cached or newly loaded buffer, or `nullptr` if loading failed or no loader was provided.
+ */
 std::shared_ptr<AudioBuffer> SamplePool::acquire(
     const std::string& path,
     const std::function<bool(AudioBuffer&)>& loader) {
@@ -107,11 +147,25 @@ std::shared_ptr<AudioBuffer> SamplePool::acquire(
     return buffer;
 }
 
+/**
+ * @brief Remove expired samples and evict cached buffers to satisfy the memory budget.
+ *
+ * Performs a thread-safe garbage collection pass that removes expired cache entries
+ * and, if a memory budget is set, evicts least-recently-used buffers until the
+ * current memory usage is within the configured budget.
+ *
+ * This method is safe to call concurrently from multiple threads.
+ */
 void SamplePool::garbageCollect() {
     std::lock_guard<std::mutex> lock(m_mutex);
     garbageCollectLocked();
 }
 
+/**
+ * @brief Removes expired samples and evicts least-recently-used live samples until the memory usage fits the configured budget.
+ *
+ * Iterates the internal cache to remove entries whose weak references have expired, computes the total memory used by live samples, updates the current memory accounting, and—if a nonzero memory budget is set—evicts live samples in order of oldest last access until memory usage is at or below the budget.
+ */
 void SamplePool::garbageCollectLocked() {
     // Remove expired entries first
     for (auto it = m_samples.begin(); it != m_samples.end(); ) {
@@ -163,6 +217,14 @@ void SamplePool::garbageCollectLocked() {
     }
 }
 
+/**
+ * @brief Update the pool's memory budget and immediately enforce it.
+ *
+ * Setting the budget will cause the pool to evict cached samples as needed so
+ * that current memory usage does not exceed the new limit.
+ *
+ * @param bytes New memory budget in bytes; zero disables budgeting (no automatic evictions).
+ */
 void SamplePool::setMemoryBudget(size_t bytes) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_memoryBudget = bytes;

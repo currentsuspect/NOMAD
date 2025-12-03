@@ -97,7 +97,21 @@ namespace NomadUI {
     bool m_previousScissorEnabled;
     int m_previousScissorBox[4]{0, 0, 0, 0};
     bool m_restoreScissorBox{false};
-    float m_previousClearColor[4]{0.f, 0.f, 0.f, 0.f};
+    /**
+ * Determine whether a widget should be cached based on its static-ness, dimensions, and update frequency.
+ * @param isStatic True if the widget is considered static (not frequently changing).
+ * @param size The widget's size.
+ * @param updateFrequency Expected updates per frame for the widget.
+ * @returns `true` if the widget meets the criteria to be cached, `false` otherwise.
+ */
+/**
+ * Compute an integer cache priority for a widget based on its size and rendering cost.
+ * Higher values indicate greater importance to keep the widget cached.
+ * @param size The widget's size.
+ * @param renderCost Estimated cost to render the widget.
+ * @returns An integer priority where larger numbers represent higher caching importance.
+ */
+float m_previousClearColor[4]{0.f, 0.f, 0.f, 0.f};
     bool m_restoreClearColor{false};
     int m_previousDrawBuffer{0};
         CachedRenderData* m_activeCache;

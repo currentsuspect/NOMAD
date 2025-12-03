@@ -24,7 +24,16 @@ void NUIButton::setText(const std::string& text) {
 
 // ============================================================================
 // Component Overrides
-// ============================================================================
+/**
+ * @brief Renders the button using the current theme and visual state.
+ *
+ * Draws the button background (with rounded corners), an optional border whose
+ * color and inset depend on pressed/hovered state, the centered label text,
+ * and then delegates to the base class to render any child components.
+ * If no theme is available, a fallback solid background is drawn.
+ *
+ * @param renderer Renderer used to issue drawing commands.
+ */
 
 void NUIButton::onRender(NUIRenderer& renderer) {
     auto theme = getTheme();

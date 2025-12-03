@@ -224,6 +224,11 @@ bool RtAudioBackend::isStreamRunning() const {
     return m_rtAudio->isStreamRunning();
 }
 
+/**
+ * @brief Retrieves the current stream latency in seconds.
+ *
+ * @return double The stream latency in seconds, or 0.0 if no stream is open.
+ */
 double RtAudioBackend::getStreamLatency() const {
     if (!m_rtAudio->isStreamOpen()) {
         return 0.0;
@@ -231,6 +236,11 @@ double RtAudioBackend::getStreamLatency() const {
     return m_rtAudio->getStreamLatency();
 }
 
+/**
+ * @brief Retrieve the active stream's sample rate in hertz.
+ *
+ * @return uint32_t Current stream sample rate in Hz, or 0 if the RtAudio instance is null or no stream is open.
+ */
 uint32_t RtAudioBackend::getStreamSampleRate() const {
     if (!m_rtAudio || !m_rtAudio->isStreamOpen()) {
         return 0;
@@ -238,6 +248,21 @@ uint32_t RtAudioBackend::getStreamSampleRate() const {
     return m_rtAudio->getStreamSampleRate();
 }
 
+/**
+ * @brief Dispatches RtAudio's audio callback to the stored user-provided audio callback.
+ *
+ * For each invocation, this function forwards the output and input buffers, frame count,
+ * and stream time to the backend's registered callback. If no user callback is registered,
+ * the function does nothing and returns 0.
+ *
+ * @param outputBuffer Pointer to the interleaved output buffer (float*), or nullptr if unused.
+ * @param inputBuffer Pointer to the interleaved input buffer (const float*), or nullptr if unused.
+ * @param numFrames Number of audio frames in this buffer.
+ * @param streamTime Current stream time in seconds.
+ * @param status RtAudio stream status (ignored by this dispatcher).
+ * @param userData Pointer to the RtAudioBackend instance (used to locate the stored callback and user data).
+ * @return int The value returned by the user-provided callback, or `0` if no callback is set.
+ */
 int RtAudioBackend::rtAudioCallback(
     void* outputBuffer,
     void* inputBuffer,

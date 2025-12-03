@@ -10,6 +10,233 @@
 #include <optional>
 #include <memory>
 
+/**
+ * Represents a single entry in a dropdown list.
+ *
+ * Holds the display text, an optional activation callback, an integer value,
+ * an enabled flag, and an optional icon path.
+ */
+
+/**
+ * Encapsulates data for a selection change event.
+ *
+ * Contains the newly selected item's index, associated integer value, and text.
+ */
+
+/**
+ * Construct a NUIDropdown control.
+ */
+
+/**
+ * Destroy the NUIDropdown control.
+ */
+
+/**
+ * Add an item with the given text.
+ *
+ * @param text Display label for the new item.
+ */
+
+/**
+ * Add an item with the given text and callback invoked when selected.
+ *
+ * @param text Display label for the new item.
+ * @param callback Function called when the item is chosen.
+ */
+
+/**
+ * Add an item with the given text and associated integer value.
+ *
+ * @param text Display label for the new item.
+ * @param value Integer value associated with the item.
+ */
+
+/**
+ * Add an item with the given text, value, and callback.
+ *
+ * @param text Display label for the new item.
+ * @param value Integer value associated with the item.
+ * @param callback Function called when the item is chosen.
+ */
+
+/**
+ * Add a pre-constructed DropdownItem to the list.
+ *
+ * @param item DropdownItem instance to append.
+ */
+
+/**
+ * Remove the item at the specified index.
+ *
+ * @param index Zero-based index of the item to remove.
+ */
+
+/**
+ * Remove all items from the dropdown.
+ */
+
+/**
+ * Alias for clear(); removes all items from the dropdown.
+ */
+
+/**
+ * Set the currently selected item by unsigned index.
+ *
+ * If the index is out of range, selection behavior is implementation-defined.
+ *
+ * @param index Zero-based index to select.
+ */
+
+/**
+ * Set the currently selected item by (possibly negative) integer index.
+ *
+ * If the index is out of range, selection behavior is implementation-defined.
+ *
+ * @param index Index to select.
+ */
+
+/**
+ * Select the first item that has the given integer value.
+ *
+ * @param value Value to match for selection.
+ */
+
+/**
+ * Get the currently selected index.
+ *
+ * @returns The zero-based index of the current selection.
+ */
+
+/**
+ * Get the text of the currently selected item.
+ *
+ * @returns The display text of the selected item, or an empty string if none.
+ */
+
+/**
+ * Get the integer value of the currently selected item.
+ *
+ * @returns The value associated with the selected item.
+ */
+
+/**
+ * Get the currently selected item.
+ *
+ * @returns An optional containing the selected DropdownItem, or empty if none.
+ */
+
+/**
+ * Get the number of items in the dropdown.
+ *
+ * @returns The count of items.
+ */
+
+/**
+ * Access the internal list of items.
+ *
+ * @returns Const reference to the vector of DropdownItem.
+ */
+
+/**
+ * Get the item at the specified index.
+ *
+ * @param index Zero-based index of the requested item.
+ * @returns An optional containing the item if index is valid, or empty otherwise.
+ */
+
+/**
+ * Set placeholder text shown when no item is selected.
+ *
+ * @param text Placeholder string to display.
+ */
+
+/**
+ * Set the height, in pixels, used to render each item.
+ *
+ * @param height Height for each item row.
+ */
+
+/**
+ * Set the maximum number of visible items before scrolling is required.
+ *
+ * @param count Maximum number of items to show without scrolling.
+ */
+
+/**
+ * Enable or disable incremental character search within items.
+ *
+ * @param enabled True to enable search, false to disable.
+ */
+
+/**
+ * Enable or disable open/close animation for the dropdown.
+ *
+ * @param enabled True to enable animation, false to disable.
+ */
+
+/**
+ * Set a callback invoked when selection changes, receiving the selected index.
+ *
+ * @param callback Function called with the newly selected zero-based index.
+ */
+
+/**
+ * Set a callback invoked when selection changes, receiving (index, value, text).
+ *
+ * @param callback Function called with index, value, and text of the new selection.
+ */
+
+/**
+ * Set a callback invoked when selection changes, receiving a SelectionChangedEvent.
+ *
+ * @param callback Function called with a SelectionChangedEvent describing the change.
+ */
+
+/**
+ * Set a callback invoked when the dropdown is opened.
+ *
+ * @param callback Function called when the dropdown opens.
+ */
+
+/**
+ * Set a callback invoked when the dropdown is closed.
+ *
+ * @param callback Function called when the dropdown closes.
+ */
+
+/**
+ * Called when the mouse pointer enters the component's area.
+ */
+
+/**
+ * Called when the mouse pointer leaves the component's area.
+ */
+
+/**
+ * Handle a mouse event targeted at this component.
+ *
+ * @param event Mouse event data.
+ * @returns True if the event was consumed, false otherwise.
+ */
+
+/**
+ * Render the dropdown control.
+ *
+ * @param renderer Renderer used to draw the component.
+ */
+
+/**
+ * Handle a keyboard event when this component has focus.
+ *
+ * @param event Key event data.
+ * @returns True if the event was consumed, false otherwise.
+ */
+
+/**
+ * Update the dropdown state; called periodically with elapsed time.
+ *
+ * @param deltaTime Time in seconds since the last update.
+ */
 namespace NomadUI {
 
     struct DropdownItem {

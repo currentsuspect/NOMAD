@@ -190,6 +190,14 @@ void TransportBar::setTempo(float bpm) {
     }
 }
 
+/**
+ * @brief Set the transport's playback position and update the visible timer.
+ *
+ * Sets the playback position to the given seconds (negative values are clamped to 0)
+ * and updates the transport's timer display if an info container is present.
+ *
+ * @param seconds Desired playback position in seconds; values less than 0 set the position to 0.
+ */
 void TransportBar::setPosition(double seconds) {
     m_position = std::max(0.0, seconds);
     if (m_infoContainer) {
@@ -197,6 +205,14 @@ void TransportBar::setPosition(double seconds) {
     }
 }
 
+/**
+ * @brief Synchronizes transport control button visuals and enabled states with the current transport state.
+ *
+ * Clears any textual content on the play, stop, and record buttons and updates their enabled state:
+ * - Play button is enabled.
+ * - Stop button is enabled only when the transport state is not Stopped.
+ * - Record button is disabled (recording not implemented).
+ */
 void TransportBar::updateButtonStates() {
     // Clear textual fallbacks (we render SVG icons instead)
     if (m_playButton) {
@@ -216,6 +232,17 @@ void TransportBar::updateButtonStates() {
     }
 }
 
+/**
+ * @brief Render the transport control icons (play/pause, stop, record) inside the transport bar.
+ *
+ * Positions and draws each button's icon using the current transport state, hover state, and theme
+ * layout dimensions. Color rules:
+ * - Play/Pause: bright green when playing, dull grey when the play button is hovered, theme "accent" otherwise.
+ * - Stop: dull grey when hovered, theme "accent" otherwise.
+ * - Record: always uses the theme "error" color.
+ *
+ * @param renderer Renderer used to draw the icons.
+ */
 void TransportBar::renderButtonIcons(NomadUI::NUIRenderer& renderer) {
     NomadUI::NUIRect bounds = getBounds();
 

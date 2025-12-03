@@ -11,7 +11,46 @@
 #include <sstream>
 #include <chrono>
 
-namespace NomadUI {
+/**
+     * Clamp a value to the inclusive [min, max] range.
+     * @tparam T Type of the value.
+     * @param value Value to clamp.
+     * @param min Lower bound of the range.
+     * @param max Upper bound of the range.
+     * @returns The clamped value: `min` if `value < min`, `max` if `value > max`, otherwise `value`.
+     */
+    
+    /**
+     * 2D point with x and y coordinates.
+     *
+     * Default-initialized to (0, 0).
+     */
+    
+    /**
+     * 2D size with width and height.
+     *
+     * Default-initialized to (0, 0).
+     */
+    
+    /**
+     * Axis-aligned rectangle defined by top-left corner (x, y) and size (width, height).
+     *
+     * Coordinates use left/top inclusive and right/bottom exclusive semantics for containment.
+     */
+    
+    /**
+     * Check whether a point lies inside this rectangle using left/top inclusive and right/bottom exclusive edges.
+     * @param px X coordinate of the point to test.
+     * @param py Y coordinate of the point to test.
+     * @returns `true` if `px` is in [x, x + width) and `py` is in [y, y + height), `false` otherwise.
+     */
+    
+    /**
+     * Add two points component-wise.
+     * @param other Point to add.
+     * @returns A new `NUIPoint` whose `x` is `this->x + other.x` and `y` is `this->y + other.y`.
+     */
+    namespace NomadUI {
 
 // Utility functions
 template <typename T>
@@ -671,13 +710,14 @@ inline NUIRect NUIUnionRects(const std::vector<NUIRect>& rects) {
 }
 
 /**
- * @brief Check if two rects intersect
+ * Determines whether two axis-aligned rectangles overlap.
  *
- * Useful for hit testing or invalidation optimization.
+ * Rect edges are treated with inclusive left/top and exclusive right/bottom semantics:
+ * a rectangle at (x,y,width,height) includes points where x <= px < x+width and y <= py < y+height.
  *
- * @param a First rect
- * @param b Second rect
- * @return true if rects overlap
+ * @param a First rectangle.
+ * @param b Second rectangle.
+ * @returns `true` if the rectangles overlap, `false` otherwise.
  */
 inline bool NUIRectsIntersect(const NUIRect& a, const NUIRect& b) {
     return !(a.x + a.width < b.x || b.x + b.width < a.x ||
@@ -725,13 +765,26 @@ T radiansToDegrees(T radians) {
     return radians * rad2deg<T>;
 }
 
-// Distance calculations
+/**
+ * Compute the Euclidean distance between two 2D points.
+ *
+ * @param a First point.
+ * @param b Second point.
+ * @returns The straight-line distance between `a` and `b`.
+ */
 inline float distance(const NUIPoint& a, const NUIPoint& b) {
     float dx = b.x - a.x;
     float dy = b.y - a.y;
     return std::sqrt(dx * dx + dy * dy);
 }
 
+/**
+ * Compute squared Euclidean distance between two 2D points.
+ *
+ * @param a First point.
+ * @param b Second point.
+ * @returns Squared distance between `a` and `b` (i.e., (dx*dx + dy*dy)).
+ */
 inline float distanceSquared(const NUIPoint& a, const NUIPoint& b) {
     float dx = b.x - a.x;
     float dy = b.y - a.y;
@@ -756,12 +809,25 @@ struct NUIRectangleInt {
     int bottom() const { return y + height; }
 };
 
-// Rectangle expansion and contraction
+/**
+ * Expand or contract a rectangle by a uniform amount on all sides.
+ * @param rect The source rectangle to modify.
+ * @param amount Positive values expand the rectangle outward; negative values contract it inward.
+ * @returns A new NUIRect expanded (or contracted when `amount` is negative) by `amount` on each side.
+ */
 inline NUIRect expandRect(const NUIRect& rect, float amount) {
     return NUIRect(rect.x - amount, rect.y - amount, 
                    rect.width + amount * 2.0f, rect.height + amount * 2.0f);
 }
 
+/**
+ * Compute the axis-aligned intersection of two rectangles.
+ *
+ * @param a First rectangle.
+ * @param b Second rectangle.
+ * @returns The rectangle representing the overlapping area of `a` and `b`. If there is no overlap,
+ *          returns an empty NUIRect whose width and height are zero.
+ */
 inline NUIRect intersectRects(const NUIRect& a, const NUIRect& b) {
     float left = std::max(a.x, b.x);
     float top = std::max(a.y, b.y);
@@ -775,6 +841,13 @@ inline NUIRect intersectRects(const NUIRect& a, const NUIRect& b) {
     return NUIRect(left, top, right - left, bottom - top);
 }
 
+/**
+ * Compute the smallest axis-aligned rectangle that contains both input rectangles.
+ *
+ * @param a First rectangle.
+ * @param b Second rectangle.
+ * @returns A rectangle representing the bounding box that contains both `a` and `b`.
+ */
 inline NUIRect unionRects(const NUIRect& a, const NUIRect& b) {
     float left = std::min(a.x, b.x);
     float top = std::min(a.y, b.y);
@@ -831,7 +904,12 @@ struct NUIColorHSV {
     NUIColorHSV(float h, float s, float v, float a = 1.0f) : h(h), s(s), v(v), a(a) {}
 };
 
-// Convert RGB to HSV
+/**
+ * Convert an RGBA color to HSV color space.
+ *
+ * @param rgb RGBA color where `r`, `g`, `b` are in [0,1] and `a` is alpha.
+ * @returns NUIColorHSV with `h` in [0,360), `s` and `v` in [0,1], and `a` preserved from `rgb`.
+ */
 inline NUIColorHSV rgbToHsv(const NUIColor& rgb) {
     float r = rgb.r, g = rgb.g, b = rgb.b;
     float max = std::max({r, g, b});
@@ -856,7 +934,11 @@ inline NUIColorHSV rgbToHsv(const NUIColor& rgb) {
     return NUIColorHSV(h, s, v, rgb.a);
 }
 
-// Convert HSV to RGB
+/**
+ * Convert an HSV color to an RGB NUIColor.
+ * @param hsv HSV color where `h` is hue in degrees (values wrap around 360), `s` (saturation) and `v` (value) are expected in the range [0,1], and `a` is alpha.
+ * @returns NUIColor representing the equivalent color in RGB space with the same alpha as `hsv`.
+ */
 inline NUIColor hsvToRgb(const NUIColorHSV& hsv) {
     float c = hsv.v * hsv.s;
     float x = c * (1.0f - std::abs(fmodf(hsv.h / 60.0f, 2.0f) - 1.0f));
@@ -896,6 +978,11 @@ struct NUIStringUtils {
         return tokens;
     }
     
+    /**
+     * Remove leading and trailing ASCII whitespace characters (space, tab, newline, carriage return) from a string.
+     * @param str Input string to trim.
+     * @returns std::string containing the input without leading or trailing whitespace; empty if the input contains only whitespace.
+     */
     static std::string trim(const std::string& str) {
         const std::string whitespace = " \t\n\r";
         size_t start = str.find_first_not_of(whitespace);
@@ -905,22 +992,44 @@ struct NUIStringUtils {
         return str.substr(start, end - start + 1);
     }
     
+    /**
+     * Checks whether a string begins with a specified prefix.
+     * @param str The string to check.
+     * @param prefix The prefix to look for at the start of `str`.
+     * @returns `true` if `str` begins with `prefix`, `false` otherwise.
+     */
     static bool startsWith(const std::string& str, const std::string& prefix) {
         return str.size() >= prefix.size() && 
                str.compare(0, prefix.size(), prefix) == 0;
     }
     
+    /**
+     * Determine whether a string ends with a given suffix.
+     * @param str The string to test.
+     * @param suffix The suffix to look for at the end of `str`.
+     * @returns `true` if `str` ends with `suffix`, `false` otherwise.
+     */
     static bool endsWith(const std::string& str, const std::string& suffix) {
         return str.size() >= suffix.size() && 
                str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
     }
     
+    /**
+     * Convert a UTF-8 string to lowercase using the C locale.
+     *
+     * @return Lowercased copy of the input string.
+     */
     static std::string toLower(const std::string& str) {
         std::string result = str;
         std::transform(result.begin(), result.end(), result.begin(), ::tolower);
         return result;
     }
     
+    /**
+     * Convert all characters in a string to uppercase.
+     * @param str Input string to convert.
+     * @returns A new string with each character from `str` converted to uppercase.
+     */
     static std::string toUpper(const std::string& str) {
         std::string result = str;
         std::transform(result.begin(), result.end(), result.begin(), ::toupper);
@@ -930,7 +1039,17 @@ struct NUIStringUtils {
 
 // ============================================================================
 // File System Utilities
-// ============================================================================
+/**
+     * Extracts the file extension from a filesystem path.
+     * @param path The file path or name to inspect.
+     * @returns The substring after the last '.' in `path`, or an empty string if no '.' is present.
+     */
+    
+    /**
+     * Extracts the filename component from a filesystem path.
+     * @param path The file path to inspect.
+     * @returns The substring after the last '/' or '\' in `path`; returns `path` unchanged if no directory separator is present.
+     */
 
 struct NUIFileUtils {
     static std::string getExtension(const std::string& path) {
@@ -945,12 +1064,26 @@ struct NUIFileUtils {
         return path.substr(slash + 1);
     }
     
+    /**
+     * Extracts the directory component from a filesystem path.
+     *
+     * @param path Path string which may contain forward (`/`) or back (`\`) separators.
+     * @returns Directory portion of `path` without the trailing separator, or an empty string if `path` contains no directory component.
+     */
     static std::string getDirectory(const std::string& path) {
         size_t slash = path.find_last_of("/\\");
         if (slash == std::string::npos) return "";
         return path.substr(0, slash);
     }
     
+    /**
+     * Extracts the filename portion of a path and removes its final extension.
+     *
+     * If the filename contains no dot, the original filename is returned unchanged.
+     *
+     * @param path File path from which to extract the filename.
+     * @returns The filename with the last `.<extension>` removed, or the original filename if no extension exists.
+     */
     static std::string getFilenameWithoutExtension(const std::string& path) {
         std::string filename = getFilename(path);
         size_t dot = filename.find_last_of(".");
@@ -971,7 +1104,18 @@ struct NUIDeviceInfo {
     bool isHighDPI = false;
 };
 
-struct NUIDisplayMetrics {
+/**
+     * Get the current display DPI scale.
+     *
+     * @returns The UI scale factor derived from the current DPI; returns 1.0 when a platform-specific DPI is not available.
+     */
+    /**
+     * Convert a DPI value into a UI scale factor relative to 96 DPI.
+     *
+     * @param dpi Dots per inch to convert.
+     * @returns Scale factor computed as dpi / 96.0.
+     */
+    struct NUIDisplayMetrics {
     static float getDPIScale() {
         // This would be platform-specific in a real implementation
         return 1.0f; // Default fallback
@@ -981,6 +1125,12 @@ struct NUIDisplayMetrics {
         return dpi / 96.0f;
     }
     
+    /**
+     * Compute the inverse UI scale factor for a given DPI.
+     *
+     * @param dpi Dots per inch used to compute the scale.
+     * @returns The inverse scale factor where 96 DPI maps to 1.0 (computed as 96.0 / dpi).
+     */
     static float invScaleFromDPI(float dpi) {
         return 96.0f / dpi;
     }
@@ -988,52 +1138,165 @@ struct NUIDisplayMetrics {
 
 // ============================================================================
 // Animation and Easing
-// ============================================================================
+/**
+     * Quadratic ease-in timing function.
+     * @param t Normalized progress value in the range [0, 1].
+     * @returns Eased progress where acceleration starts slowly and increases quadratically.
+     */
+    
+    /**
+     * Quadratic ease-out timing function.
+     * @param t Normalized progress value in the range [0, 1].
+     * @returns Eased progress where deceleration occurs, finishing slowly with quadratic curve.
+     */
 
 struct NUIAnimationCurve {
     static float easeInQuad(float t) { return t * t; }
     static float easeOutQuad(float t) { return t * (2.0f - t); }
-    static float easeInOutQuad(float t) { return t < 0.5f ? 2.0f * t * t : -1.0f + (4.0f - 2.0f * t) * t; }
+    /**
+ * Compute a quadratic ease-in-out interpolation value for a normalized time parameter.
+ * @param t Normalized time, typically in the range [0, 1].
+ * @returns Eased interpolation value in the range [0, 1], where 0 corresponds to the start and 1 to the end.
+ */
+static float easeInOutQuad(float t) { return t < 0.5f ? 2.0f * t * t : -1.0f + (4.0f - 2.0f * t) * t; }
     
-    static float easeInCubic(float t) { return t * t * t; }
-    static float easeOutCubic(float t) { return (--t) * t * t + 1.0f; }
-    static float easeInOutCubic(float t) { return t < 0.5f ? 4.0f * t * t * t : (t - 1.0f) * (2.0f * t - 2.0f) * (2.0f * t - 2.0f) + 1.0f; }
+    /**
+ * Applies a cubic ease-in curve to a normalized progress value.
+ * @param t Normalized input progress (typically in the range [0, 1]).
+ * @returns The eased progress value (output increases with cubic acceleration, typically in [0, 1]).
+ */
+static float easeInCubic(float t) { return t * t * t; }
+    /**
+ * Apply a cubic ease-out easing to a normalized progress value.
+ *
+ * @param t Normalized progress in [0, 1].
+ * @returns Eased progress value in [0, 1], where progression decelerates toward 1.
+ */
+static float easeOutCubic(float t) { return (--t) * t * t + 1.0f; }
+    /**
+ * Compute a cubic ease-in-out interpolation for the input parameter.
+ * @param t Interpolation factor (typically in the range [0, 1]); values outside that range will extrapolate.
+ * @returns Eased interpolation value corresponding to `t` (0 at start, 1 at end for the standard [0,1] range).
+ */
+static float easeInOutCubic(float t) { return t < 0.5f ? 4.0f * t * t * t : (t - 1.0f) * (2.0f * t - 2.0f) * (2.0f * t - 2.0f) + 1.0f; }
     
-    static float easeInQuart(float t) { return t * t * t * t; }
-    static float easeOutQuart(float t) { return 1.0f - (--t) * t * t * t; }
-    static float easeInOutQuart(float t) { return t < 0.5f ? 8.0f * t * t * t * t : 1.0f - 8.0f * (--t) * t * t * t; }
+    /**
+ * Apply a quartic ease-in curve to a normalized progression value.
+ * @param t Normalized progress in the range [0, 1].
+ * @returns The eased progress value computed as t^4.
+ */
+static float easeInQuart(float t) { return t * t * t * t; }
+    /**
+ * Ease-out quartic easing function.
+ * 
+ * @param t Normalized input progress in the range [0, 1].
+ * @returns Interpolated progress eased with a quartic ease-out curve in the range [0, 1].
+ */
+static float easeOutQuart(float t) { return 1.0f - (--t) * t * t * t; }
+    /**
+ * Eases a normalized parameter using a quartic ease-in-out curve.
+ *
+ * @param t Normalized time parameter (typically in the range [0, 1]).
+ * @returns Eased value corresponding to `t`, in the range [0, 1].
+ */
+static float easeInOutQuart(float t) { return t < 0.5f ? 8.0f * t * t * t * t : 1.0f - 8.0f * (--t) * t * t * t; }
     
-    static float easeInQuint(float t) { return t * t * t * t * t; }
-    static float easeOutQuint(float t) { return 1.0f + (--t) * t * t * t * t; }
-    static float easeInOutQuint(float t) { return t < 0.5f ? 16.0f * t * t * t * t * t : 1.0f + 16.0f * (--t) * t * t * t * t; }
+    /**
+ * Ease-in quintic easing function.
+ *
+ * Maps normalized progress to an ease-in curve using a quintic polynomial.
+ * @param t Normalized time/progress in the range [0, 1].
+ * @returns Eased progress value where larger portions of change occur near the end (output = t^5).
+ */
+static float easeInQuint(float t) { return t * t * t * t * t; }
+    /**
+ * Compute an ease-out quintic easing value for a normalized time parameter.
+ *
+ * @param t Normalized time in the range [0, 1]; values outside this range will produce extrapolated results.
+ * @returns Eased progress corresponding to the input time, where 0 maps to 0 and 1 maps to 1 following an ease-out quint curve.
+ */
+static float easeOutQuint(float t) { return 1.0f + (--t) * t * t * t * t; }
+    /**
+ * Compute a quintic ease-in-out value for a normalized progress parameter.
+ *
+ * Maps an input progress `t` (typically in the range 0 to 1) to an eased progress
+ * using a quintic (power of five) ease-in-out curve.
+ *
+ * @param t Normalized input progress where 0 represents start and 1 represents end.
+ * @returns Eased progress value corresponding to `t`, with 0 at the start and 1 at the end.
+ */
+static float easeInOutQuint(float t) { return t < 0.5f ? 16.0f * t * t * t * t * t : 1.0f + 16.0f * (--t) * t * t * t * t; }
     
-    // Sine-based easing
+    /**
+ * Sine-based ease-in easing function that produces an accelerating curve from 0.
+ * @param t Normalized progress in the range [0, 1].
+ * @returns Eased progress value in the range [0, 1], where 0 maps to 0 and 1 maps to 1.
+ */
     static float easeInSine(float t) { return 1.0f - std::cos(t * pi<float> * 0.5f); }
-    static float easeOutSine(float t) { return std::sin(t * pi<float> * 0.5f); }
-    static float easeInOutSine(float t) { return -(std::cos(pi<float> * t) - 1.0f) * 0.5f; }
+    /**
+ * Apply a sine-based ease-out curve to a normalized progress value.
+ * @param t Normalized progress in the range [0, 1].
+ * @returns Eased progress value following an ease-out sine curve (0 at t == 0, 1 at t == 1).
+ */
+static float easeOutSine(float t) { return std::sin(t * pi<float> * 0.5f); }
+    /**
+ * Ease-in-out using a sine curve, producing a smooth start and end.
+ * @param t Progression in the range [0, 1].
+ * @returns Eased progression value in the range [0, 1].
+ */
+static float easeInOutSine(float t) { return -(std::cos(pi<float> * t) - 1.0f) * 0.5f; }
     
-    // Exponential easing
+    /**
+ * Compute an exponential "ease-in" curve value for a normalized progression.
+ *
+ * @param t Progression parameter (expected in the range [0, 1]; 0 = start, 1 = end).
+ * @returns Eased progression: `0` when `t == 0`, otherwise `2^(10*(t - 1))`, producing a rapidly accelerating curve. 
+ */
     static float easeInExpo(float t) { return t == 0.0f ? 0.0f : std::pow(2.0f, 10.0f * (t - 1.0f)); }
-    static float easeOutExpo(float t) { return t == 1.0f ? 1.0f : 1.0f - std::pow(2.0f, -10.0f * t); }
+    /**
+ * Exponential ease-out interpolation for a progress value.
+ * @param t Progress in the range [0, 1].
+ * @returns Eased value in [0, 1]; returns 0 when `t` is 0 and 1 when `t` is 1.
+ */
+static float easeOutExpo(float t) { return t == 1.0f ? 1.0f : 1.0f - std::pow(2.0f, -10.0f * t); }
+    /**
+     * Compute an exponential ease-in-out value for a normalized progress.
+     * @param t Normalized progress in the range [0, 1].
+     * @returns Eased progress in the range [0, 1].
+     */
     static float easeInOutExpo(float t) {
         if (t == 0.0f || t == 1.0f) return t;
         if (t < 0.5f) return 0.5f * std::pow(2.0f, 20.0f * t - 10.0f);
         return 1.0f - 0.5f * std::pow(2.0f, -20.0f * t + 10.0f);
     }
     
-    // Back easing (overshoot)
+    /**
+     * Produces an ease-in "back" easing value that begins with a slight backward overshoot.
+     * @param t Normalized input progress (typically in the range 0 to 1).
+     * @returns Eased progress value; starts slightly below 0 for small `t` (backward overshoot) and equals 1 at `t == 1`.
+     */
     static float easeInBack(float t) {
         float c1 = 1.70158f;
         float c3 = c1 + 1.0f;
         return c3 * t * t * t - c1 * t * t;
     }
     
+    /**
+     * Ease-out "back" easing that approaches the end value with a slight overshoot.
+     * @param t Normalized progress in the range [0, 1], where 0 is start and 1 is end.
+     * @returns Eased progress value where the result approaches 1 and briefly exceeds it (overshoot) before settling.
+     */
     static float easeOutBack(float t) {
         float c1 = 1.70158f;
         float c3 = c1 + 1.0f;
         return 1.0f + c3 * std::pow(t - 1.0f, 3.0f) + c1 * std::pow(t - 1.0f, 2.0f);
     }
     
+    /**
+     * Applies an ease-in-out "back" easing curve to a normalized progress parameter.
+     * 
+     * @param t Normalized input progress, typically in the range [0, 1].
+     * @returns Eased progress value where 0 corresponds to start (t == 0) and 1 corresponds to end (t == 1). */
     static float easeInOutBack(float t) {
         float c1 = 1.70158f;
         float c2 = c1 * 1.525f;
@@ -1070,6 +1333,12 @@ struct NUIProfiler {
         return duration.count() / 1000000.0;
     }
     
+    /**
+     * Compute the elapsed time between two time points in microseconds.
+     * @param start Start time point.
+     * @param end End time point.
+     * @returns Number of microseconds elapsed from `start` to `end`.
+     */
     static long long elapsedMicroseconds(const TimePoint& start, const TimePoint& end) {
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         return duration.count();
@@ -1093,7 +1362,13 @@ public:
     bool hasValue() const { return hasValue_; }
     const T& value() const { return value_; }
     T& value() { return value_; }
-    const T& valueOr(const T& defaultValue) const { return hasValue_ ? value_ : defaultValue; }
+    /**
+ * Return the contained value if present, otherwise the provided default.
+ *
+ * @param defaultValue Value to return when the optional has no value.
+ * @returns `const T&` The stored value when present, or `defaultValue` when empty.
+ */
+const T& valueOr(const T& defaultValue) const { return hasValue_ ? value_ : defaultValue; }
 };
 
 template<typename T>
@@ -1128,6 +1403,13 @@ struct NUIMemory {
         }
     }
     
+    /**
+     * Retrieve the current process memory usage in bytes.
+     *
+     * On platforms where memory usage cannot be determined this function returns 0.
+     *
+     * @returns Current memory usage of the process in bytes, or 0 if unavailable.
+     */
     static size_t getMemoryUsage() {
         // Platform-specific implementation would go here
         return 0;

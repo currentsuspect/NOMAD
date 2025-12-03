@@ -61,6 +61,15 @@ namespace NomadUI {
         clearAll();
     }
 
+    /**
+     * @brief Retrieve an existing per-widget cached render target or create one sized to the requested dimensions.
+     *
+     * If caching is disabled or creating a new cache would exceed the configured memory budget, no cache is created and the function returns `nullptr`.
+     *
+     * @param widgetId Identifier of the widget whose cache is requested.
+     * @param size Desired size for the cache; if an existing cache has a different size, its framebuffer is recreated to match this size.
+     * @return CachedRenderData* Pointer to the existing or newly created cache for `widgetId`, or `nullptr` if caching is disabled or creation was skipped due to memory budget limits.
+     */
     CachedRenderData* NUIRenderCache::getOrCreateCache(uint64_t widgetId, const NUISize& size) {
         if (!m_enabled) return nullptr;
 
@@ -237,6 +246,13 @@ namespace NomadUI {
         cache->ownsTexture = true;
     }
 
+    /**
+     * @brief Prepare and begin rendering into the provided cached framebuffer.
+     *
+     * Saves the current GL framebuffer binding, viewport, draw/read buffer and clear-color state, and the scissor test state; then binds the cache's FBO, sets the viewport to the cache size, directs drawing to the cache's color attachment, disables scissor testing, clears the color buffer, marks the cache as invalid and active, and signals the renderer to begin offscreen rendering for the cache size (if a renderer is present).
+     *
+     * @param cache Pointer to the CachedRenderData whose framebuffer will be used. If `nullptr` or if `cache->framebufferId` is zero, the function is a no-op.
+     */
     void NUIRenderCache::beginCacheRender(CachedRenderData* cache) {
         if (!cache || cache->framebufferId == 0) {
             m_activeCache = nullptr;
@@ -308,6 +324,17 @@ namespace NomadUI {
         }
     }
 
+    /**
+     * @brief Finalizes an offscreen cache render and restores GL and renderer state.
+     *
+     * Completes the active cache render by restoring the previously bound framebuffer,
+     * viewport, draw/read buffer and clear color (if they were changed), restoring
+     * the caller's scissor test state and scissor box, invoking the renderer's
+     * endOffscreen hook if present, marking the active cache as valid, and clearing
+     * the internal "render in progress" state.
+     *
+     * This function is a no-op if no cache render is currently in progress.
+     */
     void NUIRenderCache::endCacheRender() {
         if (!m_renderInProgress) {
             return;
@@ -361,6 +388,17 @@ namespace NomadUI {
         glCheckLog("endCacheRender", m_debug);
     }
 
+    /**
+     * @brief Renders a cached framebuffer texture into the given destination rectangle.
+     *
+     * If the provided cache is null, marked invalid, or has no renderer-managed texture,
+     * the function performs no drawing.
+     *
+     * @param cache Pointer to the cached render data whose texture will be drawn. Must be non-null and valid to produce output.
+     * @param destRect Destination rectangle in UI coordinates where the cached content should be rendered.
+     *
+     * The renderer-managed texture, when used, is sampled with a vertical flip to match the UI's top-left origin.
+     */
     void NUIRenderCache::renderCached(const CachedRenderData* cache, const NUIRect& destRect) {
         if (!cache || !cache->valid) return;
 
@@ -375,6 +413,17 @@ namespace NomadUI {
         // If no renderer texture is available, skip rendering rather than using deprecated immediate mode.
     }
 
+    /**
+     * @brief Ensure the given cache is current and render its contents to the destination rectangle.
+     *
+     * If the cache is not valid and a renderer plus a `renderCallback` are available, the callback
+     * is executed once to update the cache via an offscreen render; afterwards (or if the cache
+     * was already valid) the cached texture is rendered into `destRect`.
+     *
+     * @param cache Pointer to the cached render data to update and render. If null, the function does nothing.
+     * @param destRect Destination rectangle in which to draw the cached content.
+     * @param renderCallback Callback invoked to produce the cache contents when an update is required.
+     */
     void NUIRenderCache::renderCachedOrUpdate(CachedRenderData* cache, const NUIRect& destRect,
                                               const std::function<void()>& renderCallback) {
         if (!cache) return;

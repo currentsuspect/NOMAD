@@ -15,6 +15,15 @@ NUIButton::NUIButton(const std::string& text)
     setSize(100, 32); // Default size
 }
 
+/**
+ * @brief Renders the button according to its current style, state, and theme.
+ *
+ * Draws the button's background, optional shadow, top sheen, border (when applicable),
+ * and centered text using the current theme colors and the control's properties
+ * (style, enabled, hovered/pressed/disabled state, toggle/toggled state, and any
+ * explicit color overrides). Rendering respects bounds and performs no drawing
+ * when the button's bounds are empty.
+ */
 void NUIButton::onRender(NUIRenderer& renderer)
 {
     // Instrument button rendering cost

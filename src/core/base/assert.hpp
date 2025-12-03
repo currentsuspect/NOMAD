@@ -24,7 +24,21 @@ namespace nomad {
 using AssertHandler = void(*)(const char* expression, const char* message, 
                                const char* file, int line, const char* function);
 
-/// Default assertion handler that prints to stderr and aborts
+/**
+ * @brief Default assertion handler used when an assertion fails.
+ *
+ * Prints a formatted assertion failure message to `std::cerr` containing the
+ * expression, optional message, source file, line number, and function name,
+ * then terminates the process by calling `std::abort()`.
+ *
+ * @param expression The asserted expression as a C-string.
+ * @param message Optional message describing the failure; may be `nullptr`.
+ * @param file Source file path where the assertion failed.
+ * @param line Line number in the source file.
+ * @param function Function name or signature containing the assertion.
+ *
+ * @note This function does not return; it terminates the program via `std::abort()`.
+ */
 inline void defaultAssertHandler(const char* expression, const char* message,
                                   const char* file, int line, const char* function) {
     std::cerr << "\n"
@@ -40,18 +54,35 @@ inline void defaultAssertHandler(const char* expression, const char* message,
     std::abort();
 }
 
-/// Global assertion handler (can be replaced for custom handling)
+/**
+ * @brief Accesses the global assertion handler.
+ *
+ * @return AssertHandler& Reference to the current global assertion handler; writing to this reference replaces the global handler.
+ */
 inline AssertHandler& getAssertHandler() {
     static AssertHandler handler = defaultAssertHandler;
     return handler;
 }
 
-/// Set a custom assertion handler
+/**
+ * @brief Install the global handler invoked on assertion failures.
+ *
+ * @param handler Function to be called when an assertion fails; if `handler` is `nullptr`,
+ *                the global handler is reset to `defaultAssertHandler`.
+ */
 inline void setAssertHandler(AssertHandler handler) {
     getAssertHandler() = handler ? handler : defaultAssertHandler;
 }
 
-/// Trigger an assertion failure
+/**
+ * @brief Invoke the currently registered assertion handler with failure context.
+ *
+ * @param expression The asserted expression as a null-terminated C string.
+ * @param message Optional additional message providing context; may be null.
+ * @param file Source file path where the assertion failed.
+ * @param line Source line number where the assertion failed.
+ * @param function Function name or signature where the assertion failed.
+ */
 inline void assertFailed(const char* expression, const char* message,
                          const char* file, int line, const char* function) {
     getAssertHandler()(expression, message, file, line, function);

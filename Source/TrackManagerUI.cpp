@@ -694,6 +694,18 @@ void TrackManagerUI::onResize(int width, int height) {
     NomadUI::NUIComponent::onResize(width, height);
 }
 
+/**
+ * @brief Handle mouse interactions for the track manager UI.
+ *
+ * Processes mouse wheel zooming on the time ruler, playhead scrubbing (click-and-drag on the ruler),
+ * vertical scrolling of the track grid, icon hover and click actions (close/minimize/maximize),
+ * and delegates remaining events to child components. Updates UI state such as zoom (pixels per beat),
+ * timeline scroll offset, vertical scroll offset, playhead position on the TrackManager, track selection,
+ * icon hover states, scrollbar ranges, and cache invalidation flags as needed.
+ *
+ * @param event Mouse event to handle.
+ * @return bool `true` if the event was handled by this component, `false` otherwise.
+ */
 bool TrackManagerUI::onMouseEvent(const NomadUI::NUIMouseEvent& event) {
     NomadUI::NUIRect bounds = getBounds();
     NomadUI::NUIPoint localPos(event.position.x - bounds.x, event.position.y - bounds.y);
@@ -924,6 +936,13 @@ void TrackManagerUI::onScroll(double position) {
     invalidateCache();  // ⚡ Mark cache dirty
 }
 
+/**
+ * @brief Updates the horizontal scrollbar range, visible window, and auto-hide state to match the current timeline extent and layout.
+ *
+ * Computes the timeline pixel extent from the longest clip duration and the UI zoom (pixels per beat), applies 50% end headroom and a minimum width of three visible screens, and then updates the scrollbar's range, current visible range (anchored at m_timelineScrollOffset) and auto-hide flag based on the visible grid width.
+ *
+ * Note: tempo is used to convert seconds to beats; currently a fixed 120 BPM is used for that conversion.
+ */
 void TrackManagerUI::updateHorizontalScrollbar() {
     if (!m_horizontalScrollbar) return;
     
@@ -971,6 +990,24 @@ void TrackManagerUI::deselectAllTracks() {
     }
 }
 
+/**
+ * @brief Renders the horizontal time ruler and its grid for the playlist area.
+ *
+ * Draws the ruler background, a dark grid area aligned with the track content, vertical bar lines,
+ * beat subdivision ticks, and centered bar number labels. Positions and spacing are computed from
+ * the UI's timeline state (pixels per beat, beats per bar, and timeline scroll offset) so the ruler
+ * stays synchronized with the track content during zooming and horizontal scrolling.
+ *
+ * @param renderer Renderer used to draw shapes and text.
+ * @param rulerBounds Bounding rectangle, in UI coordinates, of the full ruler area to render into.
+ *
+ * Notes:
+ * - The grid start and width are computed to align with the track content area and take the vertical
+ *   scrollbar into account.
+ * - Bar labels are centered on bar grid lines and are culled asymmetrically (tight on the left,
+ *   generous on the right) to avoid visual bleeding while allowing smooth scrolling.
+ * - This function does not set a clipping rectangle due to current UI→window coordinate limitations.
+ */
 void TrackManagerUI::renderTimeRuler(NomadUI::NUIRenderer& renderer, const NomadUI::NUIRect& rulerBounds) {
     auto& themeManager = NomadUI::NUIThemeManager::getInstance();
     auto borderColor = themeManager.getColor("borderColor");
@@ -1195,7 +1232,20 @@ void TrackManagerUI::renderPlayhead(NomadUI::NUIRenderer& renderer) {
     }
 }
 
-// ⚡ MULTI-LAYER CACHING IMPLEMENTATION
+/**
+ * @brief Rebuilds the cached background texture for static playlist UI elements.
+ *
+ * Recreates an offscreen texture containing the control-area background, header, time
+ * ruler (ticks and bar numbers), and grid background so these static visuals can be
+ * reused while dynamic elements (playhead, tracks, controls) are rendered separately.
+ *
+ * @param renderer Renderer used to draw into the offscreen texture.
+ *
+ * @details
+ * On success the new texture id is stored in `m_backgroundTextureId` and `m_backgroundNeedsUpdate`
+ * is cleared. If the cached dimensions are non-positive or the renderer fails to allocate the
+ * texture, the function clears `m_backgroundNeedsUpdate` to avoid repeated allocation attempts.
+ */
 
 void TrackManagerUI::updateBackgroundCache(NomadUI::NUIRenderer& renderer) {
     rmt_ScopedCPUSample(TrackMgr_UpdateBgCache, 0);

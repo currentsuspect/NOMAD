@@ -100,7 +100,13 @@ void AudioThreadPool::workerThread() {
 
 //==============================================================================
 // TrackManager Implementation
-//==============================================================================
+/**
+ * @brief Constructs a TrackManager and initializes the audio processing thread pool.
+ *
+ * Creates an AudioThreadPool sized for real-time audio work by selecting an optimal
+ * thread count between 2 and 8 based on available hardware concurrency (leaving one
+ * core free for the OS/UI). Logs the created thread count.
+ */
 
 TrackManager::TrackManager() {
     // Create thread pool with optimal thread count
@@ -131,7 +137,16 @@ void TrackManager::setThreadCount(size_t count) {
     Log::info("TrackManager thread count set to: " + std::to_string(count));
 }
 
-// Track Management
+/**
+ * @brief Creates and registers a new Track, pre-allocating its per-track audio buffer.
+ *
+ * If `name` is empty a display name is generated. The new Track is appended to the manager's
+ * internal list, a unique track ID is assigned, and a per-track buffer of size
+ * MAX_AUDIO_BUFFER_SIZE * 2 initialized to zero is reserved to avoid allocations during audio processing.
+ *
+ * @param name Desired display name for the track; pass an empty string to use an auto-generated name.
+ * @return std::shared_ptr<Track> Shared pointer to the newly created Track.
+ */
 std::shared_ptr<Track> TrackManager::addTrack(const std::string& name) {
     std::string trackName = name.empty() ? generateTrackName() : name;
     uint32_t trackId = m_nextTrackId.fetch_add(1);
@@ -166,6 +181,14 @@ std::shared_ptr<const Track> TrackManager::getTrack(size_t index) const {
     return nullptr;
 }
 
+/**
+ * @brief Removes the track at the given index and its associated pre-allocated buffer.
+ *
+ * If the index is valid, the track is removed from the manager and the corresponding
+ * per-track buffer (if present) is erased; the operation is a no-op for out-of-range indices.
+ *
+ * @param index Zero-based index of the track to remove.
+ */
 void TrackManager::removeTrack(size_t index) {
     if (index < m_tracks.size()) {
         std::string trackName = m_tracks[index]->getName();
@@ -180,6 +203,12 @@ void TrackManager::removeTrack(size_t index) {
     }
 }
 
+/**
+ * @brief Stops any ongoing recordings, removes all tracks, and clears per-track buffers.
+ *
+ * Ensures any track currently recording is stopped, then empties the track list and
+ * the preallocated per-track audio buffers.
+ */
 void TrackManager::clearAllTracks() {
     for (auto& track : m_tracks) {
         if (track->isRecording()) {
@@ -259,7 +288,15 @@ void TrackManager::record() {
     }
 }
 
-// Position Control
+/**
+ * @brief Set the global playhead position and update all tracks' relative positions.
+ *
+ * Updates the manager's playhead to the specified time (clamped to zero or greater),
+ * sets each track's internal position relative to that track's start position on the timeline
+ * (clamped to zero), and invokes the position update callback if one is bound.
+ *
+ * @param seconds New playhead position in seconds (values less than 0 are treated as 0).
+ */
 void TrackManager::setPosition(double seconds) {
     seconds = std::max(0.0, seconds);
     m_positionSeconds.store(seconds);
@@ -276,6 +313,11 @@ void TrackManager::setPosition(double seconds) {
     }
 }
 
+/**
+ * @brief Compute the duration of the longest track among all managed tracks.
+ *
+ * @return double The maximum track duration in seconds; returns 0.0 if no tracks exist.
+ */
 double TrackManager::getTotalDuration() const {
     double maxDuration = 0.0;
     for (const auto& track : m_tracks) {
@@ -284,6 +326,14 @@ double TrackManager::getTotalDuration() const {
     return maxDuration;
 }
 
+/**
+ * @brief Compute the furthest end time (in seconds) among all tracks on the timeline.
+ *
+ * Iterates all tracks, skipping null entries, and evaluates each track's end time as
+ * start position plus duration to determine the maximum timeline extent.
+ *
+ * @return double Maximum end time in seconds across all tracks; `0.0` if there are no valid tracks.
+ */
 double TrackManager::getMaxTimelineExtent() const {
     double maxExtent = 0.0;
     for (const auto& track : m_tracks) {
@@ -295,6 +345,16 @@ double TrackManager::getMaxTimelineExtent() const {
     return maxExtent;
 }
 
+/**
+ * @brief Moves a clip's audio data and playback metadata from one track slot to another.
+ *
+ * Transfers the audio buffer, sample rate, channel count, start position on the timeline,
+ * and source path from the source track to the destination track, then clears the source track's audio data.
+ *
+ * @param fromIndex Index of the track to move the clip from.
+ * @param toIndex Index of the track to move the clip to.
+ * @return bool `true` if the clip was moved successfully; `false` if either index is out of range, if either track is null, or if both indices refer to the same track.
+ */
 bool TrackManager::moveClipToTrack(size_t fromIndex, size_t toIndex) {
     if (fromIndex >= m_tracks.size() || toIndex >= m_tracks.size()) {
         return false;
@@ -316,6 +376,19 @@ bool TrackManager::moveClipToTrack(size_t fromIndex, size_t toIndex) {
     return true;
 }
 
+/**
+ * @brief Splits a track's audio at a given time and creates a new track for the later portion.
+ *
+ * The original track is trimmed to the portion before the slice time; the returned track
+ * contains the audio after the slice and inherits the source path. The returned track's
+ * start position in the timeline is the original start plus the slice time.
+ *
+ * @param trackIndex Index of the track within the manager to slice.
+ * @param sliceTimeSeconds Time, in seconds relative to the track's start, at which to slice.
+ * @return std::shared_ptr<Track> Shared pointer to the newly created track containing the second part,
+ *         or `nullptr` if the index is invalid, the track is null, or `sliceTimeSeconds` is <= 0
+ *         or >= the track's duration.
+ */
 std::shared_ptr<Track> TrackManager::sliceClip(size_t trackIndex, double sliceTimeSeconds) {
     if (trackIndex >= m_tracks.size()) {
         return nullptr;
@@ -356,6 +429,15 @@ std::shared_ptr<Track> TrackManager::sliceClip(size_t trackIndex, double sliceTi
     return newTrack;
 }
 
+/**
+ * @brief Set a track's start position on the timeline.
+ *
+ * Clamps `newStartSeconds` to zero and updates the specified track's timeline start.
+ *
+ * @param trackIndex Index of the track to modify.
+ * @param newStartSeconds New start position in seconds (values less than 0.0 are treated as 0.0).
+ * @return true if the track exists and the start position was updated, false otherwise.
+ */
 bool TrackManager::moveClipWithinTrack(size_t trackIndex, double newStartSeconds) {
     if (trackIndex >= m_tracks.size()) return false;
     auto track = m_tracks[trackIndex];
@@ -365,7 +447,19 @@ bool TrackManager::moveClipWithinTrack(size_t trackIndex, double newStartSeconds
     return true;
 }
 
-// Audio Processing
+/**
+ * @brief Process a block of audio for the current playhead position and update the measured CPU load.
+ *
+ * This method dispatches audio rendering to either the single-threaded or multi-threaded processing
+ * path based on the TrackManager's threading configuration and track count. It uses the manager's
+ * output sample rate (falls back to 48000.0 Hz if that value is invalid) to determine the buffer
+ * duration, measures the processing time for the buffer, and stores the resulting load percentage
+ * (processing time divided by available buffer time) to m_audioLoadPercent.
+ *
+ * @param outputBuffer Pointer to an interleaved output buffer capable of holding `numFrames` frames.
+ * @param numFrames Number of audio frames to produce into `outputBuffer`.
+ * @param streamTime Host stream time in seconds corresponding to the start of this buffer.
+ */
 void TrackManager::processAudio(float* outputBuffer, uint32_t numFrames, double streamTime) {
     // Start timing
     auto startTime = std::chrono::high_resolution_clock::now();
@@ -396,6 +490,16 @@ void TrackManager::processAudio(float* outputBuffer, uint32_t numFrames, double 
     m_audioLoadPercent.store(loadPercent);
 }
 
+/**
+ * @brief Mixes all active tracks into a single interleaved stereo output buffer and advances transport position.
+ *
+ * Processes each playing track (respecting solo, mute, and system-track rules) and lets tracks mix their audio directly into the provided interleaved stereo output buffer. If a visualizer callback is registered, the function deinterleaves the master output and invokes the callback. When the transport is playing, the playback position is advanced by the processed frames; if the end of the timeline is reached the position is wrapped to start and per-track positions are reset. No output is produced when the buffer pointer is null or frame count is zero.
+ *
+ * @param outputBuffer Pointer to an interleaved stereo buffer (layout: L0, R0, L1, R1, ...) with capacity for at least `numFrames * 2` floats; caller is expected to clear/zero the buffer before calling.
+ * @param numFrames Number of frames to process per channel.
+ * @param streamTime Current stream time used for per-track processing alignment.
+ * @param outputSampleRate Output sample rate (Hz) used to compute time advancement and visualizer timing.
+ */
 void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numFrames, double streamTime, double outputSampleRate) {
     if (!outputBuffer || numFrames == 0) {
         return;
@@ -496,6 +600,19 @@ void TrackManager::processAudioSingleThreaded(float* outputBuffer, uint32_t numF
     }
 }
 
+/**
+ * @brief Renders and mixes all active tracks into the provided stereo output buffer using the thread pool.
+ *
+ * Processes each playing track in parallel into pre-allocated per-track buffers, applies solo/mute and
+ * timeline gating (system tracks always play), waits for track tasks to complete, sums per-track buffers
+ * into the interleaved stereo outputBuffer, calls the visualizer callback if registered, and advances the
+ * global playback position (handling loop wrap and invoking the position callback when looping).
+ *
+ * @param outputBuffer Interleaved stereo output buffer (L,R,L,R,...). Must be non-null and sized for numFrames*2 floats.
+ * @param numFrames Number of frames to render for this call.
+ * @param streamTime Host stream timestamp associated with this render block (passed through to per-track processing).
+ * @param outputSampleRate Sample rate of the output stream used for timing, position advancement, and visualizer callback.
+ */
 void TrackManager::processAudioMultiThreaded(float* outputBuffer, uint32_t numFrames, double streamTime, double outputSampleRate) {
     if (!outputBuffer || numFrames == 0 || !m_threadPool) {
         return;

@@ -70,6 +70,14 @@ ChannelStrip::ChannelStrip(std::shared_ptr<Track> track, TrackManager* trackMana
     layoutControls();
 }
 
+/**
+ * @brief Renders the channel strip UI including background, border, track label, level meter, and child controls.
+ *
+ * Draws the component background and border using the current UI theme, renders the associated track's name at the bottom when present,
+ * and shows a simple vertical level meter above the name based on the track's current volume (placeholder metering). Finally, it renders any child controls.
+ *
+ * @param renderer Renderer used to draw the component.
+ */
 void ChannelStrip::onRender(NomadUI::NUIRenderer& renderer) {
     auto& theme = NomadUI::NUIThemeManager::getInstance();
     auto bounds = getBounds();

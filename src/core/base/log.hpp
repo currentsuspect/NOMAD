@@ -45,7 +45,12 @@ enum class Level : u8 {
     Off   = 6   ///< Logging disabled
 };
 
-/// Convert log level to string
+/**
+ * @brief Returns the uppercase short name for a log Level.
+ *
+ * @param level Log level to convert.
+ * @return const char* Uppercase, fixed-width textual representation of the level (e.g. "TRACE", "INFO ", "ERROR").
+ */
 inline constexpr const char* levelToString(Level level) noexcept {
     switch (level) {
         case Level::Trace: return "TRACE";
@@ -59,7 +64,11 @@ inline constexpr const char* levelToString(Level level) noexcept {
     return "?????";
 }
 
-/// Convert log level to ANSI color code
+/**
+ * @brief Maps a log level to its ANSI color escape code.
+ *
+ * @returns const char* ANSI escape sequence corresponding to the provided log level; returns the reset code for Level::Off or unknown values.
+ */
 inline constexpr const char* levelToColor(Level level) noexcept {
     switch (level) {
         case Level::Trace: return "\033[90m";     // Gray
@@ -97,7 +106,13 @@ struct LogRecord {
 /// Abstract base class for log output destinations
 class ILogSink {
 public:
-    virtual ~ILogSink() = default;
+    /**
+ * @brief Ensures derived log sink objects are destroyed correctly through the interface.
+ *
+ * Provides a virtual destructor so implementations of ILogSink can be deleted via
+ * a pointer or smart pointer to the base type without resource leaks.
+ */
+virtual ~ILogSink() = default;
     virtual void write(const LogRecord& record) = 0;
     virtual void flush() = 0;
 };
@@ -108,8 +123,22 @@ public:
 
 class ConsoleSink : public ILogSink {
 public:
-    explicit ConsoleSink(bool useColors = true) : useColors_(useColors) {}
+    /**
+ * @brief Constructs a ConsoleSink with optional ANSI color output.
+ *
+ * @param useColors If `true`, console output (level labels and related text) is colorized using ANSI escape codes; if `false`, output is plain text without color codes.
+ */
+explicit ConsoleSink(bool useColors = true) : useColors_(useColors) {}
 
+    /**
+     * @brief Writes a formatted log record to the console sink.
+     *
+     * Formats the record with a time stamp (hours:minutes:seconds.milliseconds), level, optional category, and message, optionally including source location in debug builds, and outputs error-level records to stderr and others to stdout.
+     *
+     * @param record The log record to write; provides level, message, category, timestamp, and optional source location.
+     *
+     * @note Output may be colorized when the sink was constructed with colors enabled.
+     */
     void write(const LogRecord& record) override {
         std::lock_guard<std::mutex> lock(mutex_);
         
@@ -155,6 +184,11 @@ public:
         }
     }
 
+    /**
+     * @brief Flushes the console output streams used by the sink.
+     *
+     * Ensures both standard output (stdout) and standard error (stderr) are flushed.
+     */
     void flush() override {
         std::cout.flush();
         std::cerr.flush();
@@ -171,33 +205,81 @@ private:
 
 class Logger {
 public:
+    /**
+     * @brief Access the global Logger singleton.
+     *
+     * @return Logger& Reference to the process-wide Logger singleton.
+     */
     static Logger& instance() {
         static Logger logger;
         return logger;
     }
 
+    /**
+     * @brief Sets the logger's minimum level; messages below this level will be ignored.
+     *
+     * @param level The new minimum log level; messages with a lower priority than this will not be emitted.
+     */
     void setLevel(Level level) {
         level_ = level;
     }
 
+    /**
+     * @brief Retrieve the logger's current minimum log level.
+     *
+     * @return Level The current minimum log level used for filtering logged messages; messages with lower severity than this level are not emitted.
+     */
     Level getLevel() const {
         return level_;
     }
 
+    /**
+     * @brief Adds a log sink to the logger and makes it available for future log dispatch.
+     *
+     * This operation is thread-safe and stores the provided sink in the logger's collection so
+     * subsequent log records will be forwarded to it.
+     *
+     * @param sink Shared pointer to an ILogSink to register; ownership is shared with the logger.
+     */
     void addSink(std::shared_ptr<ILogSink> sink) {
         std::lock_guard<std::mutex> lock(sinkMutex_);
         sinks_.push_back(std::move(sink));
     }
 
+    /**
+     * @brief Removes all registered log sinks from the global logger.
+     *
+     * This operation is thread-safe and acquires the sink mutex before clearing the
+     * internal list of sinks.
+     */
     void clearSinks() {
         std::lock_guard<std::mutex> lock(sinkMutex_);
         sinks_.clear();
     }
 
+    /**
+     * @brief Check whether messages at the given level will be emitted.
+     *
+     * @param level Log level to test against the logger's current minimum level.
+     * @return `true` if `level` is greater than or equal to the logger's current minimum level, `false` otherwise.
+     */
     bool shouldLog(Level level) const {
         return level >= level_;
     }
 
+    /**
+     * @brief Emits a log record at the specified level to all registered sinks.
+     *
+     * If the level is enabled, constructs a record containing level, category, message,
+     * source location, timestamp, and thread id, then forwards it to every configured sink.
+     *
+     * @param level Log level for the message.
+     * @param category Logical category or subsystem for the message.
+     * @param message Log message text.
+     * @param file Source file name to associate with the record.
+     * @param line Source line number to associate with the record.
+     * @param function Source function name to associate with the record.
+     */
     void log(Level level, std::string_view category, std::string_view message,
              std::string_view file, int line, std::string_view function) {
         if (!shouldLog(level)) return;
@@ -218,6 +300,13 @@ public:
         }
     }
 
+    /**
+     * @brief Flushes all registered log sinks.
+     *
+     * Ensures any buffered log output held by each sink is written out. This operation
+     * is performed under the logger's sink mutex to synchronize with concurrent sink
+     * modifications and log dispatch.
+     */
     void flush() {
         std::lock_guard<std::mutex> lock(sinkMutex_);
         for (auto& sink : sinks_) {
@@ -226,6 +315,12 @@ public:
     }
 
 private:
+    /**
+     * @brief Initializes the Logger singleton with default settings.
+     *
+     * Constructs the Logger with the default minimum log level set to Info and registers
+     * a default ConsoleSink so logging is available immediately.
+     */
     Logger() : level_(Level::Info) {
         // Add default console sink
         sinks_.push_back(std::make_shared<ConsoleSink>());
@@ -242,17 +337,39 @@ private:
 
 class LogStream {
 public:
-    LogStream(Level level, std::string_view category,
+    /**
+           * @brief Create a LogStream that collects a log message and its metadata for later emission.
+           *
+           * @param level Log level to associate with the emitted record.
+           * @param category Semantic category for the message (e.g., "Audio", "UI", "General").
+           * @param file Source file path to record with the message.
+           * @param line Source line number to record with the message.
+           * @param function Source function name to record with the message.
+           */
+          LogStream(Level level, std::string_view category,
               std::string_view file, int line, std::string_view function)
         : level_(level), category_(category), file_(file), 
           line_(line), function_(function) {}
 
+    /**
+     * @brief Emits the accumulated log message to the global Logger using the stored metadata.
+     *
+     * On destruction, forwards the stream contents along with the captured level, category,
+     * and source location (file, line, function) to Logger::instance().log().
+     */
     ~LogStream() {
         Logger::instance().log(level_, category_, stream_.str(), 
                                file_, line_, function_);
     }
 
     template<typename T>
+    /**
+     * @brief Appends a value to the internal message stream.
+     *
+     * @tparam T Type of the value to append; must be streamable to an output stream.
+     * @param value The value to append to the accumulated log message.
+     * @return LogStream& Reference to this LogStream to allow chained streaming.
+     */
     LogStream& operator<<(const T& value) {
         stream_ << value;
         return *this;

@@ -110,6 +110,13 @@ void NUIDropdown::setSelectedIndex(int index) {
     }
 }
 
+/**
+ * @brief Renders the dropdown's main control and its list when open.
+ *
+ * Draws the dropdown's button background, the currently selected text (with truncation and left alignment),
+ * an animated chevron indicating open/closed state, rounded outer and inner borders, and — if the dropdown
+ * is open — the dropdown items list on top.
+ */
 void NUIDropdown::onRender(NUIRenderer& renderer) {
     if (!isVisible()) return;
 
@@ -322,6 +329,14 @@ void NUIDropdown::updateAnimations() {
     dropdownAnimProgress_ += (targetProgress - dropdownAnimProgress_) * 0.15f;
 }
 
+/**
+ * @brief Renders the dropdown's popup list below the main control.
+ *
+ * Draws the list shadow, background, outer and inner borders, and each visible item with its
+ * selection and hover states. Dividers are drawn between items. The method also builds and
+ * uses an internal cache of measured text widths for visible items to minimize repeated text
+ * measurement calls.
+ */
 void NUIDropdown::renderDropdownListInternal(NUIRenderer& renderer) {
     if (items_.empty()) return;
 
@@ -390,6 +405,15 @@ void NUIDropdown::renderDropdownListInternal(NUIRenderer& renderer) {
     renderer.popTransform();
 }
 
+/**
+ * @brief Renders the dropdown's list of items, using a cached texture when available.
+ *
+ * If there are no items this function does nothing. When a valid cached texture exists
+ * and the cache is not marked dirty the cached texture is drawn into the computed list bounds;
+ * otherwise the list is rendered directly via renderDropdownListInternal.
+ *
+ * @param renderer Rendering context used to draw the list.
+ */
 void NUIDropdown::renderDropdownList(NUIRenderer& renderer) {
     if (items_.empty()) return;
 
@@ -412,6 +436,18 @@ void NUIDropdown::renderDropdownList(NUIRenderer& renderer) {
     renderDropdownListInternal(renderer);
 }
 
+/**
+ * @brief Renders a single item of the dropdown into the specified bounds.
+ *
+ * Draws selection/hover background, renders item text (vertically centered and left-aligned),
+ * applies reduced text opacity for disabled items, and truncates overflowing text with an ellipsis.
+ *
+ * @param renderer Rendering backend used to draw shapes and text.
+ * @param index Index of the item within the dropdown's item list.
+ * @param bounds Rectangle defining the item's drawing area.
+ * @param isSelected True when the item is the currently selected item.
+ * @param isHovered True when the mouse is hovering this item.
+ */
 void NUIDropdown::renderItem(NUIRenderer& renderer, int index, const NUIRect& bounds, bool isSelected, bool isHovered) {
     auto item = items_[index];
 
@@ -467,6 +503,14 @@ void NUIDropdown::renderItem(NUIRenderer& renderer, int index, const NUIRect& bo
     }
 }
 
+/**
+ * @brief Determine which dropdown item, if any, is beneath the given mouse position.
+ *
+ * @param mousePos Mouse position in the same coordinate space used by getBounds().
+ * @return int Index of the item under the mouse, or -1 if no item is under the mouse or the dropdown is closed.
+ *
+ * The returned index is an index into the component's item list and does not account for an item's enabled/visible state.
+ */
 int NUIDropdown::getItemUnderMouse(const NUIPoint& mousePos) const {
     if (!isOpen_) return -1;
     auto bounds = getBounds();

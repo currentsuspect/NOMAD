@@ -107,6 +107,13 @@ NomadUI::NUIKeyCode convertToNUIKeyCode(int key) {
  */
 class NomadContent : public NomadUI::NUIComponent {
 public:
+    /**
+     * @brief Constructs the main content area, initializes UI subcomponents, and configures the preview and audio visualization subsystems.
+     *
+     * Sets up the TrackManager and TrackManagerUI (including demo tracks), FileBrowser with file-open, selection, and sound-preview callbacks,
+     * TransportBar, and a compact AudioVisualizer. Initializes the PreviewEngine and preview state (default 5s duration), and connects the
+     * TrackManager's master stereo output to the AudioVisualizer for VU metering.
+     */
     NomadContent() {
         // Get layout dimensions from theme for initial setup
         auto& themeManager = NomadUI::NUIThemeManager::getInstance();
@@ -181,12 +188,27 @@ public:
         return m_transportBar.get();
     }
     
+    /**
+     * @brief Access the content's audio visualizer component.
+     *
+     * @return std::shared_ptr<NomadUI::AudioVisualizer> Shared pointer to the AudioVisualizer instance, or `nullptr` if no visualizer is set.
+     */
     std::shared_ptr<NomadUI::AudioVisualizer> getAudioVisualizer() const {
         return m_audioVisualizer;
     }
 
-    PreviewEngine* getPreviewEngine() const { return m_previewEngine.get(); }
+    /**
+ * @brief Access the PreviewEngine used for audio sample previews.
+ *
+ * @return PreviewEngine* Pointer to the PreviewEngine instance, or `nullptr` if no preview engine is present.
+ */
+PreviewEngine* getPreviewEngine() const { return m_previewEngine.get(); }
 
+    /**
+     * @brief Access the TrackManager responsible for managing audio and MIDI tracks.
+     *
+     * @returns std::shared_ptr<TrackManager> Shared pointer to the current TrackManager, or `nullptr` if no manager is set.
+     */
     std::shared_ptr<TrackManager> getTrackManager() const {
         return m_trackManager;
     }
@@ -311,6 +333,17 @@ public:
         }
     }
     
+    /**
+     * @brief Starts playing a short audio preview for the given file.
+     *
+     * Stops any active preview, requests the PreviewEngine to play the file at a fixed level
+     * for the configured preview duration, and records preview playback state and start time.
+     *
+     * @param file File item to preview; the file's path is used as the audio source.
+     *
+     * If the preview engine is not available or the engine fails to start playback, no preview
+     * will be active after this call.
+     */
     void playSoundPreview(const NomadUI::FileItem& file) {
         Log::info("Playing sound preview for: " + file.path);
 
@@ -333,6 +366,11 @@ public:
         }
     }
 
+    /**
+     * @brief Stops any currently playing sound preview and clears preview state.
+     *
+     * If a preview is active, instructs the preview engine to stop playback, marks the preview as not playing, and clears the stored preview file path.
+     */
     void stopSoundPreview() {
         if (m_previewEngine && m_previewIsPlaying) {
             Log::info("stopSoundPreview called - wasPlaying: true");
@@ -343,6 +381,15 @@ public:
         }
     }
     
+    /**
+     * @brief Loads an audio sample from a file into the currently selected (or first) track.
+     *
+     * Stops any active preview, ensures a target track exists (creates one if no tracks are present),
+     * loads the specified audio file into that track, sets the track's position to the start of the sample,
+     * and places the sample in the timeline at the current transport playhead position.
+     *
+     * @param filePath Path to the audio file to load into the track.
+     */
     void loadSampleIntoSelectedTrack(const std::string& filePath) {
         Log::info("=== Loading sample into selected track: " + filePath + " ===");
         
@@ -414,6 +461,12 @@ public:
         }
     }
 
+    /**
+     * @brief Monitors and stops an active sound preview when it finishes or exceeds its duration.
+     *
+     * If a preview is active, checks whether playback has stopped or the preview has run for
+     * at least the configured preview duration and stops the preview when either condition is met.
+     */
     void updateSoundPreview() {
         if (m_previewEngine && m_previewIsPlaying) {
             if (!m_previewEngine->isPlaying()) {
@@ -613,7 +666,18 @@ public:
     }
 
     /**
-     * @brief Initialize all subsystems
+     * @brief Initialize and configure platform, windowing, rendering, audio, theme, UI components, and callbacks.
+     *
+     * Performs full application startup: initializes the Platform, creates the main window and OpenGL context,
+     * initializes the UI renderer, attempts to initialize the audio subsystem (with retries and fallbacks),
+     * loads the active theme and UI configuration, constructs root UI components (custom window, content area,
+     * transport, dialogs, overlays), restores the last project state, applies track latency compensation when audio
+     * is available, and wires transport and window callbacks.
+     *
+     * Initialization will continue without audio when device enumeration or stream startup fails; in that case
+     * UI and non-audio functionality are still initialized.
+     *
+     * @return true if initialization completed successfully, false if a fatal error occurred that prevents running the app.
      */
     bool initialize() {
         Log::info("NOMAD DAW v1.0.0 - Initializing...");
@@ -1130,7 +1194,11 @@ public:
     }
 
     /**
-     * @brief Shutdown all subsystems
+     * @brief Perform an orderly shutdown of the application and all subsystems.
+     *
+     * Saves the current project state, stops and closes audio streams and the audio manager,
+     * stops the track manager, shuts down the UI renderer, destroys the window,
+     * shuts down the platform, and marks the application as not running.
      */
     void shutdown() {
         if (!m_running) {
@@ -1177,6 +1245,15 @@ public:
         Log::info("NOMAD DAW shutdown complete");
     }
 
+    /**
+     * @brief Loads project data from the current project path into the content's track manager.
+     *
+     * Attempts to read and apply the project file at the internally stored project path into the
+     * content's TrackManager. If the content or its TrackManager is not available, no load is
+     * attempted and an empty result is returned.
+     *
+     * @return ProjectSerializer::LoadResult Result of the load operation; empty if loading was not attempted.
+     */
     ProjectSerializer::LoadResult loadProject() {
         if (!m_content || !m_content->getTrackManager()) {
             return {};
@@ -1184,6 +1261,14 @@ public:
         return ProjectSerializer::load(m_projectPath, m_content->getTrackManager());
     }
 
+    /**
+     * @brief Persists the current project state to the configured project file.
+     *
+     * Saves the TrackManager state along with the current tempo and playhead position.
+     * If a TransportBar is present, its tempo is used; otherwise a default tempo of 120.0 BPM is applied.
+     *
+     * @return true if the project file was written successfully, false otherwise.
+     */
     bool saveProject() {
         if (!m_content || !m_content->getTrackManager()) return false;
         double tempo = 120.0;
@@ -1414,9 +1499,19 @@ private:
     }
 
     /**
-     * @brief Audio callback function
-     * 
-     * IMPORTANT: This runs in real-time audio thread - minimize work and NO logging!
+     * @brief Real-time audio callback that fills the stereo output buffer with mixed audio and an optional test tone.
+     *
+     * Mixes audio produced by the TrackManager and the PreviewEngine into the provided interleaved stereo output buffer.
+     * If the audio settings dialog requests a test tone, the callback will generate a low-volume sine tone and write it
+     * into the output buffer. This function executes on the real-time audio thread and must remain real-time safe
+     * (no allocations, no logging, minimal work).
+     *
+     * @param outputBuffer Pointer to an interleaved stereo output buffer (size >= nFrames * 2). Must be non-null.
+     * @param inputBuffer Pointer to an input buffer (may be nullptr); not used by this callback.
+     * @param nFrames Number of frames to process.
+     * @param streamTime Current stream time in seconds.
+     * @param userData Pointer to user data; expected to be a NomadApp* instance.
+     * @return int `0` on success, non-zero on error (e.g., invalid arguments).
      */
     static int audioCallback(float* outputBuffer, const float* inputBuffer,
                              uint32_t nFrames, double streamTime, void* userData) {

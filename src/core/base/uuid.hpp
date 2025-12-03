@@ -48,10 +48,16 @@ namespace nomad::core {
 class SecureRandom {
 public:
     /**
-     * @brief Fill buffer with cryptographically secure random bytes
-     * @param buffer Pointer to buffer to fill
-     * @param size Number of bytes to generate
-     * @throws std::runtime_error if secure random generation fails
+     * @brief Fill a buffer with cryptographically secure random bytes.
+     *
+     * Fills the provided buffer with exactly `size` bytes of entropy sourced from
+     * the platform's secure random provider. If a platform-specific secure source
+     * is unavailable the implementation may fall back to a weaker generator.
+     *
+     * @param buffer Pointer to a writable buffer of at least `size` bytes.
+     * @param size Number of bytes to write into `buffer`.
+     * @throws std::runtime_error If a cryptographically secure random source cannot
+     *         be used or read (e.g., OS API or /dev/urandom failures).
      */
     static void generateBytes(u8* buffer, usize size) {
 #if defined(NOMAD_PLATFORM_WINDOWS)
@@ -99,7 +105,9 @@ public:
     }
     
     /**
-     * @brief Generate a single secure random 32-bit value
+     * @brief Generates a cryptographically secure 32-bit random value.
+     *
+     * @return u32 A uniformly distributed 32-bit unsigned random value sourced from the platform secure RNG.
      */
     static u32 generateU32() {
         u32 value;
@@ -108,7 +116,9 @@ public:
     }
     
     /**
-     * @brief Generate a single secure random 64-bit value
+     * @brief Produce a cryptographically secure 64-bit random value.
+     *
+     * @return u64 A 64-bit unsigned integer populated with cryptographically secure random bits.
      */
     static u64 generateU64() {
         u64 value;
@@ -135,23 +145,27 @@ public:
     using ByteArray = std::array<u8, BYTE_SIZE>;
 
     /**
-     * @brief Construct a nil UUID (all zeros)
-     */
+ * @brief Create a nil UUID with all bytes set to zero.
+ */
     UUID() noexcept : m_bytes{} {}
     
     /**
-     * @brief Construct UUID from byte array
-     */
+ * @brief Initializes the UUID from the provided 16-byte array.
+ *
+ * No validation or normalization is performed; the bytes are copied directly into the UUID.
+ *
+ * @param bytes 16 bytes representing the UUID in RFC 4122 byte order.
+ */
     explicit UUID(const ByteArray& bytes) noexcept : m_bytes(bytes) {}
     
     /**
-     * @brief Generate a new random UUID v4
-     * 
-     * @security Uses CSPRNG for all random bytes. Safe for security-sensitive
-     *           use cases like session tokens and resource identifiers.
-     * 
-     * @return New randomly generated UUID
-     * @throws std::runtime_error if secure random generation fails
+     * @brief Create a version 4 (random) RFC 4122 UUID.
+     *
+     * Generates 16 cryptographically secure random bytes and returns a UUID
+     * with the version and variant bits set according to RFC 4122.
+     *
+     * @return UUID A version 4 RFC 4122 UUID.
+     * @throws std::runtime_error if secure random byte generation fails.
      */
     [[nodiscard]] static UUID generate() {
         ByteArray bytes;
@@ -171,17 +185,23 @@ public:
     }
     
     /**
-     * @brief Create a nil UUID (all zeros)
+     * @brief Create a nil UUID with all bytes set to zero.
+     *
+     * @return UUID whose 16 bytes are all zero.
      */
     [[nodiscard]] static UUID nil() noexcept {
         return UUID();
     }
     
     /**
-     * @brief Parse UUID from string
-     * @param str String in format "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-     * @return Parsed UUID
-     * @throws std::invalid_argument if string format is invalid
+     * @brief Parse a UUID from its canonical hex string representation with dashes.
+     *
+     * Parses a UUID string in the form "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" (hex digits may be upper- or lower-case)
+     * and constructs the corresponding UUID.
+     *
+     * @param str UUID string to parse.
+     * @return UUID The parsed UUID.
+     * @throws std::invalid_argument if the string length, dash placement, or hex characters are invalid.
      */
     [[nodiscard]] static UUID fromString(std::string_view str) {
         if (str.size() != STRING_SIZE) {
@@ -215,8 +235,12 @@ public:
     }
     
     /**
-     * @brief Convert UUID to string
-     * @return String in format "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+     * @brief Format the UUID as a canonical lowercase hexadecimal string with dashes.
+     *
+     * Produces the canonical UUID representation: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+     * using lowercase hexadecimal digits.
+     *
+     * @return std::string UUID formatted as "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx".
      */
     [[nodiscard]] std::string toString() const {
         static constexpr char hexChars[] = "0123456789abcdef";
@@ -235,7 +259,9 @@ public:
     }
     
     /**
-     * @brief Check if this is a nil UUID
+     * @brief Determines whether the UUID is nil (all bytes are zero).
+     *
+     * @return true if all 16 UUID bytes are zero, false otherwise.
      */
     [[nodiscard]] bool isNil() const noexcept {
         for (const auto& byte : m_bytes) {
@@ -245,34 +271,58 @@ public:
     }
     
     /**
-     * @brief Get the UUID version (should be 4 for random UUIDs)
+     * @brief Retrieve the UUID version encoded in this UUID.
+     *
+     * @return u8 The UUID version number (1–5). For RFC 4122 version 4 UUIDs this will be `4`.
      */
     [[nodiscard]] u8 version() const noexcept {
         return (m_bytes[6] >> 4) & 0x0F;
     }
     
     /**
-     * @brief Get raw bytes
+     * @brief Access the underlying 16-byte UUID storage.
+     *
+     * @return const ByteArray& Reference to the internal array of 16 bytes representing the UUID.
      */
     [[nodiscard]] const ByteArray& bytes() const noexcept {
         return m_bytes;
     }
     
-    // Comparison operators
+    /**
+     * @brief Compare two UUIDs for equality.
+     *
+     * @returns `true` if the UUIDs contain identical bytes, `false` otherwise.
+     */
     [[nodiscard]] bool operator==(const UUID& other) const noexcept {
         return m_bytes == other.m_bytes;
     }
     
+    /**
+     * @brief Checks whether this UUID is different from another UUID.
+     *
+     * @param other UUID to compare against.
+     * @return `true` if this UUID differs from `other`, `false` otherwise.
+     */
     [[nodiscard]] bool operator!=(const UUID& other) const noexcept {
         return m_bytes != other.m_bytes;
     }
     
+    /**
+     * @brief Compares this UUID to another using lexicographical ordering of the raw bytes.
+     *
+     * @param other UUID to compare against.
+     * @return true if this UUID is lexicographically less than `other`, false otherwise.
+     */
     [[nodiscard]] bool operator<(const UUID& other) const noexcept {
         return m_bytes < other.m_bytes;
     }
     
     /**
-     * @brief Hash support for use in unordered containers
+     * @brief Computes a hash value for the UUID suitable for use in unordered containers.
+     *
+     * The hash is computed over the UUID's 16 bytes using the FNV-1a algorithm.
+     *
+     * @return std::size_t Hash value derived from the UUID bytes.
      */
     [[nodiscard]] std::size_t hash() const noexcept {
         // FNV-1a hash
@@ -294,6 +344,12 @@ private:
 namespace std {
 template <>
 struct hash<nomad::core::UUID> {
+    /**
+     * @brief Computes a hash value for a UUID.
+     *
+     * @param uuid The UUID to hash.
+     * @return std::size_t A hash value derived from the UUID's bytes.
+     */
     std::size_t operator()(const nomad::core::UUID& uuid) const noexcept {
         return uuid.hash();
     }

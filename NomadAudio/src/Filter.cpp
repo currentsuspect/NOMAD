@@ -15,7 +15,11 @@ namespace DSP {
 
 // ============================================================================
 // Constructor & initialization
-// ============================================================================
+/**
+ * @brief Constructs a Filter configured for the given audio sample rate.
+ *
+ * @param sampleRate Sample rate in hertz used for internal coefficient and timing calculations.
+ */
 
 Filter::Filter(float sampleRate)
     : m_sampleRate(sampleRate)
@@ -24,6 +28,15 @@ Filter::Filter(float sampleRate)
     reset();
 }
 
+/**
+ * @brief Prepare the filter for a new sample rate and initialize internal state.
+ *
+ * Updates the filter's sample-rate-dependent constants, resets internal processing
+ * state, resizes the oversampling buffer if oversampling is enabled, and
+ * initializes filter coefficients.
+ *
+ * @param sampleRate Sample rate in Hz to configure the filter for (must be > 0).
+ */
 void Filter::prepare(float sampleRate)
 {
     m_sampleRate = sampleRate;
@@ -46,7 +59,16 @@ void Filter::prepare(float sampleRate)
 
 // ============================================================================
 // Parameter setters
-// ============================================================================
+/**
+ * @brief Set the filter response type and schedule coefficient recomputation.
+ *
+ * Updates the filter type used to compute biquad coefficients. If `smooth` is false,
+ * coefficients are recalculated immediately; otherwise the change is marked so that
+ * coefficients will be updated later with smoothing applied.
+ *
+ * @param type Desired filter type.
+ * @param smooth If true, defer coefficient updates to allow smoothing; if false, apply immediately.
+ */
 
 void Filter::setType(FilterType type, bool smooth)
 {
@@ -62,6 +84,18 @@ void Filter::setType(FilterType type, bool smooth)
     }
 }
 
+/**
+ * @brief Set the filter's target cutoff frequency with optional modulation.
+ *
+ * Sets the internal target cutoff frequency after applying a modulation amount,
+ * constraining the result to the audible range [20 Hz, nyquist]. If the new
+ * target differs from the previous target by more than 0.01 Hz, the method
+ * records the modulation amount and marks parameters as changed so coefficients
+ * will be updated.
+ *
+ * @param frequency Base cutoff frequency in Hz.
+ * @param modulate Modulation amount in the range [-1, 1]; ±1 corresponds to ±2 octaves applied to the base frequency.
+ */
 void Filter::setCutoff(float frequency, float modulate)
 {
     // Clamp with modulation range
@@ -86,6 +120,17 @@ void Filter::setCutoff(float frequency, float modulate)
     }
 }
 
+/**
+ * @brief Sets the filter's target resonance with optional modulation.
+ *
+ * Applies modulation to the supplied resonance, clamps the result to [0.1, 10],
+ * and updates the stored target resonance and modulation state when the
+ * adjusted value differs from the current target by more than 0.001, marking
+ * parameters for an update.
+ *
+ * @param resonance Base resonance value before modulation.
+ * @param modulate Modulation amount applied multiplicatively as (1 + modulate * 0.5).
+ */
 void Filter::setResonance(float resonance, float modulate)
 {
     float newResonance = std::clamp(resonance * (1.0f + modulate * 0.5f), 0.1f, 10.0f);
@@ -98,6 +143,14 @@ void Filter::setResonance(float resonance, float modulate)
     }
 }
 
+/**
+ * @brief Sets the filter target gain in decibels, clamped to the allowed range.
+ *
+ * @param gain Desired gain in dB; values outside [DB_MIN, DB_MAX] are clamped.
+ *
+ * Updates the internal target gain and marks parameters as changed when the
+ * clamped value differs from the current target by more than 0.01 dB.
+ */
 void Filter::setGain(float gain)
 {
     float newGain = std::clamp(gain, DB_MIN, DB_MAX);
@@ -109,6 +162,14 @@ void Filter::setGain(float gain)
     }
 }
 
+/**
+ * @brief Set the filter's slope (filter order) and schedule coefficient recalculation if changed.
+ *
+ * Updates the configured slope and marks the filter coefficients as needing an update so the
+ * new slope takes effect on the next coefficient recomputation.
+ *
+ * @param slope Desired filter slope (e.g., 12 dB/octave, 24 dB/octave) as a FilterSlope value.
+ */
 void Filter::setSlope(FilterSlope slope)
 {
     if (m_slope != slope)
@@ -118,12 +179,27 @@ void Filter::setSlope(FilterSlope slope)
     }
 }
 
+/**
+ * @brief Sets the pre-filter drive amount and the saturation curve.
+ *
+ * @param drive Desired drive amount applied to the input before filtering. Values are clamped to the range [0.0, 1.0].
+ * @param saturation Saturation curve to use when applying drive (e.g., SoftClip, HardClip, Tanh, Asymmetric).
+ */
 void Filter::setDrive(float drive, SaturationType saturation)
 {
     m_drive = std::clamp(drive, 0.0f, 1.0f);
     m_saturationType = saturation;
 }
 
+/**
+ * @brief Configure the oversampling factor used by the filter.
+ *
+ * When the factor changes, updates internal state: if oversampling is enabled,
+ * resizes the internal oversample buffer to 1024 * factor samples and clears
+ * the internal upsample/downsample filter states.
+ *
+ * @param factor Desired oversampling factor; use OversamplingFactor::None to disable oversampling.
+ */
 void Filter::setOversampling(OversamplingFactor factor)
 {
     if (m_oversampling != factor)
@@ -142,6 +218,16 @@ void Filter::setOversampling(OversamplingFactor factor)
     }
 }
 
+/**
+ * @brief Configure parameter smoothing duration and interpolation type.
+ *
+ * Sets the smoothing time (in milliseconds) and the smoothing interpolation mode,
+ * and updates the internal smoothing coefficient used to interpolate parameters
+ * and coefficients over time.
+ *
+ * @param timeMs Smoothing time in milliseconds; negative values are clamped to 0.
+ * @param type Interpolation type used for smoothing (Linear, Exponential, Cosine, etc.).
+ */
 void Filter::setSmoothing(float timeMs, SmoothingType type)
 {
     m_smoothingTimeMs = std::max(0.0f, timeMs);
@@ -153,11 +239,29 @@ void Filter::setSmoothing(float timeMs, SmoothingType type)
     m_smoothingAlpha = std::exp(-1.0f / samples);
 }
 
+/**
+ * @brief Enable or disable stereo parameter linking.
+ *
+ * When enabled, the right channel's filter coefficients and parameter updates are kept
+ * identical to the left channel. When disabled, left and right channels can have
+ * independent coefficients and parameter updates.
+ *
+ * @param linked If `true`, link right channel to left; if `false`, allow independent channels.
+ */
 void Filter::setStereoLinked(bool linked)
 {
     m_stereoLinked = linked;
 }
 
+/**
+ * @brief Enable or disable self-oscillation behavior for resonance handling.
+ *
+ * When enabled, the filter allows resonance to approach higher values used for
+ * self-oscillation behavior; when disabled, resonance is constrained to the
+ * normal stability limits.
+ *
+ * @param enabled `true` to enable self-oscillation behavior, `false` to disable it.
+ */
 void Filter::setSelfOscillation(bool enabled)
 {
     m_selfOscillation = enabled;
@@ -165,7 +269,15 @@ void Filter::setSelfOscillation(bool enabled)
 
 // ============================================================================
 // Core processing
-// ============================================================================
+/**
+ * @brief Process a single mono input sample through the filter.
+ *
+ * Updates smoothed parameters, applies drive and the selected saturation curve before filtering,
+ * and processes the sample using the configured oversampling and biquad path.
+ *
+ * @param input Input sample to process.
+ * @return float Processed output sample.
+ */
 
 float Filter::process(float input)
 {
@@ -192,6 +304,15 @@ float Filter::process(float input)
     return processed;
 }
 
+/**
+ * @brief Processes a stereo input pair through the filter and returns the filtered outputs.
+ *
+ * The function applies configured drive and saturation to both inputs before filtering.
+ * Each channel is then processed using either the oversampled path (if enabled) or the standard biquad path.
+ * If stereo linking is enabled, the right channel uses the same coefficients as the left.
+ *
+ * @return Pair where `first` is the processed left sample and `second` is the processed right sample.
+ */
 std::pair<float, float> Filter::processStereo(float left, float right)
 {
     updateInternal();
@@ -231,6 +352,16 @@ std::pair<float, float> Filter::processStereo(float left, float right)
     return {outLeft, outRight};
 }
 
+/**
+ * @brief Processes a mono buffer of samples in-place through the filter.
+ *
+ * Updates internal parameters once for the entire block, applies drive and the
+ * selected saturation to each sample, then filters each sample using the
+ * configured processing path (standard or oversampled).
+ *
+ * @param samples Pointer to a contiguous array of mono samples to process in-place.
+ * @param numSamples Number of samples in the array; if zero the function returns immediately.
+ */
 void Filter::processBlock(float* samples, uint32_t numSamples)
 {
     if (numSamples == 0) return;
@@ -262,6 +393,16 @@ void Filter::processBlock(float* samples, uint32_t numSamples)
     }
 }
 
+/**
+ * @brief Processes a block of interleaved stereo samples in-place.
+ *
+ * Processes up to numSamples samples from the separate left and right buffers,
+ * applying drive/saturation, filtering (with optional oversampling), and per-channel state. If stereo linking is enabled, the right channel uses the left channel's coefficients.
+ *
+ * @param left Pointer to the left-channel sample buffer; must contain at least numSamples samples. Processed samples are written back into this buffer.
+ * @param right Pointer to the right-channel sample buffer; must contain at least numSamples samples. Processed samples are written back into this buffer.
+ * @param numSamples Number of samples to process from each buffer. If zero, the function returns immediately.
+ */
 void Filter::processBlockStereo(float* left, float* right, uint32_t numSamples)
 {
     if (numSamples == 0) return;
@@ -311,7 +452,16 @@ void Filter::processBlockStereo(float* left, float* right, uint32_t numSamples)
 
 // ============================================================================
 // Internal processing methods
-// ============================================================================
+/**
+ * @brief Filters a single sample in-place using a biquad Direct Form II transposed structure.
+ *
+ * Processes the provided sample through the biquad defined by `coeffs`, updates the
+ * filter `state` delay elements, and stores the filtered value back into `sample`.
+ *
+ * @param sample Reference to the input sample; replaced with the filtered output.
+ * @param state Per-channel filter state containing delay elements that are updated.
+ * @param coeffs Biquad filter coefficients (b0, b1, b2, a1, a2) used for processing.
+ */
 
 void Filter::processSample(float& sample, FilterState& state, const BiquadCoefficients& coeffs)
 {
@@ -323,6 +473,15 @@ void Filter::processSample(float& sample, FilterState& state, const BiquadCoeffi
     sample = output;
 }
 
+/**
+ * @brief Applies a simple 2x oversampling processing path to a single sample.
+ *
+ * When the filter's oversampling mode is TwoX, runs a basic upsample→filter→downsample sequence that advances the provided filter state
+ * and replaces the input sample with the downsampled result. When oversampling is not TwoX, this function has no effect.
+ *
+ * @param sample Reference to the sample to process; overwritten with the processed (downsampled) value when oversampling is active.
+ * @param state Per-channel filter state (delay elements) which is updated by the internal filtering steps.
+ */
 void Filter::processOversampled(float& sample, FilterState& state)
 {
     // Simple 2x oversampling implementation
@@ -346,7 +505,12 @@ void Filter::processOversampled(float& sample, FilterState& state)
 
 // ============================================================================
 // Coefficient calculation methods
-// ============================================================================
+/**
+ * @brief Compute and apply pending biquad coefficients, marking them as up-to-date.
+ *
+ * Ensures the filter's coefficient set reflects the current parameter targets and
+ * clears the internal flag that indicates an update is required.
+ */
 
 void Filter::updateCoefficients()
 {
@@ -354,6 +518,15 @@ void Filter::updateCoefficients()
     m_needsUpdate = false;
 }
 
+/**
+ * @brief Compute and set the target biquad coefficients from current filter parameters.
+ *
+ * Calculates normalized frequency, resonance (respecting self-oscillation limits), and linear gain,
+ * then populates the class's target biquad coefficients for the configured filter type.
+ *
+ * If stereo linking is enabled, the right-channel target coefficients are copied from the left.
+ * After computing targets, coefficient smoothing is applied via updateSmoothing().
+ */
 void Filter::updateCoefficientsInternal()
 {
     // Calculate normalized frequency
@@ -417,6 +590,17 @@ void Filter::updateCoefficientsInternal()
     updateSmoothing();
 }
 
+/**
+ * @brief Computes normalized biquad coefficients for a 2nd-order low-pass filter.
+ *
+ * Populates `coeffs` with normalized feedforward (b0, b1, b2) and feedback (a1, a2)
+ * coefficients using the common RBJ cookbook formulation for a low-pass biquad.
+ *
+ * @param coeffs Destination structure whose `b0`, `b1`, `b2`, `a1`, and `a2` members will be set.
+ * @param w0 Normalized angular center/cutoff frequency in radians (0..pi).
+ * @param alpha Frequency-dependent bandwidth/shape term (typically = sin(w0)/(2*Q)).
+ * @param A Linear gain parameter (present for API parity with shelving/peaking calculators; ignored for low-pass).
+ */
 void Filter::calculateLowPass(BiquadCoefficients& coeffs, float w0, float alpha, float A) const noexcept
 {
     float b0 = (1.0f - std::cos(w0)) / 2.0f;
@@ -433,6 +617,18 @@ void Filter::calculateLowPass(BiquadCoefficients& coeffs, float w0, float alpha,
     coeffs.a2 = a2 / a0;
 }
 
+/**
+ * @brief Compute and populate biquad coefficients for a second-order high-pass filter.
+ *
+ * Populates `coeffs` with normalized coefficients (a0 scaled to 1) for a digital
+ * second-order high-pass biquad defined by the normalized angular frequency and
+ * bandwidth parameter.
+ *
+ * @param coeffs Output structure to receive `b0`, `b1`, `b2`, `a1`, and `a2`.
+ * @param w0 Normalized angular frequency in radians (0 < w0 < π).
+ * @param alpha Bandwidth-related coefficient (commonly derived from Q).
+ * @param A Linear gain parameter; present for API uniformity and not used by the high-pass design.
+ */
 void Filter::calculateHighPass(BiquadCoefficients& coeffs, float w0, float alpha, float A) const noexcept
 {
     float b0 = (1.0f + std::cos(w0)) / 2.0f;
@@ -449,6 +645,16 @@ void Filter::calculateHighPass(BiquadCoefficients& coeffs, float w0, float alpha
     coeffs.a2 = a2 / a0;
 }
 
+/**
+ * @brief Populates `coeffs` with biquad coefficients for a band-pass filter (constant skirt gain).
+ *
+ * Fills the provided BiquadCoefficients with the normalized feedforward and feedback
+ * coefficients for a band-pass biquad whose peak gain corresponds to the filter Q.
+ *
+ * @param[out] coeffs Destination structure to receive `b0`, `b1`, `b2`, `a1`, and `a2`.
+ * @param w0 Normalized angular center frequency in radians per sample.
+ * @param alpha Filter bandwidth-related factor (commonly computed as `sin(w0)/(2*Q)`).
+ */
 void Filter::calculateBandPass(BiquadCoefficients& coeffs, float w0, float alpha) const noexcept
 {
     // Constant skirt gain (peak gain = Q)
@@ -466,6 +672,16 @@ void Filter::calculateBandPass(BiquadCoefficients& coeffs, float w0, float alpha
     coeffs.a2 = a2 / a0;
 }
 
+/**
+ * @brief Compute normalized biquad coefficients for a second-order notch (band-stop) filter.
+ *
+ * Populates the supplied BiquadCoefficients with coefficients normalized by a0 for a notch
+ * section defined by the normalized angular frequency w0 and bandwidth factor alpha.
+ *
+ * @param[out] coeffs Destination to receive normalized coefficients (b0, b1, b2, a1, a2).
+ * @param w0 Normalized angular center frequency in radians (0 to π).
+ * @param alpha Bandwidth-related factor (commonly sin(w0)/(2*Q)).
+ */
 void Filter::calculateNotch(BiquadCoefficients& coeffs, float w0, float alpha) const noexcept
 {
     float b0 = 1.0f;
@@ -482,6 +698,14 @@ void Filter::calculateNotch(BiquadCoefficients& coeffs, float w0, float alpha) c
     coeffs.a2 = a2 / a0;
 }
 
+/**
+ * @brief Computes normalized biquad coefficients for a low-shelf filter and stores them in `coeffs`.
+ *
+ * @param coeffs Destination structure that will receive the normalized filter coefficients (b0, b1, b2, a1, a2).
+ * @param w0 Normalized angular center frequency in radians (0..pi).
+ * @param alpha Filter bandwidth/shape parameter (commonly derived from Q or bandwidth).
+ * @param A Linear gain factor for the shelf (A = 10^(gain_dB/40)), must be greater than 0.
+ */
 void Filter::calculateLowShelf(BiquadCoefficients& coeffs, float w0, float alpha, float A) const noexcept
 {
     float sqrtA = std::sqrt(A);
@@ -503,6 +727,20 @@ void Filter::calculateLowShelf(BiquadCoefficients& coeffs, float w0, float alpha
     coeffs.a2 = a2 / a0;
 }
 
+/**
+ * @brief Populates biquad coefficients for a high-shelf filter response.
+ *
+ * Computes normalized feedforward and feedback coefficients (b0, b1, b2, a1, a2)
+ * for a second-order high-shelf filter and writes them into `coeffs`.
+ *
+ * @param coeffs Destination structure to receive the normalized biquad coefficients.
+ * @param w0 Normalized angular frequency (radians/sample).
+ * @param alpha Bandwidth / shape parameter (typically derived from Q or bandwidth).
+ * @param A Linear shelf gain factor.
+ *
+ * @note Coefficients are normalized by `a0` so that the implemented filter uses
+ *       the form with a1 and a2 as the negative feedback coefficients stored here.
+ */
 void Filter::calculateHighShelf(BiquadCoefficients& coeffs, float w0, float alpha, float A) const noexcept
 {
     float sqrtA = std::sqrt(A);
@@ -524,6 +762,18 @@ void Filter::calculateHighShelf(BiquadCoefficients& coeffs, float w0, float alph
     coeffs.a2 = a2 / a0;
 }
 
+/**
+ * @brief Computes normalized biquad coefficients for a peaking (peak/notch) filter.
+ *
+ * Populates the provided BiquadCoefficients with coefficients normalized by `a0`
+ * for a peaking-equalizer response using the given center frequency, bandwidth
+ * and linear gain.
+ *
+ * @param coeffs Output structure to receive `b0`, `b1`, `b2`, `a1`, and `a2`.
+ * @param w0 Normalized angular center frequency in radians (0..pi).
+ * @param alpha Bandwidth-related term (typically sin(w0)/(2*Q) or similar).
+ * @param A Linear gain factor (sqrt of peak gain in linear scale).
+ */
 void Filter::calculatePeak(BiquadCoefficients& coeffs, float w0, float alpha, float A) const noexcept
 {
     float b0 = 1.0f + alpha * A;
@@ -540,6 +790,17 @@ void Filter::calculatePeak(BiquadCoefficients& coeffs, float w0, float alpha, fl
     coeffs.a2 = a2 / a0;
 }
 
+/**
+ * @brief Computes normalized biquad coefficients for a second-order all-pass filter.
+ *
+ * Populates `coeffs` with the filter coefficients (b0, b1, b2, a1, a2) for an all-pass
+ * response at the given normalized radian frequency and bandwidth factor; coefficients
+ * are normalized by `a0`.
+ *
+ * @param coeffs Output structure that receives the normalized biquad coefficients.
+ * @param w0 Normalized radian center frequency (in radians/sample).
+ * @param alpha Bandwidth-related coefficient (commonly computed from Q or bandwidth).
+ */
 void Filter::calculateAllPass(BiquadCoefficients& coeffs, float w0, float alpha) const noexcept
 {
     float b0 = 1.0f - alpha;
@@ -558,7 +819,15 @@ void Filter::calculateAllPass(BiquadCoefficients& coeffs, float w0, float alpha)
 
 // ============================================================================
 // Parameter smoothing
-// ============================================================================
+/**
+ * @brief Advances smoothed filter parameters and updates coefficients when needed.
+ *
+ * Advances the internal smoothed values for cutoff frequency, resonance (Q), and gain
+ * toward their configured target values using the configured smoothing factor.
+ * If the change for cutoff exceeds 0.1 Hz, resonance exceeds 0.001, or gain exceeds 0.01 dB,
+ * the function marks the coefficients for recalculation and updates them.
+ * Coefficients are also updated when the internal update flag is set.
+ */
 
 void Filter::updateInternal()
 {
@@ -595,6 +864,13 @@ void Filter::updateInternal()
     }
 }
 
+/**
+ * @brief Smooths the active biquad coefficients toward their target values.
+ *
+ * Applies the configured smoothing/interpolation (via interpolateParameter and m_smoothingAlpha)
+ * to each biquad coefficient (b0, b1, b2, a1, a2) for both channels so the running coefficients
+ * gradually approach m_targetCoeffs.
+ */
 void Filter::updateSmoothing()
 {
     // Smooth coefficients towards target
@@ -608,6 +884,19 @@ void Filter::updateSmoothing()
     }
 }
 
+/**
+ * @brief Interpolates a parameter value toward a target using the configured smoothing mode.
+ *
+ * Interpolation mode is selected by the filter's current smoothing type:
+ * - Linear: straight linear interpolation.
+ * - Exponential: exponential-style smoothing that biases toward the start for larger alpha.
+ * - Cosine: smooth cosine easing between start and target.
+ *
+ * @param start Current/source value.
+ * @param target Desired/target value.
+ * @param alpha Smoothing coefficient in [0, 1]; `1.0` yields `start`, `0.0` yields `target`.
+ * @return float Interpolated value between `start` and `target` according to the smoothing mode.
+ */
 float Filter::interpolateParameter(float start, float target, float alpha) const noexcept
 {
     switch (m_smoothingType)
@@ -632,7 +921,15 @@ float Filter::interpolateParameter(float start, float target, float alpha) const
 
 // ============================================================================
 // Saturation
-// ============================================================================
+/**
+ * @brief Apply the filter's configured saturation curve to a single sample.
+ *
+ * The applied curve depends on the instance's selected SaturationType and
+ * shapes the input sample to produce soft/hard clipping, a tanh curve, or a
+ * gentle asymmetric saturation.
+ *
+ * @param sample Input audio sample to process.
+ * @return float Processed sample after saturation.
 
 float Filter::applySaturation(float sample) const noexcept
 {
@@ -669,7 +966,12 @@ float Filter::applySaturation(float sample) const noexcept
 
 // ============================================================================
 // State management
-// ============================================================================
+/**
+ * @brief Resets all internal filter state and clears oversampling filter buffers.
+ *
+ * Resets per-channel biquad state (delay elements) to their initial zeroed state and
+ * clears internal upsample/downsample filter memory used by the oversampling path.
+ */
 
 void Filter::reset()
 {
@@ -683,6 +985,13 @@ void Filter::reset()
     std::memset(m_downsampleFilter, 0, sizeof(m_downsampleFilter));
 }
 
+/**
+ * @brief Resets the internal filter state for a single channel.
+ *
+ * Clears delay elements (internal state) for the specified channel.
+ *
+ * @param channel Channel index to reset; 0 for left, 1 for right. Values outside [0,1] are ignored.
+ */
 void Filter::reset(int channel)
 {
     if (channel >= 0 && channel < 2)
@@ -693,7 +1002,15 @@ void Filter::reset(int channel)
 
 // ============================================================================
 // Analysis methods
-// ============================================================================
+/**
+ * @brief Compute the filter's magnitude response at a given frequency.
+ *
+ * Evaluates the current left-channel biquad transfer function at the specified
+ * frequency and returns its magnitude in decibels.
+ *
+ * @param frequency Frequency in Hertz at which to evaluate the response.
+ * @return float Magnitude in decibels (dB).
+ */
 
 float Filter::getMagnitudeResponse(float frequency) const
 {
@@ -709,6 +1026,12 @@ float Filter::getMagnitudeResponse(float frequency) const
     return 20.0f * std::log10(std::abs(H));
 }
 
+/**
+ * @brief Computes the filter's phase response at a given frequency.
+ *
+ * @param frequency Frequency in Hz at which to evaluate the response.
+ * @return float Phase angle of the filter's complex frequency response in radians (range approximately (-\f$\pi\f$, \f$\pi\f$]).
+ */
 float Filter::getPhaseResponse(float frequency) const
 {
     float w = TWO_PI * frequency * m_inverseSampleRate;
@@ -721,6 +1044,15 @@ float Filter::getPhaseResponse(float frequency) const
     return std::arg(H);
 }
 
+/**
+ * @brief Estimates the filter's group delay at a given frequency.
+ *
+ * Computes a numerical approximation of group delay by measuring the phase change
+ * around the specified frequency using a 1 Hz finite difference and phase unwrapping.
+ *
+ * @param frequency Frequency in Hz at which to evaluate group delay.
+ * @return float Group delay in seconds at the specified frequency.
+ */
 float Filter::getGroupDelay(float frequency) const
 {
     // Numerical approximation of group delay
@@ -738,6 +1070,11 @@ float Filter::getGroupDelay(float frequency) const
     return -phaseDiff / (TWO_PI * delta);
 }
 
+/**
+ * @brief Checks whether the filter is currently in a self-oscillating state.
+ *
+ * @return `true` if self-oscillation is enabled and the current resonance is greater than or equal to 0.99, `false` otherwise.
+ */
 bool Filter::isSelfOscillating() const noexcept
 {
     return m_selfOscillation && m_currentResonance >= 0.99f;
@@ -745,7 +1082,12 @@ bool Filter::isSelfOscillating() const noexcept
 
 // ============================================================================
 // Helper methods
-// ============================================================================
+/**
+ * @brief Constrains pole coefficients to ensure filter stability.
+ *
+ * If the pole radius (sqrt(a1^2 + a2^2)) exceeds 0.999, scales `a1` and `a2`
+ * in place so the effective pole radius is limited to 0.999.
+ */
 
 void Filter::BiquadCoefficients::normalize() noexcept
 {
@@ -760,11 +1102,25 @@ void Filter::BiquadCoefficients::normalize() noexcept
     }
 }
 
+/**
+ * @brief Clears the filter state delay elements for a channel.
+ *
+ * Sets all internal delay samples (previous inputs x1, x2 and previous outputs y1, y2)
+ * to 0.0f to return the biquad state to silence.
+ */
 void Filter::FilterState::reset() noexcept
 {
     x1 = x2 = y1 = y2 = 0.0f;
 }
 
+/**
+ * @brief Resize the oversampling buffer if the requested size differs.
+ *
+ * Allocates a new float array of length @p newSize and replaces the current buffer when the size changes.
+ * The previous buffer contents are discarded. If @p newSize equals the current size, no action is taken.
+ *
+ * @param newSize Desired buffer size in elements.
+ */
 void Filter::OversampledBuffer::resize(uint32_t newSize)
 {
     if (newSize != size)

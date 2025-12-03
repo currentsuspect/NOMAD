@@ -57,10 +57,30 @@ void main() {
 
 NUITextRendererSDF::NUITextRendererSDF() = default;
 
+/**
+ * @brief Destroys the renderer and releases all GPU and font resources.
+ *
+ * Calls shutdown() to delete OpenGL objects (VAO/VBO/EBO, textures, shader program)
+ * and clear loaded glyph/atlas data so the instance no longer holds GPU or heap resources.
+ */
 NUITextRendererSDF::~NUITextRendererSDF() {
     shutdown();
 }
 
+/**
+ * @brief Initializes the SDF text renderer and prepares GPU resources and font atlas.
+ *
+ * Loads the specified TrueType font at an adapted atlas pixel size, compiles the MSDF shaders,
+ * creates VAO/VBO/EBO state, and builds an MSDF atlas used for rendering.
+ *
+ * @param fontPath Filesystem path to the TrueType/OpenType font to load.
+ * @param fontSize Requested base font size in pixels used for layout; the atlas
+ *        size is chosen adaptively to preserve rendering crispness.
+ * @return true if initialization completed and GPU/font resources were created successfully; `false` on failure.
+ *
+ * Notes:
+ * - If the renderer is already initialized this function is a no-op and returns `true`.
+ */
 bool NUITextRendererSDF::initialize(const std::string& fontPath, float fontSize) {
     if (initialized_) return true;
     baseFontSize_ = fontSize;
@@ -107,6 +127,12 @@ bool NUITextRendererSDF::initialize(const std::string& fontPath, float fontSize)
     return true;
 }
 
+/**
+ * @brief Releases GPU resources and resets the renderer to an uninitialized state.
+ *
+ * Frees the OpenGL texture, buffer, and program resources associated with the atlas,
+ * clears the glyph cache, and marks the renderer as not initialized.
+ */
 void NUITextRendererSDF::shutdown() {
     if (atlasTexture_) {
         glDeleteTextures(1, &atlasTexture_);
@@ -132,6 +158,20 @@ void NUITextRendererSDF::shutdown() {
     initialized_ = false;
 }
 
+/**
+ * @brief Renders a UTF-8 ASCII string to the current OpenGL context using the MSDF font atlas.
+ *
+ * Draws the provided text at the given baseline position using per-glyph quads sampled from the prebuilt atlas.
+ * The function applies an adaptive smoothing value based on the requested fontSize, snaps drawing positions to the pixel grid
+ * for crisper edges, handles space and missing-glyph fallbacks by advancing the pen, uploads dynamic vertex/index buffers,
+ * and issues a single indexed draw call when glyphs are present.
+ *
+ * @param text The string to render (ASCII printable range expected in the atlas).
+ * @param position Baseline position in pixels where text rendering starts; position.y is treated as the font baseline.
+ * @param fontSize Target font size in pixels; used to scale glyphs from the atlas and to select adaptive smoothing.
+ * @param color RGBA color applied to all glyph vertices.
+ * @param projection Pointer to a 4x4 column-major projection matrix used to transform vertex positions.
+ */
 void NUITextRendererSDF::drawText(const std::string& text,
                                   const NUIPoint& position,
                                   float fontSize,
@@ -245,6 +285,19 @@ void NUITextRendererSDF::drawText(const std::string& text,
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+/**
+ * @brief Measure the pixel dimensions of a given text string at the specified font size.
+ *
+ * If the renderer is not initialized, returns {0, 0}. The returned width is the total
+ * horizontal advance for the string; spaces use the atlas space glyph when available
+ * or a fallback of quarter font-size spacing, and missing glyphs advance by half the
+ * font size. The returned height is derived from the font's ascent/descent and any
+ * taller glyphs, all scaled to the requested font size.
+ *
+ * @param text UTF-8 string to measure.
+ * @param fontSize Target font size in pixels.
+ * @return NUISize Width and height in pixels for the rendered text.
+ */
 NUISize NUITextRendererSDF::measureText(const std::string& text, float fontSize) const {
     if (!initialized_) return {0, 0};
     float scale = fontSize / atlasFontSize_;
@@ -276,12 +329,28 @@ NUISize NUITextRendererSDF::measureText(const std::string& text, float fontSize)
     return {width, height};
 }
 
+/**
+ * @brief Retrieve the font ascent scaled to the requested font size.
+ *
+ * Returns the stored font ascent value scaled by (fontSize / atlas font size).
+ * If the renderer is not initialized, returns 0.0.
+ *
+ * @param fontSize Target font size in pixels.
+ * @return float The scaled ascent in pixels.
+ */
 float NUITextRendererSDF::getAscent(float fontSize) const {
     if (!initialized_) return 0.0f;
     float scale = fontSize / atlasFontSize_;
     return ascent_ * scale;
 }
 
+/**
+ * @brief Compile and link the MSDF vertex and fragment shaders and store the resulting program.
+ *
+ * On success the compiled program handle is stored in the member `shaderProgram_`.
+ *
+ * @return `true` if both shaders compiled and the program linked successfully and `shaderProgram_` is populated, `false` otherwise.
+ */
 bool NUITextRendererSDF::createShader() {
     auto compile = [](const char* src, GLenum type) -> GLuint {
         GLuint shader = glCreateShader(type);
@@ -326,6 +395,18 @@ bool NUITextRendererSDF::createShader() {
     return true;
 }
 
+/**
+ * @brief Loads a font file and builds an MSDF glyph atlas texture and associated glyph metrics.
+ *
+ * Reads the TTF/OTF at the given path, generates signed-distance-field bitmaps for printable ASCII
+ * glyphs at the requested pixel height, packs them into an atlas texture, and stores per-glyph
+ * metrics (UVs, size, bearings, advance) for use when rendering and measuring text.
+ *
+ * @param fontPath Path to the font file to load.
+ * @param fontSize Target pixel height used to generate the glyph SDFs in the atlas.
+ * @return bool `true` if the atlas and glyph metrics were created and the GL texture uploaded;
+ * `false` if the font file could not be opened or the font initialization failed.
+ */
 bool NUITextRendererSDF::loadFontAtlas(const std::string& fontPath, float fontSize) {
     std::ifstream file(fontPath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {

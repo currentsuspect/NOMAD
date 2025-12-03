@@ -44,6 +44,35 @@ public:
 
     // AudioDriver interface
     std::vector<AudioDeviceInfo> getDevices() override;
+    /**
+     * Retrieve the ID of the system's default audio output device.
+     * @returns The device ID of the default output device, or an invalid/zero ID if none available.
+     */
+    /**
+     * Retrieve the ID of the system's default audio input device.
+     * @returns The device ID of the default input device, or an invalid/zero ID if none available.
+     */
+    /**
+     * Open an audio stream with the specified configuration and user callback.
+     * @param config Desired stream configuration (sample rate, channels, buffer size, etc.).
+     * @param callback User-provided audio processing callback invoked for buffer supply/consumption.
+     * @param userData Opaque pointer passed to the callback.
+     * @returns `true` if the stream was opened successfully, `false` otherwise.
+     */
+    /**
+     * Close the currently opened audio stream and release related resources.
+     */
+    /**
+     * Start audio processing on the opened stream.
+     * @returns `true` if the stream started successfully, `false` otherwise.
+     */
+    /**
+     * Stop audio processing on the stream. The stream remains open and may be restarted.
+     */
+    /**
+     * Indicate whether the audio stream's processing thread is currently running.
+     * @returns `true` if the stream is running, `false` otherwise.
+     */
     uint32_t getDefaultOutputDevice() override;
     uint32_t getDefaultInputDevice() override;
     bool openStream(const AudioStreamConfig& config, AudioCallback callback, void* userData) override;
@@ -51,6 +80,15 @@ public:
     bool startStream() override;
     void stopStream() override;
     bool isStreamRunning() const override { return m_isRunning; }
+    /**
+     * Retrieve the current stream latency in milliseconds.
+     * @returns Latency in milliseconds.
+     */
+    
+    /**
+     * Retrieve the current stream sample rate.
+     * @returns Sample rate in Hz (samples per second), or 0 if unknown.
+     */
     double getStreamLatency() const override;
     uint32_t getStreamSampleRate() const override { return m_waveFormat ? m_waveFormat->nSamplesPerSec : 0; }
 

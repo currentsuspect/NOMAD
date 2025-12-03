@@ -11,6 +11,19 @@ namespace {
     constexpr int PROJECT_VERSION = 1;
 }
 
+/**
+ * @brief Serialize project state (tempo, playhead, and non-system tracks) to a JSON file.
+ *
+ * The written JSON contains the project version, tempo, playhead position, and an array of tracks.
+ * Each serialized track includes: name, color, volume, pan, mute, solo, start, file, sampleRate, and channels.
+ *
+ * @param path Filesystem path to write the JSON project file.
+ * @param trackManager Track manager supplying tracks to serialize; if null the save will fail.
+ * @param tempo Project tempo to store.
+ * @param playheadSeconds Playhead position in seconds to store.
+ * @return true if the project was successfully written to disk, `false` on failure (for example when
+ *         `trackManager` is null or the output file could not be opened).
+ */
 bool ProjectSerializer::save(const std::string& path,
                              const std::shared_ptr<TrackManager>& trackManager,
                              double tempo,
@@ -54,6 +67,22 @@ bool ProjectSerializer::save(const std::string& path,
     return true;
 }
 
+/**
+ * @brief Load project data from a JSON file into the provided TrackManager.
+ *
+ * Reads and parses the JSON at the given path, applies project-level values (tempo and playhead)
+ * and reconstructs tracks into the provided TrackManager. Existing tracks are cleared before
+ * loading. Per-track properties applied include name, color, volume, pan, mute, solo, start,
+ * and an optional audio file which will be loaded if present (failures to load individual files
+ * are logged and do not stop the overall load).
+ *
+ * @param path Filesystem path to the project JSON file.
+ * @param trackManager TrackManager instance to populate; must be non-null.
+ * @return LoadResult `ok` is `true` when the project was successfully loaded and applied.
+ *         On failure (`ok` is `false`) the result will be empty (e.g., when `trackManager` is null,
+ *         the file is missing or unreadable, or the JSON root is invalid). `tempo` and `playhead`
+ *         in the returned result reflect values read from the file (or their defaults when present).
+ */
 ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
                                                       const std::shared_ptr<TrackManager>& trackManager) {
     LoadResult result;

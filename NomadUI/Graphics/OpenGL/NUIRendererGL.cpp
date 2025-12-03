@@ -109,20 +109,42 @@ void main() {
 
 // ============================================================================
 // Constructor / Destructor
-// ============================================================================
+/**
+ * @brief Construct a new NUIRendererGL instance.
+ *
+ * Associates the internal render cache with this renderer and creates the
+ * SDF-based text renderer used for high-quality scalable text rendering.
+ */
 
 NUIRendererGL::NUIRendererGL() {
     renderCache_.setRenderer(this);
     sdfRenderer_ = std::make_unique<NUITextRendererSDF>();
 }
 
+/**
+ * @brief Releases all renderer resources and performs cleanup.
+ *
+ * Ensures shader programs, GL buffers, textures, font resources, and auxiliary renderers
+ * (such as SDF/FreeType resources and render caches) are freed and any associated GPU
+ * or system state is released.
+ */
 NUIRendererGL::~NUIRendererGL() {
     shutdown();
 }
 
 // ============================================================================
 // Lifecycle
-// ============================================================================
+/**
+ * @brief Initialize the OpenGL renderer and related subsystems for the given viewport size.
+ *
+ * Initializes GL functions, compiles and links shaders, creates vertex/index buffers,
+ * sets up an orthographic projection for the provided width and height, and attempts
+ * to initialize font/text rendering (FreeType and optional SDF/MSDF renderer).
+ *
+ * @param width Viewport width in pixels.
+ * @param height Viewport height in pixels.
+ * @return `true` if initialization succeeded and required resources were created, `false` otherwise.
+ */
 
 bool NUIRendererGL::initialize(int width, int height) {
     width_ = width;
@@ -193,6 +215,14 @@ bool NUIRendererGL::initialize(int width, int height) {
     return true;
 }
 
+/**
+ * @brief Releases all renderer resources and resets internal rendering state.
+ *
+ * Shuts down the SDF text renderer if present, frees FreeType face and library resources,
+ * deletes any cached font textures and clears the font cache, deletes OpenGL vertex array,
+ * vertex and index buffers, and deletes the primitive shader program. Marks the font system
+ * as uninitialized.
+ */
 void NUIRendererGL::shutdown() {
     if (sdfRenderer_) {
         sdfRenderer_->shutdown();
@@ -234,6 +264,16 @@ void NUIRendererGL::shutdown() {
     // Text rendering cleanup (no font objects to clean up)
 }
 
+/**
+ * @brief Update renderer for a new drawing surface size.
+ *
+ * Updates the internal width/height, recalculates the orthographic projection,
+ * clears cached offscreen render targets so they are recreated for the new size,
+ * and sets the OpenGL viewport to cover the new surface.
+ *
+ * @param width New surface width in pixels.
+ * @param height New surface height in pixels.
+ */
 void NUIRendererGL::resize(int width, int height) {
     width_ = width;
     height_ = height;
@@ -250,7 +290,11 @@ void NUIRendererGL::resize(int width, int height) {
 
 // ============================================================================
 // Frame Management
-// ============================================================================
+/**
+ * @brief Prepare renderer internal state for a new frame.
+ *
+ * Resets per-frame geometry buffers and counters, clears batching state, resets primitive-related rendering parameters to defaults, updates the current frame in the render cache, and marks the entire viewport as dirty so rendering will refresh for the new frame.
+ */
 
 void NUIRendererGL::beginFrame() {
     vertices_.clear();
@@ -331,13 +375,32 @@ void NUIRendererGL::setOpacity(float opacity) {
 
 // ============================================================================
 // Primitive Drawing
-// ============================================================================
+/**
+ * @brief Fills the given axis-aligned rectangle with a solid color.
+ *
+ * The rectangle is transformed by the current transform stack and modulated
+ * by the global opacity before being emitted to the active batch.
+ *
+ * @param rect Rectangle bounds in renderer coordinate space.
+ * @param color Fill color (including alpha).
+ */
 
 void NUIRendererGL::fillRect(const NUIRect& rect, const NUIColor& color) {
     ensureBasicPrimitive();
     addQuad(rect, color);
 }
 
+/**
+ * @brief Draws a filled rounded rectangle.
+ *
+ * Renders a filled rounded rectangle into the current batch and updates the renderer's primitive state.
+ * If the renderer's primitive parameters differ from those required for this rounded rect, the current
+ * batch is flushed before emitting geometry.
+ *
+ * @param rect Rectangle defining position and size of the rounded rectangle.
+ * @param radius Corner radius in pixels.
+ * @param color Fill color to apply to the rectangle.
+ */
 void NUIRendererGL::fillRoundedRect(const NUIRect& rect, float radius, const NUIColor& color) {
     // Check if we need to flush (state change or size change)
     // Note: uQuadSize and uRectSize are uniforms, so we must flush if they change.
@@ -367,11 +430,33 @@ void NUIRendererGL::strokeRect(const NUIRect& rect, float thickness, const NUICo
     drawLine(NUIPoint({rect.x, rect.bottom()}), NUIPoint({rect.x, rect.y}), thickness, color);
 }
 
+/**
+ * @brief Draws an outlined rectangle with rounded corners.
+ *
+ * Draws the outline of the given rectangle using the specified corner radius, stroke thickness, and color.
+ *
+ * @param rect Rectangle bounds in pixels.
+ * @param radius Corner radius in pixels.
+ * @param thickness Stroke thickness in pixels.
+ * @param color Stroke color.
+ */
 void NUIRendererGL::strokeRoundedRect(const NUIRect& rect, float radius, float thickness, const NUIColor& color) {
     // For now, use simple stroke
     strokeRect(rect, thickness, color);
 }
 
+/**
+ * @brief Renders a filled circle by appending triangle-fan geometry to the current batch.
+ *
+ * Renders an approximated filled circle centered at `center` with the given `radius` and `color`.
+ * The circle is approximated using 32 segments and the generated triangles are added to the active
+ * vertex/index batch; `ensureBasicPrimitive()` is invoked to flush if the current primitive state
+ * is incompatible.
+ *
+ * @param center Center position in renderer coordinates.
+ * @param radius Circle radius in renderer units (pixels).
+ * @param color Fill color (including alpha).
+ */
 void NUIRendererGL::fillCircle(const NUIPoint& center, float radius, const NUIColor& color) {
     ensureBasicPrimitive();
     // Approximate circle with triangle fan
@@ -388,6 +473,16 @@ void NUIRendererGL::fillCircle(const NUIPoint& center, float radius, const NUICo
     }
 }
 
+/**
+ * @brief Draws the outline of a circle using a segmented approximation.
+ *
+ * Draws a stroked circle centered at the given point by connecting a fixed number of line segments to approximate the circumference. The stroke uses the provided thickness and color.
+ *
+ * @param center Center point of the circle.
+ * @param radius Radius of the circle in pixels.
+ * @param thickness Thickness of the stroke in pixels.
+ * @param color Color used for the stroke.
+ */
 void NUIRendererGL::strokeCircle(const NUIPoint& center, float radius, float thickness, const NUIColor& color) {
     ensureBasicPrimitive();
     // Approximate with line segments
@@ -405,6 +500,18 @@ void NUIRendererGL::strokeCircle(const NUIPoint& center, float radius, float thi
     }
 }
 
+/**
+ * @brief Renders a thick line segment between two points by emitting a quad.
+ *
+ * Emits vertex and index data for a rectangle that approximates a line of the
+ * specified thickness connecting `start` and `end`. If the two points are
+ * effectively coincident (distance < 0.001), the call is a no-op.
+ *
+ * @param start Starting point of the line in renderer coordinates.
+ * @param end Ending point of the line in renderer coordinates.
+ * @param thickness Thickness of the line in pixels.
+ * @param color Color used for all vertices of the line (alpha is modulated by global opacity).
+ */
 void NUIRendererGL::drawLine(const NUIPoint& start, const NUIPoint& end, float thickness, const NUIColor& color) {
     ensureBasicPrimitive();
     // Simple line as thin quad
@@ -431,6 +538,17 @@ void NUIRendererGL::drawLine(const NUIPoint& start, const NUIPoint& end, float t
     indices_.push_back(base + 3);
 }
 
+/**
+ * @brief Draws a connected polyline through a sequence of points.
+ *
+ * Draws consecutive line segments between each pair of adjacent points in the provided array.
+ * If `count` is less than 2, no geometry is emitted.
+ *
+ * @param points Pointer to an array of points defining the polyline vertices.
+ * @param count Number of points in the `points` array.
+ * @param thickness Line thickness in pixels.
+ * @param color Color applied uniformly to all segments of the polyline.
+ */
 void NUIRendererGL::drawPolyline(const NUIPoint* points, int count, float thickness, const NUIColor& color) {
     ensureBasicPrimitive();
     for (int i = 0; i < count - 1; ++i) {
@@ -440,7 +558,16 @@ void NUIRendererGL::drawPolyline(const NUIPoint* points, int count, float thickn
 
 // ============================================================================
 // Gradient Drawing
-// ============================================================================
+/**
+ * @brief Fills a rectangle with a linear gradient between two colors.
+ *
+ * The gradient interpolates colorStart to colorEnd across the rectangle.
+ *
+ * @param rect Rectangle area to fill in device coordinates.
+ * @param colorStart Color at the gradient's origin (top for vertical=true, left for vertical=false).
+ * @param colorEnd Color at the gradient's end (bottom for vertical=true, right for vertical=false).
+ * @param vertical If true, gradient runs top-to-bottom; if false, gradient runs left-to-right.
+ */
 
 void NUIRendererGL::fillRectGradient(const NUIRect& rect, const NUIColor& colorStart, const NUIColor& colorEnd, bool vertical) {
     ensureBasicPrimitive();
@@ -465,6 +592,17 @@ void NUIRendererGL::fillRectGradient(const NUIRect& rect, const NUIColor& colorS
     indices_.push_back(base + 3);
 }
 
+/**
+ * @brief Renders a filled circle with a radial gradient from the center to the perimeter.
+ *
+ * Renders the circle as a 32-segment triangle fan where the center uses `colorInner`
+ * and the rim uses `colorOuter`, producing a smooth radial interpolation.
+ *
+ * @param center Center position of the circle in renderer coordinates.
+ * @param radius Radius of the circle in renderer coordinates.
+ * @param colorInner Color applied at the circle center.
+ * @param colorOuter Color applied at the circle perimeter.
+ */
 void NUIRendererGL::fillCircleGradient(const NUIPoint& center, float radius, const NUIColor& colorInner, const NUIColor& colorOuter) {
     ensureBasicPrimitive();
     // Simple radial gradient
@@ -499,6 +637,21 @@ void NUIRendererGL::drawGlow(const NUIRect& rect, float radius, float intensity,
     fillRect(glowRect, glowColor);
 }
 
+/**
+ * @brief Enqueues a soft, rounded rectangular shadow for the given rectangle.
+ *
+ * The function computes an expanded quad to accommodate blur, configures the renderer
+ * to use the rounded-rect primitive with a fixed corner radius (8.0), and adds the
+ * shadow quad to the current batch using the provided color.
+ *
+ * This call may flush the current batch if the renderer's primitive state changes.
+ *
+ * @param rect Rectangle to cast the shadow from (position and size in pixels).
+ * @param offsetX Horizontal offset applied to the shadow relative to rect.x.
+ * @param offsetY Vertical offset applied to the shadow relative to rect.y.
+ * @param blur Blur radius in pixels; used to expand the shadow quad and control softness.
+ * @param color Color of the shadow; alpha should be provided by the caller to control opacity.
+ */
 void NUIRendererGL::drawShadow(const NUIRect& rect, float offsetX, float offsetY, float blur, const NUIColor& color) {
     NOMAD_ZONE("Renderer_DrawShadow");
     
@@ -533,7 +686,21 @@ void NUIRendererGL::drawShadow(const NUIRect& rect, float offsetX, float offsetY
 
 // ============================================================================
 // Text Rendering (Placeholder)
-// ============================================================================
+/**
+ * @brief Renders a UTF-8 string at a 2D UI position using the best available text backend.
+ *
+ * Chooses between an SDF/MSDF renderer (if initialized), a FreeType-based font atlas (if a font is loaded),
+ * or a simple blocky fallback. The provided position is treated as the UI top-left; the function applies
+ * font ascent and DPI scaling so the text baseline aligns visually with the given y coordinate.
+ *
+ * @param text The string to render.
+ * @param position Top-left position in UI coordinates where text is placed; baseline alignment is applied internally.
+ * @param fontSize Logical font size in UI units (DPI scaling is applied before rendering).
+ * @param color Color used to draw glyphs.
+ *
+ * @note When using the SDF/MSDF renderer, the function flushes pending batches before delegating to the SDF renderer
+ * and restores renderer state after the SDF draw, because the SDF renderer modifies GL program/VAO/texture state.
+ */
 
 void NUIRendererGL::drawText(const std::string& text, const NUIPoint& position, float fontSize, const NUIColor& color) {
     if (!useSDFText_ && !triedSDFInit_ && sdfRenderer_ && !defaultFontPath_.empty()) {
@@ -598,7 +765,13 @@ void NUIRendererGL::drawText(const std::string& text, const NUIPoint& position, 
 
 // ============================================================================
 // High-Quality Text Rendering Helpers
-// ============================================================================
+/**
+ * @brief Computes the display DPI scaling factor for the current environment.
+ *
+ * Queries the system DPI and converts it to a scale where 1.0 corresponds to 96 DPI.
+ *
+ * @return float Scaling factor where 1.0 corresponds to 96 DPI; on Windows returns (device DPI) / 96, otherwise returns 1.0.
+ */
 
 float NUIRendererGL::getDPIScale() {
 #ifdef _WIN32
@@ -612,7 +785,19 @@ float NUIRendererGL::getDPIScale() {
     return 1.0f; // Default scale
 }
 
-// REMOVED: renderCharacterImproved (replaced by atlas rendering)
+/**
+ * @brief Renders a stylized, highly readable glyph inside a rectangular region using block elements.
+ *
+ * Draws a clean, blocky representation of the given ASCII character by composing filled rectangles
+ * within the specified bounding box. Intended as a fallback when proper font rendering is unavailable.
+ *
+ * @param c Character to render (handles A–Z, a–z, 0–9 and common punctuation; unknown characters render as a simple block).
+ * @param x Left coordinate of the bounding box.
+ * @param y Top coordinate of the bounding box.
+ * @param width Width of the bounding box for the glyph.
+ * @param height Height of the bounding box for the glyph.
+ * @param color Color used to draw the glyph.
+ */
 
 void NUIRendererGL::drawCleanCharacter(char c, float x, float y, float width, float height, const NUIColor& color) {
     // Clean character rendering using filled rectangles
@@ -1271,6 +1456,17 @@ void NUIRendererGL::drawCharacter(char c, float x, float y, float width, float h
     }
 }
 
+/**
+ * @brief Draws the given text centered horizontally and vertically within the specified rectangle.
+ *
+ * Centers text by measuring its rendered size and positioning the baseline using the renderer's
+ * top-left coordinate convention; the computed vertical position is floored to an integer.
+ *
+ * @param text The UTF-8 text to render.
+ * @param rect Bounding rectangle in which the text will be centered.
+ * @param fontSize Font size in pixels used to measure and render the text.
+ * @param color Color applied to the rendered text.
+ */
 void NUIRendererGL::drawTextCentered(const std::string& text, const NUIRect& rect, float fontSize, const NUIColor& color) {
     // Measure actual text dimensions
     NUISize textSize = measureText(text, fontSize);
@@ -1285,6 +1481,17 @@ void NUIRendererGL::drawTextCentered(const std::string& text, const NUIRect& rec
     drawText(text, NUIPoint(x, y), fontSize, color);
 }
 
+/**
+ * @brief Compute the pixel dimensions of a text string at the specified font size.
+ *
+ * Measures the rendered width and height for the given text. If an SDF text renderer is enabled and initialized,
+ * its measurement is used (with DPI scaling). If FreeType font data is available, per-glyph font metrics are used.
+ * Otherwise a heuristic estimate (approx. 0.6 * fontSize per character) is returned.
+ *
+ * @param text The string to measure.
+ * @param fontSize The nominal font size in pixels.
+ * @return NUISize Measured width and height in pixels for the given text and font size.
+ */
 NUISize NUIRendererGL::measureText(const std::string& text, float fontSize) {
     if (!useSDFText_ && !triedSDFInit_ && sdfRenderer_ && !defaultFontPath_.empty()) {
         useSDFText_ = sdfRenderer_->initialize(defaultFontPath_, 64.0f);
@@ -1335,7 +1542,21 @@ NUISize NUIRendererGL::measureText(const std::string& text, float fontSize) {
 
 // ============================================================================
 // Real Font Rendering with FreeType
-// ============================================================================
+/**
+ * @brief Loads a TrueType/OpenType font and builds a glyph texture atlas for ASCII characters.
+ *
+ * Initializes a FreeType face from the provided file, creates an OpenGL texture atlas,
+ * rasterizes glyph bitmaps for characters U+0020..U+007F into the atlas, and caches
+ * per-character metrics and UV coordinates for later textured text rendering.
+ *
+ * @param fontPath Filesystem path to the font file to load.
+ * @return bool `true` if the font face was loaded and atlas preparation completed, `false` if the font face could not be opened.
+ *
+ * Side effects:
+ * - Creates and binds an OpenGL texture stored in `fontAtlasTextureId_`.
+ * - Populates `fontCache_` with FontData for loaded characters.
+ * - Sets `defaultFontPath_` and `fontInitialized_` on success.
+ */
 
 bool NUIRendererGL::loadFont(const std::string& fontPath) {
     if (FT_New_Face(ftLibrary_, fontPath.c_str(), 0, &ftFace_)) {
@@ -1457,6 +1678,22 @@ bool NUIRendererGL::loadFont(const std::string& fontPath) {
     return true;
 }
 
+/**
+ * @brief Render a UTF-8 text string using the loaded font atlas.
+ *
+ * Renders each character as a textured quad sampled from the font atlas, applying DPI and font-size scaling
+ * and baseline alignment from font metrics. Characters not present in the atlas are skipped. If the font
+ * atlas is not initialized, rendering falls back to an alternative text path.
+ *
+ * @param text The string to render.
+ * @param position Top-left baseline position in screen coordinates where text rendering begins.
+ *                 The y component represents the baseline (not the glyph top).
+ * @param fontSize Desired font size in pixels; the function applies the current DPI scale and the atlas'
+ *                 base size when computing glyph scale.
+ * @param color Color modulation applied to rendered glyphs.
+ *
+ * @note This routine will bind the font atlas texture and may flush the current GPU batch to switch textures.
+ */
 void NUIRendererGL::renderTextWithFont(const std::string& text, const NUIPoint& position, float fontSize, const NUIColor& color) {
     NOMAD_ZONE("Text_Render");
     if (!fontInitialized_) {
@@ -1517,7 +1754,17 @@ void NUIRendererGL::renderTextWithFont(const std::string& text, const NUIPoint& 
 
 // ============================================================================
 // Texture/Image Drawing (Placeholder)
-// ============================================================================
+/**
+ * @brief Draws a textured quad at the given destination rectangle using a subregion of a cached texture.
+ *
+ * Draws the portion of the texture specified by sourceRect (in pixels) into destRect. If the specified texture
+ * ID is zero or not found in the internal texture map, the call is a no-op. This operation may flush the current
+ * batch and switch GPU texture state when necessary.
+ *
+ * @param textureId Identifier of the previously created texture.
+ * @param destRect Destination rectangle in screen coordinates where the texture subregion will be drawn.
+ * @param sourceRect Source subregion (in pixels) within the texture to use for the quad; negative width/height flip UVs.
+ */
 
 void NUIRendererGL::drawTexture(uint32_t textureId, const NUIRect& destRect, const NUIRect& sourceRect) {
     if (textureId == 0) return;
@@ -1570,6 +1817,19 @@ void NUIRendererGL::drawTexture(uint32_t textureId, const NUIRect& destRect, con
     indices_.push_back(base + 3);
 }
 
+/**
+ * @brief Uploads RGBA pixel data to a temporary GPU texture and renders it as a textured quad.
+ *
+ * Flushes any pending batched geometry, creates a one-shot GL texture from the provided
+ * RGBA buffer, draws the texture mapped to the given destination rectangle, and then
+ * deletes the temporary texture. If the pixel data or dimensions are invalid, the call
+ * is a no-op and an error is reported.
+ *
+ * @param bounds Destination rectangle in renderer coordinates where the texture will be drawn.
+ * @param rgba Pointer to width*height*4 bytes of pixel data in RGBA order.
+ * @param width Width of the pixel data in pixels; must be > 0.
+ * @param height Height of the pixel data in pixels; must be > 0.
+ */
 void NUIRendererGL::drawTexture(const NUIRect& bounds, const unsigned char* rgba, 
                                 int width, int height) {
     // Validate input parameters
@@ -1743,6 +2003,14 @@ uint32_t NUIRendererGL::createTexture(const uint8_t* data, int width, int height
     return id;
 }
 
+/**
+ * @brief Delete a cached texture and its underlying GL texture resource.
+ *
+ * Removes the texture entry identified by the renderer-local texture ID from the internal cache
+ * and deletes its associated OpenGL texture if one exists. Passing 0 has no effect.
+ *
+ * @param textureId Renderer-local texture identifier returned by createTexture().
+ */
 void NUIRendererGL::deleteTexture(uint32_t textureId) {
     if (textureId == 0) return;
     auto it = textures_.find(textureId);
@@ -1752,6 +2020,18 @@ void NUIRendererGL::deleteTexture(uint32_t textureId) {
     textures_.erase(it);
 }
 
+/**
+ * @brief Begin rendering into an offscreen texture of the specified size.
+ *
+ * Flushes any pending draw batch, creates (if needed) and binds an FBO with a newly created texture
+ * sized width×height, updates the renderer's viewport and projection to the FBO size, clears the
+ * target to transparent black, and marks the renderer as rendering-to-texture.
+ *
+ * @param width Width of the offscreen texture in pixels; must be > 0.
+ * @param height Height of the offscreen texture in pixels; must be > 0.
+ * @return uint32_t The widget texture ID for the created render target on success, `0` on invalid
+ * input or failure (e.g., texture or FBO setup failed).
+ */
 uint32_t NUIRendererGL::renderToTextureBegin(int width, int height) {
     if (width <= 0 || height <= 0) return 0;
     
@@ -1807,6 +2087,14 @@ uint32_t NUIRendererGL::renderToTextureBegin(int width, int height) {
     return texId;
 }
 
+/**
+ * @brief Ends offscreen rendering and restores the previous framebuffer, viewport, and projection.
+ *
+ * Restores GL framebuffer 0 and the previously saved viewport, restores the renderer's width/height
+ * and projection matrix saved before beginOffscreen/renderToTextureBegin, and stops the offscreen mode.
+ *
+ * @return uint32_t ID of the texture that was used as the offscreen render target, or `0` if no offscreen render was active.
+ */
 uint32_t NUIRendererGL::renderToTextureEnd() {
     if (!renderingToTexture_) return 0;
 
@@ -1827,6 +2115,12 @@ uint32_t NUIRendererGL::renderToTextureEnd() {
 
 
 
+/**
+ * @brief Retrieves the OpenGL texture handle associated with an internal texture identifier.
+ *
+ * @param textureId Internal texture identifier previously returned by createTexture or similar helper.
+ * @return uint32_t OpenGL texture name (GL texture id) for the given identifier, or `0` if the identifier is not found.
+ */
 uint32_t NUIRendererGL::getGLTextureId(uint32_t textureId) const {
     auto it = textures_.find(textureId);
     if (it == textures_.end()) {
@@ -1873,6 +2167,16 @@ void NUIRendererGL::endBatch() {
     flush();
 }
 
+/**
+ * @brief Flushes the current batched geometry to the GPU and issues a draw call.
+ *
+ * Sends accumulated vertex and index data to GPU buffers, configures shader uniforms for
+ * the active primitive and texture state, binds the current texture if one is set, and
+ * issues a single draw call; on success the CPU-side vertex and index buffers are cleared
+ * and internal draw counters and profiler metrics are updated.
+ *
+ * If there are no vertices queued, the function returns without side effects.
+ */
 void NUIRendererGL::flush() {
     NOMAD_ZONE("Renderer_Flush");
     if (vertices_.empty()) {
@@ -1937,6 +2241,14 @@ void NUIRendererGL::flush() {
     // For now, let's just clear the buffers.
 }
 
+/**
+ * @brief Ensure the renderer is using the basic (flat) primitive path.
+ *
+ * If the renderer is currently configured for a non-basic primitive (for
+ * example rounded-rect or shadow), this flushes any pending batch and resets
+ * primitive-specific state (primitive type, radius, blur, rect size and quad
+ * size) back to default values for flat primitives.
+ */
 void NUIRendererGL::ensureBasicPrimitive() {
     // Switch back to flat primitives when the previous draw used the rounded-rect path
     if (currentPrimitiveType_ != 0) {
@@ -1964,6 +2276,15 @@ bool NUIRendererGL::initializeGL() {
     return true;
 }
 
+/**
+ * @brief Compiles the embedded vertex and fragment shaders, links them into the primitive shader program,
+ * and caches the program's uniform locations for later use.
+ *
+ * The compiled shader objects are deleted after linking and the resulting program handle and uniform
+ * locations are stored in the renderer's primitiveShader_ structure.
+ *
+ * @return true if both shaders compiled, the program linked successfully, and uniform locations were obtained; false otherwise.
+ */
 bool NUIRendererGL::loadShaders() {
     uint32_t vertShader = compileShader(vertexShaderSource, GL_VERTEX_SHADER);
     uint32_t fragShader = compileShader(fragmentShaderSource, GL_FRAGMENT_SHADER);
@@ -2056,6 +2377,18 @@ uint32_t NUIRendererGL::linkProgram(uint32_t vertexShader, uint32_t fragmentShad
     return program;
 }
 
+/**
+ * @brief Appends a vertex to the renderer's vertex buffer using the current transform and global opacity.
+ *
+ * The input position is transformed by the active transform stack before being stored. The input color's alpha
+ * is multiplied by the renderer's current global opacity before the vertex is appended.
+ *
+ * @param x X position of the vertex in local coordinates (will be transformed).
+ * @param y Y position of the vertex in local coordinates (will be transformed).
+ * @param u Texture U coordinate (typically 0..1).
+ * @param v Texture V coordinate (typically 0..1).
+ * @param color RGBA color applied to the vertex.
+ */
 void NUIRendererGL::addVertex(float x, float y, float u, float v, const NUIColor& color) {
     applyTransform(x, y);
     
@@ -2072,6 +2405,16 @@ void NUIRendererGL::addVertex(float x, float y, float u, float v, const NUIColor
     vertices_.push_back(vertex);
 }
 
+/**
+ * @brief Append a filled, non-textured quad covering the given rectangle to the current draw batch.
+ *
+ * If the renderer was previously batching textured geometry, this call will flush the batch and
+ * switch to non-textured drawing before emitting the quad. Four vertices with UVs in the [0,1]
+ * range are added and six indices are emitted to form two triangles.
+ *
+ * @param rect Rectangle in renderer coordinates that the quad will cover.
+ * @param color Color applied to all four vertices of the quad (global opacity is applied).
+ */
 void NUIRendererGL::addQuad(const NUIRect& rect, const NUIColor& color) {
     // Check if we need to switch to non-textured mode (batch breaking)
     if (currentTextureId_ != 0) {
@@ -2143,6 +2486,16 @@ void NUIRendererGL::setCachingEnabled(bool enabled) {
     renderCache_.setEnabled(enabled);
 }
 
+/**
+ * @brief Retrieve renderer optimization and caching statistics.
+ *
+ * Populates the provided output parameters with current renderer metrics.
+ *
+ * @param batchedQuads Set to the total number of quads currently batched.
+ * @param dirtyRegions Set to the number of tracked dirty regions.
+ * @param cachedWidgets Set to the number of widgets stored in the render cache.
+ * @param cacheMemoryBytes Set to the total memory used by the render cache, in bytes.
+ */
 void NUIRendererGL::getOptimizationStats(size_t& batchedQuads, size_t& dirtyRegions, 
                                         size_t& cachedWidgets, size_t& cacheMemoryBytes) {
     batchedQuads = batchManager_.getTotalQuads();

@@ -50,8 +50,12 @@ struct SampleKeyHasher {
  */
 struct AudioBuffer {
     std::vector<float> data;          // Interleaved float samples [-1.0, 1.0]
-    uint32_t channels{0};             // Number of channels (e.g., 1=mono, 2=stereo)
-    uint32_t sampleRate{0};           // Sample rate in Hz (e.g., 44100)
+    uint32_t channels{0};             /**
+ * Sampling rate in hertz (samples per second).
+ */
+    uint32_t sampleRate{0};           /**
+ * Number of audio frames per channel in the buffer; computed from the interleaved sample data and channel count.
+ */
     uint64_t numFrames{0};            // Total frames = data.size() / channels
     bool isStreaming{false};          // True if backed by streaming source
 
@@ -127,7 +131,12 @@ private:
     mutable std::mutex m_mutex;
     std::unordered_map<SampleKey, std::weak_ptr<AudioBuffer>, SampleKeyHasher> m_samples;
     
-    size_t m_memoryBudget{0};                         // 0 = unlimited
+    /**
+ * Memory budget for cached audio buffers, expressed in bytes.
+ *
+ * A value of 0 disables budgeting and allows unlimited memory usage.
+ */
+size_t m_memoryBudget{0};                         // 0 = unlimited
     std::atomic<size_t> m_memoryCurrent{0};          // Total bytes of all buffers
     
     std::atomic_uint64_t m_accessCounter{0};         // Monotonic LRU ticker

@@ -10,6 +10,14 @@
 namespace Nomad {
 namespace Audio {
 
+/**
+ * @brief Construct a UI component that represents and controls a Track.
+ *
+ * Creates label and control widgets (name, duration, mute, solo, record), configures their visual styles and font sizes from the theme, hooks up control callbacks, and initializes the component's visual state.
+ *
+ * @param track Shared pointer to the Track this component represents. If null, the constructor logs an error and the component remains uninitialized.
+ * @param trackManager Pointer to the TrackManager used for integration with project-level track features (may be null).
+ */
 TrackUIComponent::TrackUIComponent(std::shared_ptr<Track> track, TrackManager* trackManager)
     : m_track(track)
     , m_trackManager(trackManager)
@@ -713,6 +721,18 @@ void TrackUIComponent::onUpdate(double deltaTime) {
     NUIComponent::onUpdate(deltaTime);
 }
 
+/**
+ * @brief Recomputes and applies layout for the track's child UI elements when the component size changes.
+ *
+ * Re-reads layout dimensions from the theme manager and positions the name label, duration label,
+ * and the mute/solo/record buttons. The name label width is derived from the control button start
+ * X (with a minimum), labels are vertically centered, and the three control buttons are arranged
+ * in a compact vertical group and centered vertically. Delegates to the base class resize handler
+ * after applying child bounds.
+ *
+ * @param width New component width in pixels.
+ * @param height New component height in pixels.
+ */
 void TrackUIComponent::onResize(int width, int height) {
     NomadUI::NUIRect bounds = getBounds();
     // Log::info("TrackUIComponent onResize: parent bounds x=" + std::to_string(bounds.x) + ", y=" + std::to_string(bounds.y) + ", w=" + std::to_string(bounds.width) + ", h=" + std::to_string(bounds.height));

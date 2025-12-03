@@ -261,6 +261,13 @@ bool PlatformWindowWin32::setupPixelFormat() {
     return true;
 }
 
+/**
+ * @brief Creates and activates an OpenGL rendering context for this window, preferring a modern core-profile context.
+ *
+ * Attempts to create a modern core-profile OpenGL context (probing common versions) after creating a temporary context to load WGL extensions; if that fails, falls back to a legacy context. On success the internal OpenGL context handle is set and the context is made current for this window.
+ *
+ * @return `true` if a GL context was created and made current, `false` otherwise.
+ */
 bool PlatformWindowWin32::createGLContext() {
     if (m_hglrc) {
         return true;  // Already created
@@ -395,6 +402,19 @@ LRESULT CALLBACK PlatformWindowWin32::WindowProc(HWND hwnd, UINT msg, WPARAM wPa
     return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
+/**
+ * @brief Process a Win32 window message, update window state, and dispatch platform events to registered callbacks.
+ *
+ * Handles borderless window behaviors (custom hit testing for dragging/resizing, suppressing non-client painting,
+ * and manual minimize/restore/maximize handling), input events (mouse move, mouse buttons, mouse wheel, key press/release,
+ * and character input), focus changes, window sizing (including notifying resize callbacks on size change, minimize,
+ * and restore), and DPI changes (updates internal DPI scale, invokes DPI-change callback, and applies the suggested window rect).
+ *
+ * @param msg Windows message identifier.
+ * @param wParam Message-specific WPARAM value.
+ * @param lParam Message-specific LPARAM value.
+ * @return LRESULT `0` if the message was handled by this instance; otherwise returns the result of DefWindowProc for default processing.
+ */
 LRESULT PlatformWindowWin32::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_NCHITTEST: {

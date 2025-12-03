@@ -22,7 +22,18 @@ namespace Nomad {
 namespace Audio {
 
 namespace {
-    // Downmix multi-channel audio to stereo using sensible weights
+    /**
+     * @brief Downmixes interleaved multi-channel audio into stereo using common channel-layout weights.
+     *
+     * Converts an interleaved input buffer with a given number of channels per frame into a 2-channel
+     * (stereo) interleaved output buffer. The function applies typical perceptual weights for common
+     * channels (center, LFE, surrounds), averages any channels beyond six into both stereo channels,
+     * and clamps output samples to the range [-1.0, 1.0]. If inChannels is 0 the function does nothing.
+     *
+     * @param input Interleaved input samples (size must be frames * inChannels).
+     * @param inChannels Number of channels per frame in the input buffer.
+     * @param output Output vector that will be resized to frames * 2 and filled with stereo interleaved samples.
+     */
     void downmixToStereo(const std::vector<float>& input,
                          uint32_t inChannels,
                          std::vector<float>& output) {
@@ -61,6 +72,18 @@ namespace {
         }
     }
 
+    /**
+     * @brief Ensures the audio buffer is stereo by converting or downmixing it in place.
+     *
+     * Converts an interleaved PCM buffer to 2-channel stereo. Behavior:
+     * - If `channelCount` is 2, the buffer is left unchanged.
+     * - If `channelCount` is 1, the single channel is duplicated into left and right.
+     * - If `channelCount` is greater than 2, the buffer is downmixed to stereo.
+     *
+     * @param buffer Interleaved audio samples; length is frames * channelCount. On return the buffer contains interleaved stereo samples (frames * 2).
+     * @param channelCount [in,out] On entry, the current number of channels for `buffer`. On return set to 2.
+     * @param sourceChannels [out] Set to the original channel count before conversion.
+     */
     void forceStereo(std::vector<float>& buffer, uint32_t& channelCount, uint32_t& sourceChannels) {
         sourceChannels = channelCount;
         if (channelCount == 2) return;
@@ -84,7 +107,13 @@ namespace {
         channelCount = 2;
     }
 #ifdef _WIN32
-    // Downmix multi-channel audio to stereo using sensible weights
+    /**
+     * @brief Ensures Windows Media Foundation is initialized for the process.
+     *
+     * This function is thread-safe and will call MFStartup at most once; subsequent calls are no-ops that return the original result.
+     *
+     * @return `true` if Media Foundation was successfully initialized, `false` otherwise.
+     */
     bool ensureMediaFoundationInitialized() {
         static std::once_flag initFlag;
         static HRESULT initResult = E_FAIL;
@@ -94,12 +123,32 @@ namespace {
         return SUCCEEDED(initResult);
     }
 
+    /**
+     * @brief Converts a UTF-8 encoded string to a wide-character string.
+     *
+     * Decodes the UTF-8 byte sequence in `input` into a std::wstring using the platform's `wchar_t` encoding.
+     *
+     * @param input UTF-8 encoded text.
+     * @return std::wstring Wide-character string representing the same Unicode characters; returns an empty string if `input` is empty.
+     */
     std::wstring utf8ToWide(const std::string& input) {
         if (input.empty()) return L"";
         std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
         return converter.from_bytes(input);
     }
 
+    /**
+     * @brief Decodes an audio file using Windows Media Foundation into 32-bit float PCM.
+     *
+     * On success fills audioData with interleaved 32-bit float PCM samples (range approximately -1.0 to 1.0)
+     * and sets sampleRate and numChannels to the decoded format.
+     *
+     * @param filePath Path to the audio file to decode.
+     * @param[out] audioData Vector that will be filled with decoded interleaved float samples on success.
+     * @param[out] sampleRate Receives the sample rate of the decoded audio.
+     * @param[out] numChannels Receives the number of channels in the decoded audio.
+     * @return true if decoding completed and audioData contains samples; false on error (audioData contents are not guaranteed on failure).
+     */
     bool loadWithMediaFoundation(const std::string& filePath,
                                  std::vector<float>& audioData,
                                  uint32_t& sampleRate,
@@ -204,7 +253,15 @@ namespace {
 }
 #endif // _WIN32
 
-// === Audio Quality Preset Implementations ===
+/**
+ * @brief Create an Economy audio quality preset.
+ *
+ * Returns settings optimized for low CPU usage and fast processing.
+ *
+ * @return AudioQualitySettings Configured for fast resampling, no dithering,
+ * 32-bit internal precision, no oversampling, DC offset removal disabled,
+ * soft clipping disabled, and a soft anti-aliasing filter.
+ */
 
 AudioQualitySettings AudioQualitySettings::Economy() {
     AudioQualitySettings settings;
@@ -307,6 +364,17 @@ struct WavInfo {
     uint16_t audioFormat{0};
 };
 
+/**
+ * @brief Extracts basic WAV container metadata (fmt and data chunks) without decoding audio.
+ *
+ * Parses the WAV file header and fills the provided WavInfo with sample rate, channel count,
+ * bits per sample, byte offset of the data chunk, size of the data chunk, and the WAV audio format tag.
+ *
+ * @param filePath Path to the WAV file to inspect.
+ * @param[out] info Populated with discovered fields: `sampleRate`, `channels`, `bitsPerSample`,
+ *                  `dataOffset`, `dataSize`, and `audioFormat`.
+ * @return bool `true` if both the "fmt " and "data" chunks were found and WavInfo was populated, `false` otherwise.
+ */
 static bool parseWavInfo(const std::string& filePath, WavInfo& info) {
     std::ifstream file(filePath, std::ios::binary);
     if (!file) {
@@ -374,7 +442,20 @@ static bool parseWavInfo(const std::string& filePath, WavInfo& info) {
     return true;
 }
 
-// Simple WAV file loader
+/**
+ * @brief Loads a WAV file into a float sample buffer.
+ *
+ * Reads the specified WAV file and fills audioData with interleaved samples normalized to the range [-1.0, 1.0].
+ * On success the function updates sampleRate and numChannels to reflect the file's sample rate and channel count.
+ *
+ * @param filePath Path to the WAV file to load.
+ * @param[out] audioData Vector that will be resized and populated with interleaved float samples in host byte order, normalized to [-1, 1].
+ * @param[out] sampleRate Set to the WAV file's sample rate (Hz) on success.
+ * @param[out] numChannels Set to the WAV file's channel count on success.
+ * @return true if the file was parsed and audio data was successfully loaded; false on error or unsupported format.
+ *
+ * Supported formats: PCM (audioFormat = 1) and IEEE float (audioFormat = 3). Supported bit depths: 16-bit, 24-bit, 32-bit.
+ */
 bool loadWavFile(const std::string& filePath, std::vector<float>& audioData, uint32_t& sampleRate, uint32_t& numChannels) {
     std::ifstream file(filePath, std::ios::binary);
     if (!file) {
@@ -547,6 +628,16 @@ bool loadWavFile(const std::string& filePath, std::vector<float>& audioData, uin
     return true;
 }
 
+/**
+ * @brief Construct a Track with the given display name and identifier.
+ *
+ * Initializes track metadata (name, ID, default color, empty state, timing and playback phase),
+ * allocates a stereo MixerBus for the track, applies initial mixer parameters (volume, pan, mute, solo),
+ * and emits a creation log entry.
+ *
+ * @param name Display name for the track.
+ * @param trackId Unique identifier for the track.
+ */
 Track::Track(const std::string& name, uint32_t trackId)
     : m_name(name)
     , m_trackId(trackId)
@@ -569,6 +660,11 @@ Track::Track(const std::string& name, uint32_t trackId)
     Log::info("Track created: " + m_name + " (ID: " + std::to_string(m_trackId) + ")");
 }
 
+/**
+ * @brief Clean up track resources on destruction.
+ *
+ * Stops any active WAV streaming, stops recording if currently active, and logs the track's destruction.
+ */
 Track::~Track() {
     stopStreaming();
     if (isRecording()) {
@@ -577,6 +673,13 @@ Track::~Track() {
     Log::info("Track destroyed: " + m_name);
 }
 
+/**
+ * @brief Returns the audio sample buffer currently used by the track.
+ *
+ * Prefers the shared sample buffer when available (e.g., after a full non-streaming load); otherwise returns the track's internal audio data storage.
+ *
+ * @return const std::vector<float>& Reference to the buffer of interleaved audio samples used for playback.
+ */
 const std::vector<float>& Track::getAudioData() const {
     // Prefer shared sample buffer if present (non-streaming full loads)
     if (m_sampleBuffer && m_sampleBuffer->ready.load()) {
@@ -585,7 +688,14 @@ const std::vector<float>& Track::getAudioData() const {
     return m_audioData;
 }
 
-// Track Properties
+/**
+ * @brief Set the track's display name and propagate it to the associated mixer bus if present.
+ *
+ * Updates the internal name used for UI and logging; when a MixerBus is attached, its name
+ * is updated to match the track.
+ *
+ * @param name New display name for the track.
+ */
 void Track::setName(const std::string& name) {
     m_name = name;
     if (m_mixerBus) {
@@ -662,7 +772,18 @@ void Track::setState(TrackState state) {
     }
 }
 
-// Audio Data Management
+/**
+ * @brief Load an audio file into the track, using streaming for large WAVs when appropriate.
+ *
+ * Attempts to open and decode the specified file, populating the track's audio buffers and metadata.
+ * For large WAV files a streaming path may be started; on platforms with Media Foundation other formats
+ * may be decoded via that backend. If the file is missing or decoding fails, a preview or demo tone
+ * will be generated and used instead. The track's state, sample buffer, sample rate, channel counts,
+ * duration, and source path are updated as a result.
+ *
+ * @param filePath Filesystem path to the audio file to load.
+ * @return true if the track ended up with usable audio (file loaded or streaming started, or a preview/demo tone generated), `false` if loading and all fallback attempts failed.
+ */
 bool Track::loadAudioFile(const std::string& filePath) {
     std::cout << "Loading: " << filePath << " (track: " << m_name << ")" << std::endl;
     stopStreaming();
@@ -825,6 +946,15 @@ bool Track::loadAudioFile(const std::string& filePath) {
     return generatePreviewTone(filePath);
 }
 
+/**
+ * @brief Creates a short stereo preview tone derived from the provided file path and replaces the track's audio with it.
+ *
+ * Generates a 5-second stereo waveform whose base frequency is determined from the filename, stores the samples
+ * in the track's internal audio buffer, sets the track duration, and transitions the track to the Loaded state.
+ *
+ * @param filePath Source file path used to derive a deterministic preview tone (affects the generated pitch).
+ * @return true if the preview tone was generated and applied to the track successfully, false otherwise.
+ */
 bool Track::generatePreviewTone(const std::string& filePath) {
     m_sampleBuffer.reset();
     m_sourcePath = filePath;
@@ -874,6 +1004,18 @@ bool Track::generatePreviewTone(const std::string& filePath) {
     return true;
 }
 
+/**
+ * @brief Generate synthetic demo audio and load it into the track based on the provided file path.
+ *
+ * The function inspects `filePath` for keywords ("guitar", "drums", "vocals") to select a preset
+ * tone and duration, synthesizes a short stereo waveform (two channels), clamps peaks to prevent
+ * extreme clipping, and installs the generated samples as the track's audio.
+ *
+ * @param filePath Path or identifier whose contents determine the demo preset (e.g., contains
+ *                 "guitar", "drums", or "vocals"). The path is also stored as the track's source.
+ * @return bool `true` if demo audio was generated and loaded into the track (track state set to
+ *              Loaded and duration updated), `false` otherwise.
+ */
 bool Track::generateDemoAudio(const std::string& filePath) {
     m_sampleBuffer.reset();
     std::cout << "Generating demo audio for: " << filePath << std::endl;
@@ -932,6 +1074,12 @@ bool Track::generateDemoAudio(const std::string& filePath) {
     return true;
 }
 
+/**
+ * @brief Remove all audio content and reset playback/streaming state for the track.
+ *
+ * Clears in-memory audio buffers (including any active recording buffer), restores channel bookkeeping to stereo,
+ * resets duration, playback phase, and playback position to zero, and transitions the track state to Empty.
+ */
 void Track::clearAudioData() {
     m_sampleBuffer.reset();
     {
@@ -947,6 +1095,20 @@ void Track::clearAudioData() {
     setState(TrackState::Empty);
 }
 
+/**
+ * @brief Replace the track's audio with the provided interleaved PCM samples and prepare it for playback.
+ *
+ * Copies the supplied interleaved 32-bit float PCM data into the track's internal buffer, stops any active streaming,
+ * enforces a stereo output layout (duplicating or downmixing as needed), updates sample-rate and channel metadata,
+ * computes duration, resets playback phase and position, and transitions the track to the Loaded state.
+ *
+ * If `data` is null or `numSamples` is zero, the method logs an error and returns without modifying the track.
+ *
+ * @param data Pointer to interleaved 32-bit float PCM samples (channel-interleaved).
+ * @param numSamples Number of sample frames per channel (not total floats).
+ * @param sampleRate Sample rate of the provided data in Hz.
+ * @param numChannels Number of channels in the provided data.
+ */
 void Track::setAudioData(const float* data, uint32_t numSamples, uint32_t sampleRate, uint32_t numChannels) {
     if (!data || numSamples == 0) {
         Log::error("Invalid audio data");
@@ -1035,7 +1197,12 @@ void Track::stopRecording() {
     m_isRecording.store(false);
 }
 
-// Playback Control
+/**
+ * @brief Transition the track into the Playing state when playback can start.
+ *
+ * If the track is currently Loaded, Stopped, or Paused, update the track's internal
+ * state to Playing; otherwise take no action.
+ */
 void Track::play() {
     TrackState currentState = getState();
     
@@ -1063,7 +1230,16 @@ void Track::stop() {
     // Position reset will happen when play() is called again
 }
 
-// Position Control
+/**
+ * @brief Set the track playback position.
+ *
+ * Sets the current playback position (in seconds) clamped to the track's duration,
+ * restarts/seek the streaming source when the track is streaming, and updates the
+ * internal playback phase so future sample-accurate processing begins at the new position.
+ *
+ * @param seconds Desired playback position in seconds; values less than 0 are set to 0,
+ * and values greater than the track duration are set to the duration.
+ */
 void Track::setPosition(double seconds) {
     // Clamp position to valid range
     double duration = getDuration();
@@ -1089,7 +1265,24 @@ void Track::setPosition(double seconds) {
     m_playbackPhase.store(seconds * m_sampleRate);
 }
 
-// Audio Processing
+/**
+ * @brief Fills the provided output buffer with this track's contribution for the current stream callback.
+ *
+ * Copies or generates per-track audio for the requested number of frames, applies per-track mixing (volume/pan/mute/solo),
+ * mixes the result into the supplied output buffer, and advances the track's playback position or internal phase depending on state.
+ *
+ * @param outputBuffer Destination interleaved buffer (size >= numFrames * channel count). The function adds this track's samples to existing contents.
+ * @param numFrames Number of frames to process.
+ * @param streamTime Current host stream time in seconds (provided for callers and downstream processing).
+ * @param outputSampleRate Output device sample rate in Hz; if <= 0, a default of 48000 Hz is used. This rate is used to advance the track's timeline.
+ *
+ * @note Behavior varies by track state:
+ * - Playing: audio is copied/resampled into a temporary buffer, processed by the mixer bus, and added to outputBuffer.
+ * - Recording: the internal playback phase is advanced.
+ * - Paused/Stopped/Empty/Loaded: outputBuffer is left unchanged.
+ *
+ * @note When the playback position reaches or exceeds the track duration, the position is wrapped to zero.
+ */
 void Track::processAudio(float* outputBuffer, uint32_t numFrames, double streamTime, double outputSampleRate) {
     if (!outputBuffer || numFrames == 0) {
         return;
@@ -1156,12 +1349,31 @@ void Track::processAudio(float* outputBuffer, uint32_t numFrames, double streamT
     }
 }
 
+/**
+ * @brief Fills the provided buffer with silence for the specified number of frames.
+ *
+ * If `buffer` is non-null, writes zeros for `numFrames` frames across the track's channel count.
+ *
+ * @param buffer Destination interleaved audio buffer or `nullptr`.
+ * @param numFrames Number of frames to clear (each frame contains `m_numChannels` samples).
+ */
 void Track::generateSilence(float* buffer, uint32_t numFrames) {
     if (buffer) {
         std::fill(buffer, buffer + numFrames * m_numChannels, 0.0f);
     }
 }
 
+/**
+ * @brief Fills the provided output buffer with resampled, interpolated, and processed audio for the current track playback position.
+ *
+ * Copies audio from the track's active source (streaming buffer, ready sample buffer, or in-memory audio) into outputBuffer for numFrames frames at the specified outputSampleRate, applying the track's resampling/interpolation quality, Nomad Euphoria processing, DC removal, dithering, and optional soft clipping. Updates the internal playback phase; when streaming, trims consumed frames from the streaming buffer and notifies the streaming condition variable.
+ *
+ * @param outputBuffer Pointer to an interleaved float buffer to receive numFrames frames (caller-allocated). Must have at least numFrames * track channel count elements.
+ * @param numFrames Number of frames to generate into outputBuffer.
+ * @param outputSampleRate Desired output sample rate; if <= 0.0, a default of 48000.0 Hz is used.
+ *
+ * @note This function acquires the track's audio data mutex for the duration of the copy and processing. When streaming is active, it will call trimStreamBuffer with the updated phase and notify the streaming condition variable after writing samples.
+ */
 void Track::copyAudioData(float* outputBuffer, uint32_t numFrames, double outputSampleRate) {
     std::lock_guard<std::mutex> lock(m_audioDataMutex);
 
@@ -1268,6 +1480,16 @@ void Track::copyAudioData(float* outputBuffer, uint32_t numFrames, double output
     }
 }
 
+/**
+ * @brief Discards already-played frames from the streaming buffer to reclaim memory.
+ *
+ * Trims samples from the start of the internal streaming buffer so that the buffer's
+ * base frame is at most a fixed safety margin behind the provided current playhead frame.
+ * Will not remove all available buffered frames; if the computed drop would consume the
+ * entire buffer, no samples are removed.
+ *
+ * @param currentFrame Absolute playback frame index used as the reference playhead position.
+ */
 void Track::trimStreamBuffer(uint64_t currentFrame) {
     if (!m_streaming) return;
     const uint32_t keepMargin = 8192; // frames to keep ahead of playhead for safety
@@ -1286,6 +1508,25 @@ void Track::trimStreamBuffer(uint64_t currentFrame) {
     }
 }
 
+/**
+ * @brief Begin background streaming of WAV audio from disk into the track's stream buffer.
+ *
+ * Attempts to open and seek the WAV file to the specified data offset and start frame, initializes
+ * streaming state (clears the in-memory audio buffer, sets sample rate, source channel info,
+ * byte/sample bookkeeping, and EOF state), and launches a background thread that fills the stream
+ * buffer asynchronously.
+ *
+ * @param filePath Filesystem path to the WAV file to stream.
+ * @param sampleRate Sample rate reported by the WAV file (Hz).
+ * @param channels Number of channels in the source WAV data.
+ * @param bitsPerSample Bits per sample in the source WAV data (e.g., 16, 24, 32).
+ * @param dataOffset Byte offset in the file where the WAV data chunk begins.
+ * @param dataSize Size in bytes of the WAV data chunk.
+ * @param startFrame Frame index within the WAV data to begin streaming from; if this exceeds the
+ *                   available data the function will reset streaming to frame 0.
+ * @return true if the stream was successfully prepared and the background streaming thread was started,
+ *         false if the file could not be opened or the initial seek failed.
+ */
 bool Track::startWavStreaming(const std::string& filePath, uint32_t sampleRate, uint16_t channels, uint16_t bitsPerSample, uint32_t dataOffset, uint64_t dataSize, uint64_t startFrame) {
     stopStreaming();
     m_sampleBuffer.reset();
@@ -1331,6 +1572,12 @@ bool Track::startWavStreaming(const std::string& filePath, uint32_t sampleRate, 
     return true;
 }
 
+/**
+ * @brief Stops any active WAV streaming and cleans up streaming resources.
+ *
+ * Signals the background streaming thread to stop, waits for it to join, closes
+ * the underlying file handle if open, and resets streaming-related flags.
+ */
 void Track::stopStreaming() {
     if (!m_streaming) return;
     m_streamStop.store(true);
@@ -1345,6 +1592,25 @@ void Track::stopStreaming() {
     }
 }
 
+/**
+ * @brief Background thread that streams WAV PCM/float frames into the track's audio buffer.
+ *
+ * Continuously reads chunks of raw PCM or IEEE float frames from the open stream file, decodes and normalizes samples to float [-1,1],
+ * forces the decoded data to stereo, and appends it to the track's m_audioData buffer until end-of-file or a stop request.
+ * The thread maintains a target in-memory buffer (~6 seconds) and wakes periodically (or when signaled) to refill the buffer.
+ *
+ * Decoding behavior:
+ * - 2 bytes per sample: interprets as signed 16-bit PCM and scales by 32768.0.
+ * - 3 bytes per sample: interprets as 24-bit signed PCM and scales by 8388608.0 with clamping.
+ * - 4 bytes per sample: if streaming float data, copies float32 samples directly; otherwise interprets as signed 32-bit PCM and scales by 2147483648.0 with clamping.
+ *
+ * Thread-safety and synchronization:
+ * - Waits on m_streamCv with m_streamMutex and checks m_audioData under m_audioDataMutex to decide when to read.
+ * - Appends decoded frames to m_audioData while holding m_audioDataMutex.
+ * - Observes m_streamStop and sets/observes m_streamEof to indicate end-of-file.
+ *
+ * @param channels Number of channels in the source stream frames (before forcing stereo).
+ */
 void Track::streamWavThread(uint32_t channels) {
     const uint32_t bytesPerSample = m_streamBytesPerSample;
     const uint32_t bytesPerFrame = bytesPerSample * channels;

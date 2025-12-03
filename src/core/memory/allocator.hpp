@@ -48,7 +48,13 @@ namespace nomad::memory {
  */
 class IAllocator {
 public:
-    virtual ~IAllocator() = default;
+    /**
+ * @brief Ensures derived allocator destructors are invoked correctly.
+ *
+ * Provide a virtual destructor so implementations of IAllocator can clean up
+ * resources when deleted through a base-class pointer.
+ */
+virtual ~IAllocator() = default;
 
     /**
      * @brief Allocate memory
@@ -65,16 +71,20 @@ public:
     virtual void deallocate(void* ptr) = 0;
 
     /**
-     * @brief Reallocate memory to a new size
-     * @param ptr Pointer to existing memory (or nullptr for new allocation)
-     * @param oldSize Previous allocation size (required to copy existing data)
-     * @param newSize New size in bytes
-     * @param alignment Required alignment
-     * @return Pointer to reallocated memory, or nullptr on failure
-     * 
-     * @note The default implementation copies min(oldSize, newSize) bytes from
-     *       the old allocation to the new one. Derived classes should override
-     *       for better performance if they track allocation sizes internally.
+     * @brief Resize an allocation to a new size (or allocate/free based on inputs).
+     *
+     * The default behavior: if `ptr` is `nullptr` this allocates `newSize` bytes; if
+     * `newSize` is zero this frees `ptr` and returns `nullptr`; otherwise it
+     * allocates a new block with the requested `alignment`, copies `min(oldSize, newSize)`
+     * bytes from the old block into the new block, frees the old block, and returns
+     * the new pointer. Derived allocators may override to provide more efficient
+     * resizing when they track allocation sizes.
+     *
+     * @param ptr Pointer to an existing allocation, or `nullptr` to allocate a new block.
+     * @param oldSize Size in bytes of the existing allocation (used to determine how many bytes to copy).
+     * @param newSize Desired size in bytes for the new allocation; if zero the function frees `ptr`.
+     * @param alignment Alignment requirement for the new allocation.
+     * @return void* Pointer to the resized (or newly allocated) memory, or `nullptr` on failure.
      */
     [[nodiscard]] virtual void* reallocate(void* ptr, usize oldSize, usize newSize, 
                                            usize alignment = alignof(std::max_align_t)) {
@@ -108,7 +118,16 @@ public:
         usize peakBytes = 0;
     };
 
-    [[nodiscard]] virtual Stats getStats() const { return {}; }
+    /**
+ * @brief Retrieve allocator statistics.
+ *
+ * Provides aggregated counters for allocations, deallocations, current active allocations,
+ * current allocated bytes, and peak bytes.
+ *
+ * @return Stats Struct with allocation metrics; default implementation returns an empty
+ * `Stats` (all fields zero). Derived allocators should override to return accurate values.
+ */
+[[nodiscard]] virtual Stats getStats() const { return {}; }
 };
 
 //=============================================================================
@@ -123,6 +142,13 @@ public:
  */
 class SystemAllocator : public IAllocator {
 public:
+    /**
+     * @brief Allocates a block of memory with the requested size and alignment.
+     *
+     * @param size Number of bytes to allocate. If `size` is 0, no allocation is performed and `nullptr` is returned.
+     * @param alignment Alignment in bytes for the returned block; defaults to `alignof(std::max_align_t)`.
+     * @return void* Pointer to the allocated memory, or `nullptr` if allocation fails or `size` is 0.
+     */
     [[nodiscard]] void* allocate(usize size, usize alignment = alignof(std::max_align_t)) override {
         if (size == 0) return nullptr;
         
@@ -144,6 +170,14 @@ public:
         return ptr;
     }
 
+    /**
+     * @brief Frees memory previously allocated by this allocator.
+     *
+     * Safe to call with `nullptr` (has no effect). Also increments the allocator's
+     * internal deallocation counter used for statistics.
+     *
+     * @param ptr Pointer to the memory block to free.
+     */
     void deallocate(void* ptr) override {
         if (ptr == nullptr) return;
         
@@ -156,10 +190,23 @@ public:
         deallocCount_.fetch_add(1, std::memory_order_relaxed);
     }
 
+    /**
+     * @brief Return the allocator's human-readable name.
+     *
+     * @return const char* Null-terminated string identifying this allocator ("SystemAllocator").
+     */
     [[nodiscard]] const char* getName() const override {
         return "SystemAllocator";
     }
 
+    /**
+     * @brief Retrieves allocation statistics for the system allocator.
+     *
+     * Provides totals for allocations and deallocations, computes current active allocations,
+     * and reports the current number of allocated bytes. Peak bytes are not tracked by this allocator.
+     *
+     * @return Stats Structure containing `totalAllocations`, `totalDeallocations`, `currentAllocations`, and `currentBytes`.
+     */
     [[nodiscard]] Stats getStats() const override {
         Stats stats;
         stats.totalAllocations = allocCount_.load(std::memory_order_relaxed);
@@ -169,7 +216,13 @@ public:
         return stats;
     }
 
-    /// Get the global system allocator instance
+    /**
+     * @brief Accesses the global SystemAllocator singleton.
+     *
+     * The instance is constructed on first use and remains valid until program termination.
+     *
+     * @return SystemAllocator& Reference to the global SystemAllocator instance.
+     */
     static SystemAllocator& instance() {
         static SystemAllocator allocator;
         return allocator;
@@ -198,14 +251,33 @@ class AlignedAllocator : public IAllocator {
                   "Alignment must be at least max_align_t");
 
 public:
+    /**
+     * @brief Allocates a block of memory with the requested size and alignment.
+     *
+     * @param size Number of bytes to allocate.
+     * @param alignment Alignment in bytes; defaults to the allocator's DefaultAlignment.
+     * @return void* Pointer to the allocated memory, or `nullptr` if allocation fails.
+     */
     [[nodiscard]] void* allocate(usize size, usize alignment = DefaultAlignment) override {
         return SystemAllocator::instance().allocate(size, alignment);
     }
 
+    /**
+     * @brief Releases memory previously allocated by this allocator.
+     *
+     * Frees the block pointed to by `ptr`. If `ptr` is `nullptr`, no action is taken.
+     *
+     * @param ptr Pointer to a memory block returned by this allocator's `allocate`.
+     */
     void deallocate(void* ptr) override {
         SystemAllocator::instance().deallocate(ptr);
     }
 
+    /**
+     * @brief Allocator identifier string for this allocator implementation.
+     *
+     * @return const char* The null-terminated string "AlignedAllocator".
+     */
     [[nodiscard]] const char* getName() const override {
         return "AlignedAllocator";
     }
@@ -230,9 +302,27 @@ using Allocator64 = AlignedAllocator<64>;   // Cache line alignment
  */
 class TrackingAllocator : public IAllocator {
 public:
-    explicit TrackingAllocator(IAllocator& backing = SystemAllocator::instance())
+    /**
+         * @brief Constructs a TrackingAllocator that wraps a backing allocator used for actual allocations.
+         *
+         * The TrackingAllocator will forward allocation and deallocation requests to the provided backing
+         * allocator while tracking active allocations for debugging and leak detection.
+         *
+         * @param backing Reference to the underlying allocator to use (defaults to the global SystemAllocator instance).
+         */
+        explicit TrackingAllocator(IAllocator& backing = SystemAllocator::instance())
         : backing_(backing) {}
 
+    /**
+     * @brief Allocates memory via the backing allocator and records the allocation for leak tracking.
+     *
+     * Records the allocated pointer, size, and alignment in the tracking map and updates total and peak
+     * allocated byte counters when allocation succeeds.
+     *
+     * @param size Number of bytes to allocate.
+     * @param alignment Alignment requirement for the allocation.
+     * @return void* Pointer to the allocated memory, or `nullptr` on failure.
+     */
     [[nodiscard]] void* allocate(usize size, usize alignment = alignof(std::max_align_t)) override {
         void* ptr = backing_.allocate(size, alignment);
         if (ptr) {
@@ -244,6 +334,13 @@ public:
         return ptr;
     }
 
+    /**
+     * @brief Deallocates a previously allocated block and removes its tracking entry.
+     *
+     * @param ptr Pointer to the memory block to free; if `nullptr`, the call is a no-op.
+     *
+     * @note If `ptr` was not recorded by this TrackingAllocator, a debug assertion is triggered.
+     */
     void deallocate(void* ptr) override {
         if (ptr == nullptr) return;
         
@@ -261,10 +358,25 @@ public:
         backing_.deallocate(ptr);
     }
 
+    /**
+     * @brief Provide the allocator's name for debugging and identification.
+     *
+     * @return const char* Pointer to a null-terminated string containing the allocator's name ("TrackingAllocator").
+     */
     [[nodiscard]] const char* getName() const override {
         return "TrackingAllocator";
     }
 
+    /**
+     * @brief Provide a thread-safe snapshot of the allocator's current and peak allocation statistics.
+     *
+     * Only the following fields of the returned `Stats` are populated:
+     * - `currentAllocations`: number of active tracked allocations.
+     * - `currentBytes`: total bytes currently allocated and tracked.
+     * - `peakBytes`: highest observed total allocated bytes.
+     *
+     * @return Stats Snapshot of the tracking allocator's current allocation counts and byte usage.
+     */
     [[nodiscard]] Stats getStats() const override {
         std::lock_guard<std::mutex> lock(mutex_);
         Stats stats;
@@ -274,7 +386,12 @@ public:
         return stats;
     }
 
-    /// Check for memory leaks (call at shutdown)
+    /**
+     * @brief Logs any tracked allocations remaining in the allocator (intended to be called at shutdown).
+     *
+     * If no allocations remain, logs that no memory leaks were detected. If there are remaining
+     * allocations, logs the total count and each leaked pointer with its recorded size.
+     */
     void reportLeaks() const {
         std::lock_guard<std::mutex> lock(mutex_);
         if (allocations_.empty()) {
@@ -307,12 +424,22 @@ private:
 // Global Allocator Access
 //=============================================================================
 
-/// Get the default allocator for general use
+/**
+ * @brief Global default allocator for general-purpose allocations.
+ *
+ * @return IAllocator& Reference to the singleton SystemAllocator used as the default allocator.
+ */
 inline IAllocator& getDefaultAllocator() {
     return SystemAllocator::instance();
 }
 
-/// Get the allocator optimized for audio processing (cache-aligned)
+/**
+ * @brief Provides a process-wide allocator optimized for audio processing.
+ *
+ * Returns a reference to a function-local static Allocator64 configured for cache-aligned allocations suitable for audio workloads.
+ *
+ * @return IAllocator& Reference to the static cache-aligned Allocator64 instance.
+ */
 inline IAllocator& getAudioAllocator() {
     static Allocator64 allocator;
     return allocator;
@@ -327,6 +454,11 @@ template<typename T>
 struct AllocatorDeleter {
     IAllocator* allocator;
 
+    /**
+     * @brief Destroys the object pointed to by `ptr` and returns its memory to the associated allocator.
+     *
+     * @param ptr Pointer to the object to destroy; if `nullptr`, no action is taken.
+     */
     void operator()(T* ptr) const {
         if (ptr) {
             ptr->~T();
@@ -337,6 +469,17 @@ struct AllocatorDeleter {
 
 /// Create a unique_ptr using a custom allocator
 template<typename T, typename... Args>
+/**
+ * @brief Constructs an object of type `T` in memory provided by a custom allocator and returns
+ * a `std::unique_ptr` that will destroy and deallocate it via `AllocatorDeleter<T>`.
+ *
+ * @tparam T Type of the object to create.
+ * @tparam Args Constructor argument types for `T`.
+ * @param allocator Allocator used to obtain memory and later deallocate it.
+ * @param args Arguments forwarded to `T`'s constructor.
+ * @return std::unique_ptr<T, AllocatorDeleter<T>> Owning pointer to the constructed object, or
+ * `nullptr` if the allocator failed to allocate memory.
+ */
 [[nodiscard]] std::unique_ptr<T, AllocatorDeleter<T>> 
 makeUnique(IAllocator& allocator, Args&&... args) {
     void* mem = allocator.allocate(sizeof(T), alignof(T));
@@ -348,6 +491,13 @@ makeUnique(IAllocator& allocator, Args&&... args) {
 
 /// Allocate and construct an array using a custom allocator
 template<typename T>
+/**
+ * @brief Allocates memory for and value-initializes an array of objects of type `T` using the given allocator.
+ *
+ * @tparam T Element type.
+ * @param count Number of elements to allocate and construct.
+ * @return T* Pointer to the first element of the allocated array, or `nullptr` if allocation fails.
+ */
 [[nodiscard]] T* allocateArray(IAllocator& allocator, usize count) {
     void* mem = allocator.allocate(sizeof(T) * count, alignof(T));
     if (!mem) return nullptr;
@@ -361,6 +511,17 @@ template<typename T>
 
 /// Deallocate an array
 template<typename T>
+/**
+ * @brief Destroys a sequence of objects and releases their memory via the provided allocator.
+ *
+ * If `arr` is null this function does nothing. Otherwise it calls the destructor of each of the
+ * `count` elements at `arr` and then deallocates the memory using `allocator`.
+ *
+ * @tparam T Element type stored in the array.
+ * @param allocator Allocator used to deallocate the memory holding the array.
+ * @param arr Pointer to the first element of the array to destroy and deallocate.
+ * @param count Number of elements to destroy.
+ */
 void deallocateArray(IAllocator& allocator, T* arr, usize count) {
     if (!arr) return;
     

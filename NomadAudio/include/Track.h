@@ -196,7 +196,20 @@ public:
     void setAudioData(const float* data, uint32_t numSamples, uint32_t sampleRate, uint32_t numChannels);
     void clearAudioData();
     
-    // Waveform data access (for UI visualization)
+    /**
+     * Provide read-only access to the track's stored audio samples.
+     * @returns A const reference to the vector containing the track's audio samples.
+     */
+    
+    /**
+     * Get the sample rate used by the track's audio data.
+     * @returns The sample rate in hertz.
+     */
+    
+    /**
+     * Get the number of channels for the track's audio data.
+     * @returns The number of channels (for example, 1 = mono, 2 = stereo).
+     */
     const std::vector<float>& getAudioData() const;
     uint32_t getSampleRate() const { return m_sampleRate; }
     uint32_t getNumChannels() const { return m_numChannels; }
@@ -217,16 +230,28 @@ public:
     double getPosition() const { return m_positionSeconds.load(); }
     double getDuration() const { return m_durationSeconds.load(); }
     
-    // Sample Timeline Position (where sample starts in the timeline, in seconds)
+    /**
+ * Set the track's start position within the project timeline.
+ *
+ * @param seconds Start position in the timeline, in seconds.
+ */
     void setStartPositionInTimeline(double seconds) { m_startPositionInTimeline.store(seconds); }
     double getStartPositionInTimeline() const { return m_startPositionInTimeline.load(); }
-    void setSourcePath(const std::string& path) { m_sourcePath = path; }
+    /**
+ * Set the source file path associated with the track.
+ * @param path Filesystem path to the audio source; stored on the track for reference and streaming.
+ */
+void setSourcePath(const std::string& path) { m_sourcePath = path; }
     const std::string& getSourcePath() const { return m_sourcePath; }
 
     // Audio Processing
     void processAudio(float* outputBuffer, uint32_t numFrames, double streamTime, double outputSampleRate);
 
-    // Mixer Integration
+    /**
+ * Access the track's mixer bus.
+ *
+ * @returns Pointer to the track's MixerBus, or `nullptr` if no mixer bus is assigned.
+ */
     MixerBus* getMixerBus() { return m_mixerBus.get(); }
     const MixerBus* getMixerBus() const { return m_mixerBus.get(); }
     
@@ -261,7 +286,16 @@ private:
     std::vector<float> m_audioData;  // Interleaved stereo samples (streaming/recording/temp)
     std::shared_ptr<AudioBuffer> m_sampleBuffer; // Shared decoded buffer from SamplePool (non-streaming)
     uint32_t m_sampleRate{48000};
-    uint32_t m_numChannels{2};       // Always 2 after downmix
+    /**
+ * Number of audio channels for the track (1 = mono, 2 = stereo, etc.).
+ *
+ * Defaults to 2 (stereo).
+ */
+uint32_t m_numChannels{2};       /**
+ * Number of channels in the source audio; set to 2 when downmixed to stereo.
+ *
+ * Represents the source channel count tracked by the Track instance.
+ */
     uint32_t m_sourceChannels{2};    // Original channel count on load
     std::string m_sourcePath;
     std::atomic<double> m_playbackPhase{0.0};  // For sample-accurate playback
@@ -271,11 +305,34 @@ private:
     std::atomic<bool> m_streamStop{false};
     std::condition_variable m_streamCv;
     std::mutex m_streamMutex;
-    uint64_t m_streamBaseFrame{0};     // absolute frame index for m_audioData[0]
+    /**
+ * Base frame index for streaming operations.
+ *
+ * Serves as the absolute frame offset (sample frame, i.e., one sample per channel) corresponding
+ * to the start of the current stream buffer; used to compute positions and seek offsets when
+ * streaming audio from a file. Defaults to 0.
+ */
+uint64_t m_streamBaseFrame{0};     /**
+ * Absolute frame index corresponding to m_audioData[0].
+ *
+ * Acts as the global frame offset for streamed audio data, allowing
+ * conversion between buffer-local sample indices and the overall stream timeline.
+ */
     uint64_t m_streamTotalFrames{0};   // total frames in source
     bool m_streamEof{false};
-    uint32_t m_streamBytesPerSample{0};
-    uint32_t m_streamDataOffset{0};
+    /**
+ * Number of bytes per audio sample for the active stream.
+ *
+ * Holds the byte width used when reading streamed audio data (e.g., 1, 2, 3, or 4 bytes per sample).
+ * A value of 0 indicates the stream's sample size is not yet determined.
+ */
+uint32_t m_streamBytesPerSample{0};
+    /**
+ * Offset within the current stream data buffer where the next read/write will occur.
+ *
+ * Represents the byte offset measured from the start of the stream data (file or buffer).
+ */
+uint32_t m_streamDataOffset{0};
     std::ifstream m_streamFile;
 
     // Mixer integration
@@ -285,12 +342,311 @@ private:
     std::vector<float> m_recordingBuffer;
     std::atomic<bool> m_isRecording{false};
     
-    // Latency compensation (milliseconds)
+    /**
+ * Fill the provided buffer with silence (zeros) for the given number of frames.
+ * @param buffer Pointer to the output buffer to clear. Must be at least numFrames * channels sized by caller.
+ * @param numFrames Number of audio frames to generate.
+ */
+/**
+ * Copy track audio data into the provided output buffer, performing any necessary resampling to match the output sample rate.
+ * @param outputBuffer Destination buffer to receive copied audio samples.
+ * @param numFrames Number of output frames to produce.
+ * @param outputSampleRate Sample rate of the output buffer used for resampling decisions.
+ */
+/**
+ * Trim internal streaming buffers based on the current playback frame to free consumed data and update stream state.
+ * @param currentFrame Current absolute frame index in the stream timeline.
+ */
+/**
+ * Stop any active streaming operations and join/cleanup streaming thread resources.
+ */
+/**
+ * Initialize WAV streaming from a file with the specified format and starting frame.
+ * @param filePath Path to the WAV file to stream.
+ * @param sampleRate Sample rate of the WAV file.
+ * @param channels Number of channels in the WAV file.
+ * @param bitsPerSample Bits per sample in the WAV file (e.g., 16, 24, 32).
+ * @param dataOffset Byte offset within the file where PCM data begins.
+ * @param dataSize Size in bytes of the PCM data region.
+ * @param startFrame Frame index within the WAV data at which to begin streaming.
+ * @returns `true` if streaming was successfully started, `false` otherwise.
+ */
+/**
+ * Thread entry point that performs continuous WAV streaming into internal buffers for the specified channel count.
+ * @param channels Number of channels to stream.
+ */
+/**
+ * Perform linear interpolation of the interleaved audio data at the given fractional sample position for the specified channel.
+ * @param data Pointer to interleaved sample data.
+ * @param totalSamples Total number of samples (per-channel * channels) available in data.
+ * @param position Fractional sample index (in samples, not frames) to sample from.
+ * @param channel Channel index to read from within interleaved data.
+ * @returns Interpolated sample value.
+ */
+/**
+ * Perform cubic interpolation of the interleaved audio data at the given fractional sample position for the specified channel.
+ * @param data Pointer to interleaved sample data.
+ * @param totalSamples Total number of samples (per-channel * channels) available in data.
+ * @param position Fractional sample index (in samples, not frames) to sample from.
+ * @param channel Channel index to read from within interleaved data.
+ * @returns Interpolated sample value.
+ */
+/**
+ * Perform band-limited sinc interpolation of the interleaved audio data at the given fractional sample position for the specified channel.
+ * @param data Pointer to interleaved sample data.
+ * @param totalSamples Total number of samples (per-channel * channels) available in data.
+ * @param position Fractional sample index (in samples, not frames) to sample from.
+ * @param channel Channel index to read from within interleaved data.
+ * @returns Interpolated sample value.
+ */
+/**
+ * Perform "ultra" quality interpolation of the interleaved audio data at the given fractional sample position for the specified channel.
+ * @param data Pointer to interleaved sample data.
+ * @param totalSamples Total number of samples (per-channel * channels) available in data.
+ * @param position Fractional sample index (in samples, not frames) to sample from.
+ * @param channel Channel index to read from within interleaved data.
+ * @returns Interpolated sample value.
+ */
+/**
+ * Perform "extreme" quality interpolation of the interleaved audio data at the given fractional sample position for the specified channel.
+ * @param data Pointer to interleaved sample data.
+ * @param totalSamples Total number of samples (per-channel * channels) available in data.
+ * @param position Fractional sample index (in samples, not frames) to sample from.
+ * @param channel Channel index to read from within interleaved data.
+ * @returns Interpolated sample value.
+ */
+/**
+ * Perform "perfect" quality interpolation of the interleaved audio data at the given fractional sample position for the specified channel.
+ * @param data Pointer to interleaved sample data.
+ * @param totalSamples Total number of samples (per-channel * channels) available in data.
+ * @param position Fractional sample index (in samples, not frames) to sample from.
+ * @param channel Channel index to read from within interleaved data.
+ * @returns Interpolated sample value.
+ */
+/**
+ * Apply the configured dithering strategy to the provided buffer of samples.
+ * @param buffer Buffer of samples to dither (in-place).
+ * @param numSamples Number of samples in the buffer.
+ */
+/**
+ * Apply triangular dithering to the provided buffer of samples.
+ * @param buffer Buffer of samples to dither (in-place).
+ * @param numSamples Number of samples in the buffer.
+ */
+/**
+ * Apply high-pass shaped dithering to the provided buffer of samples.
+ * @param buffer Buffer of samples to dither (in-place).
+ * @param numSamples Number of samples in the buffer.
+ */
+/**
+ * Apply noise-shaped dithering using internal noise shaping history to the provided buffer.
+ * @param buffer Buffer of samples to dither (in-place).
+ * @param numSamples Number of samples in the buffer.
+ */
+/**
+ * Remove accumulated DC offset from the provided buffer and update internal DC tracking.
+ * @param buffer Buffer of samples to process (in-place).
+ * @param numSamples Number of samples in the buffer.
+ */
+/**
+ * Apply soft clipping to the provided buffer to tame peaks and introduce gentle saturation.
+ * @param buffer Buffer of samples to process (in-place).
+ * @param numSamples Number of samples in the buffer.
+ */
+/**
+ * Adjust stereo image width of an interleaved buffer according to width percentage.
+ * @param buffer Interleaved stereo buffer to modify (in-place).
+ * @param numFrames Number of frames in the buffer.
+ * @param widthPercent Stereo width percentage where 100.0 preserves original width.
+ */
+/**
+ * Apply the Euphoria (Nomad) processing chain to the buffer when enabled by quality settings.
+ * @param buffer Interleaved buffer to process (in-place).
+ * @param numFrames Number of frames in the buffer.
+ */
+/**
+ * Apply tape-circuit style processing to the buffer introducing bloom and smoothing.
+ * @param buffer Buffer of samples to process (in-place).
+ * @param numSamples Number of samples in the buffer.
+ * @param bloomAmount Amount of harmonic bloom to apply.
+ * @param smoothing Amount of transient smoothing to apply.
+ */
+/**
+ * Apply an "air" enhancement effect to the buffer to emphasize high-frequency presence.
+ * @param buffer Interleaved buffer to process (in-place).
+ * @param numFrames Number of frames in the buffer.
+ */
+/**
+ * Apply subtle drift modulation to the buffer to simulate analog timing variations.
+ * @param buffer Interleaved buffer to process (in-place).
+ * @param numFrames Number of frames in the buffer.
+ */
     double m_latencyCompensationMs{0.0};  // Total input + output latency for recording
     
     // Audio quality settings
     AudioQualitySettings m_qualitySettings;
-    double m_dcOffset{0.0};  // Accumulated DC offset for removal
+    /**
+ * Fill the provided buffer with silence (zeros).
+ * @param buffer Pointer to the interleaved output buffer to clear.
+ * @param numFrames Number of audio frames to generate (each frame contains all channels).
+ */
+
+/**
+ * Copy internal audio data into the provided output buffer, performing sample-rate conversion if needed.
+ * @param outputBuffer Pointer to the destination interleaved buffer.
+ * @param numFrames Number of audio frames to produce.
+ * @param outputSampleRate Target sample rate for the output buffer.
+ */
+
+/**
+ * Trim internal streaming buffers based on the current frame position to free consumed data.
+ * @param currentFrame Absolute frame index indicating the current playback/stream position.
+ */
+
+/**
+ * Stop any active streaming operation and release associated resources.
+ */
+
+/**
+ * Initialize WAV streaming from a file and prepare internal state for background streaming.
+ * @param filePath Path to the WAV file to stream.
+ * @param sampleRate Sample rate of the WAV file.
+ * @param channels Number of channels in the WAV file.
+ * @param bitsPerSample Bits per sample in the WAV file (e.g., 16, 24, 32).
+ * @param dataOffset Byte offset in the file where sample data begins.
+ * @param dataSize Total size in bytes of the sample data.
+ * @param startFrame Optional starting frame within the file to begin streaming from (default 0).
+ * @returns `true` if streaming was successfully started and internal state initialized, `false` otherwise.
+ */
+
+/**
+ * Background thread entry used to stream WAV data into internal buffers.
+ * @param channels Number of channels to stream (used to deinterleave/interleave as needed).
+ */
+
+/**
+ * Linear interpolation of sample data at a fractional position for a specific channel.
+ * @param data Pointer to interleaved sample data.
+ * @param totalSamples Total number of samples per channel in `data`.
+ * @param position Fractional sample position (0..totalSamples-1) to read from.
+ * @param channel Channel index to read (0-based).
+ * @returns Interpolated sample value at the requested position and channel.
+ */
+
+/**
+ * Cubic interpolation of sample data at a fractional position for a specific channel.
+ * @param data Pointer to interleaved sample data.
+ * @param totalSamples Total number of samples per channel in `data`.
+ * @param position Fractional sample position (0..totalSamples-1) to read from.
+ * @param channel Channel index to read (0-based).
+ * @returns Interpolated sample value at the requested position and channel.
+ */
+
+/**
+ * Sinc-based interpolation of sample data at a fractional position for a specific channel.
+ * @param data Pointer to interleaved sample data.
+ * @param totalSamples Total number of samples per channel in `data`.
+ * @param position Fractional sample position (0..totalSamples-1) to read from.
+ * @param channel Channel index to read (0-based).
+ * @returns Interpolated sample value at the requested position and channel.
+ */
+
+/**
+ * High-quality "Ultra" interpolation of sample data at a fractional position for a specific channel.
+ * @param data Pointer to interleaved sample data.
+ * @param totalSamples Total number of samples per channel in `data`.
+ * @param position Fractional sample position (0..totalSamples-1) to read from.
+ * @param channel Channel index to read (0-based).
+ * @returns Interpolated sample value at the requested position and channel.
+ */
+
+/**
+ * Extreme-quality interpolation of sample data at a fractional position for a specific channel.
+ * @param data Pointer to interleaved sample data.
+ * @param totalSamples Total number of samples per channel in `data`.
+ * @param position Fractional sample position (0..totalSamples-1) to read from.
+ * @param channel Channel index to read (0-based).
+ * @returns Interpolated sample value at the requested position and channel.
+ */
+
+/**
+ * "Perfect" interpolation of sample data at a fractional position for a specific channel.
+ * @param data Pointer to interleaved sample data.
+ * @param totalSamples Total number of samples per channel in `data`.
+ * @param position Fractional sample position (0..totalSamples-1) to read from.
+ * @param channel Channel index to read (0-based).
+ * @returns Interpolated sample value at the requested position and channel.
+ */
+
+/**
+ * Apply the configured dithering scheme to the provided buffer.
+ * @param buffer Interleaved audio buffer to process in-place.
+ * @param numSamples Number of samples in `buffer` (not frames).
+ */
+
+/**
+ * Apply triangular dithering to the buffer.
+ * @param buffer Interleaved audio buffer to process in-place.
+ * @param numSamples Number of samples in `buffer` (not frames).
+ */
+
+/**
+ * Apply high-pass dithering to the buffer.
+ * @param buffer Interleaved audio buffer to process in-place.
+ * @param numSamples Number of samples in `buffer` (not frames).
+ */
+
+/**
+ * Apply noise-shaped dithering using internal dither history to the buffer.
+ * @param buffer Interleaved audio buffer to process in-place.
+ * @param numSamples Number of samples in `buffer` (not frames).
+ */
+
+/**
+ * Remove accumulated DC offset from the buffer and update internal DC accumulator.
+ * @param buffer Interleaved audio buffer to process in-place.
+ * @param numSamples Number of samples in `buffer` (not frames).
+ */
+
+/**
+ * Apply soft-clipping to prevent harsh digital clipping and shape peaks.
+ * @param buffer Interleaved audio buffer to process in-place.
+ * @param numSamples Number of samples in `buffer` (not frames).
+ */
+
+/**
+ * Apply stereo width adjustment to the buffer.
+ * @param buffer Interleaved audio buffer to process in-place.
+ * @param numFrames Number of audio frames in `buffer`.
+ * @param widthPercent Stereo width percentage where 100.0 preserves original width.
+ */
+
+/**
+ * Apply the Euphoria (Nomad) processing chain to the buffer.
+ * @param buffer Interleaved audio buffer to process in-place.
+ * @param numFrames Number of audio frames in `buffer`.
+ */
+
+/**
+ * Apply tape-circuit-style processing to the buffer for warm saturation and bloom.
+ * @param buffer Interleaved audio buffer to process in-place.
+ * @param numSamples Number of samples in `buffer` (not frames).
+ * @param bloomAmount Amount of harmonic bloom to apply (0.0..1.0).
+ * @param smoothing Transient smoothing amount (0.0..1.0).
+ */
+
+/**
+ * Apply "air" enhancement to the buffer to emphasize high-frequency content.
+ * @param buffer Interleaved audio buffer to process in-place.
+ * @param numFrames Number of audio frames in `buffer`.
+ */
+
+/**
+ * Apply subtle drift modulation to the buffer to emulate analog instability.
+ * @param buffer Interleaved audio buffer to process in-place.
+ * @param numFrames Number of audio frames in `buffer`.
+ */
+double m_dcOffset{0.0};  // Accumulated DC offset for removal
     
     // Dithering state (for noise shaping)
     float m_ditherHistory[2]{0.0f, 0.0f};  // Per-channel dither history for noise shaping

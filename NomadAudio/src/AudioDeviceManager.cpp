@@ -257,6 +257,12 @@ bool AudioDeviceManager::openStream(const AudioStreamConfig& config, AudioCallba
     return false;
 }
 
+/**
+ * @brief Closes any open audio stream managed by the device manager.
+ *
+ * Closes the stream on the currently active driver (if present) and on the RtAudio backend (if present).
+ * Preserves the stored audio callback and user data so they remain available for reopening the stream.
+ */
 void AudioDeviceManager::closeStream() {
     if (m_activeDriver) {
         m_activeDriver->closeStream();
@@ -271,6 +277,13 @@ void AudioDeviceManager::closeStream() {
     // m_currentUserData = nullptr;
 }
 
+/**
+ * Starts the opened audio stream using the current active driver or, if none, the RtAudio backend.
+ *
+ * Attempts to start the stream on the active driver first; if no active driver exists, attempts to start the RtAudio stream.
+ *
+ * @return `true` if a stream was started successfully, `false` otherwise.
+ */
 bool AudioDeviceManager::startStream() {
     auto logStreamInfo = [this](AudioDriver* driver, const char* label) {
         if (!driver) return;
@@ -318,6 +331,11 @@ bool AudioDeviceManager::isStreamRunning() const {
     return false;
 }
 
+/**
+ * @brief Retrieves the current audio stream latency in milliseconds.
+ *
+ * @return double Latency reported by the active driver if available; otherwise the latency reported by the RtAudio driver; returns 0.0 if no driver is available.
+ */
 double AudioDeviceManager::getStreamLatency() const {
     if (m_activeDriver) {
         return m_activeDriver->getStreamLatency();
@@ -328,6 +346,11 @@ double AudioDeviceManager::getStreamLatency() const {
     return 0.0;
 }
 
+/**
+ * @brief Retrieves the current audio stream sample rate.
+ *
+ * @return uint32_t Current stream sample rate in hertz, or 0 if no active stream is available.
+ */
 uint32_t AudioDeviceManager::getStreamSampleRate() const {
     if (m_activeDriver) {
         return m_activeDriver->getStreamSampleRate();
@@ -338,6 +361,19 @@ uint32_t AudioDeviceManager::getStreamSampleRate() const {
     return 0;
 }
 
+/**
+ * @brief Computes and returns input/output latency compensation values in milliseconds.
+ *
+ * Calculates latency compensation based on the current stream latency and writes the
+ * results into the provided output parameters. If the current stream configuration
+ * includes input channels, both input and output latency are set to the measured
+ * stream latency. For output-only configurations, input latency is set to 0 and
+ * output latency is set to the measured stream latency. The computed values are
+ * also stored in the manager's current AudioStreamConfig for reference.
+ *
+ * @param[out] inputLatencyMs Receives the computed input latency in milliseconds.
+ * @param[out] outputLatencyMs Receives the computed output latency in milliseconds.
+ */
 void AudioDeviceManager::getLatencyCompensationValues(double& inputLatencyMs, double& outputLatencyMs) const {
     // Get base latency from current stream
     double baseLatencySeconds = getStreamLatency();
@@ -684,6 +720,17 @@ void AudioDeviceManager::setAutoBufferScaling(bool enable, uint32_t underrunsPer
     }
 }
 
+/**
+ * @brief Periodically monitors underruns and increases the audio buffer size when underruns exceed a threshold.
+ *
+ * When auto-buffer-scaling is enabled and a stream is active and running, this method checks underrun counts
+ * roughly every 60 seconds. If underruns in the last interval meet or exceed the configured threshold, the
+ * buffer size is increased in steps (64 → 128 → 256 → 512 → 1024 frames) up to a maximum of 1024 frames.
+ * If the buffer size changes the stream is closed and reopened with the new size, and restarted if it was running.
+ *
+ * This method updates internal timing and underrun counters used for subsequent checks. It returns immediately
+ * without action if auto-scaling is disabled, there is no active driver, or the stream is not running.
+ */
 void AudioDeviceManager::checkAndAutoScaleBuffer() {
     if (!m_autoBufferScalingEnabled || !m_activeDriver || !isStreamRunning()) {
         return;

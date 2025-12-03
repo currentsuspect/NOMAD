@@ -7,6 +7,21 @@
 #include <string>
 #include <memory>
 
+/**
+ * Complete set of theme tokens used by the UI: colors, spacing, radii, typography, shadows,
+ * animation timings/easings, z-index layers, and layout dimension defaults.
+ *
+ * Contains named color roles (backgrounds, surfaces, accents, status colors, on-colors,
+ * text roles, borders/highlights, interactive states, and element defaults), numeric design
+ * tokens (spacing, radii, font sizes, line heights), shadow presets, animation parameters,
+ * z-order constants, and a nested LayoutDimensions struct for commonly used UI sizing values.
+ */
+
+/**
+ * Represents a reusable drop shadow definition with offset, blur, spread, color, and opacity.
+ *
+ * Instances describe a single shadow layer that can be applied to UI elements.
+ */
 namespace NomadUI {
 
 // Theme variants

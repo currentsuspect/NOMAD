@@ -19,7 +19,12 @@ const float TEXT_BASELINE_COMPENSATION_FACTOR = 0.8f;
 
 // ============================================================================
 // BPM Display Component
-// ============================================================================
+/**
+ * @brief Constructs a BPM display component and initializes its visual state.
+ *
+ * Initializes BPM values to 120.0, clears hover flags, and creates up/down arrow
+ * icons configured with small size and the theme's secondary text color.
+ */
 
 BPMDisplay::BPMDisplay()
     : NomadUI::NUIComponent()
@@ -50,6 +55,14 @@ BPMDisplay::BPMDisplay()
     m_downArrow->setColorFromTheme("textSecondary"); 	// #9a9aa3 - Inactive by default
 }
 
+/**
+ * @brief Set the BPM value used by the display and internal state, constraining it to the valid range.
+ *
+ * The provided BPM is clamped to the range [20, 999] and applied to the target, current, and displayed BPM
+ * values to keep the UI and internal state consistent and avoid animation conflicts.
+ *
+ * @param bpm Desired beats per minute; values below 20 are raised to 20, values above 999 are reduced to 999.
+ */
 void BPMDisplay::setBPM(float bpm) {
     m_targetBPM = std::max(20.0f, std::min(999.0f, bpm));
     m_currentBPM = m_targetBPM;
@@ -106,6 +119,15 @@ void BPMDisplay::onUpdate(double deltaTime) {
     NomadUI::NUIComponent::onUpdate(deltaTime);
 }
 
+/**
+ * @brief Render the BPM value and its up/down arrow icons inside the component.
+ *
+ * Formats the current display BPM with one decimal place followed by "BPM",
+ * positions the text using the theme's large font size and baseline compensation,
+ * and draws it with the theme's primary text color. Also positions each arrow
+ * icon to the right, updates each icon's color when hovered, and delegates
+ * rendering to the icons.
+ */
 void BPMDisplay::onRender(NomadUI::NUIRenderer& renderer) {
     NomadUI::NUIRect bounds = getBounds();
     
@@ -150,6 +172,16 @@ void BPMDisplay::onRender(NomadUI::NUIRenderer& renderer) {
     }
 }
 
+/**
+ * @brief Handle mouse interactions for the BPM display, including arrow clicks and wheel adjustments.
+ *
+ * Updates hover state for the up/down arrows, increments or decrements the BPM by 1.0 for left-clicks
+ * on the up/down arrows, and adjusts the BPM by 0.5 per mouse-wheel step when the cursor is within
+ * the component bounds.
+ *
+ * @param event Mouse event containing position, button state, and wheel delta.
+ * @return true if the event was handled (arrow click or wheel adjustment) and should not propagate, false otherwise.
+ */
 bool BPMDisplay::onMouseEvent(const NomadUI::NUIMouseEvent& event) {
     NomadUI::NUIRect upBounds = getUpArrowBounds();
     NomadUI::NUIRect downBounds = getDownArrowBounds();
@@ -200,6 +232,14 @@ void TimerDisplay::setTime(double seconds) {
     m_currentTime = std::max(0.0, seconds);
 }
 
+/**
+ * @brief Formats a time value (in seconds) as a minute:second.hundredths string.
+ *
+ * The output is zero-padded to two digits for minutes and seconds, and two digits
+ * for the fractional part representing hundredths of a second (MM:SS.hh).
+ *
+ * @return std::string Formatted time string in the form "MM:SS.hh".
+ */
 std::string TimerDisplay::formatTime(double seconds) const {
     int totalSeconds = static_cast<int>(seconds);
     int minutes = totalSeconds / 60;
@@ -213,6 +253,11 @@ std::string TimerDisplay::formatTime(double seconds) const {
     return ss.str();
 }
 
+/**
+ * @brief Renders the current transport time string inside the component.
+ *
+ * Chooses a green color when playback is active and the theme primary text color when stopped, uses the theme's large font size, vertically centers the text within the component using baseline compensation, and draws the formatted time with a small left padding.
+ */
 void TimerDisplay::onRender(NomadUI::NUIRenderer& renderer) {
     NomadUI::NUIRect bounds = getBounds();
     
@@ -253,6 +298,15 @@ TransportInfoContainer::TransportInfoContainer()
     layoutComponents();
 }
 
+/**
+ * @brief Positions the child TimerDisplay and BPMDisplay inside the transport container.
+ *
+ * Positions children using absolute coordinates derived from the container bounds and
+ * the current theme layout dimensions: the timer is placed left with an offset computed
+ * from transport button sizes/spacings and panel margin, and the BPM display is centered
+ * horizontally. Both children are vertically centered within the container and assigned
+ * fixed widths and heights.
+ */
 void TransportInfoContainer::layoutComponents() {
     NomadUI::NUIRect bounds = getBounds();
     
@@ -284,6 +338,14 @@ void TransportInfoContainer::onRender(NomadUI::NUIRenderer& renderer) {
     renderChildren(renderer);
 }
 
+/**
+ * @brief Resize the transport info container and reposition its child components.
+ *
+ * Updates the container's width and height, recalculates child component layouts, and forwards the resize to the base class.
+ *
+ * @param width New width in pixels.
+ * @param height New height in pixels.
+ */
 void TransportInfoContainer::onResize(int width, int height) {
     NomadUI::NUIRect currentBounds = getBounds();
     setBounds(NomadUI::NUIRect(currentBounds.x, currentBounds.y, width, height));

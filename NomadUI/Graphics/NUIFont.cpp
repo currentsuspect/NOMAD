@@ -120,6 +120,17 @@ bool NUIFont::loadFromMemory(const uint8_t* data, size_t size, int fontSize) {
     return true;
 }
 
+/**
+ * @brief Set the font's nominal pixel size and update derived metrics.
+ *
+ * Updates the internal font size, recalculates ascender, descender, and line height
+ * (values reflect any active supersampling and are scaled to the requested size),
+ * and invalidates the glyph cache so glyphs will be regenerated at the new size.
+ *
+ * If no font face is loaded, the call is a no-op.
+ *
+ * @param fontSize Desired font size in pixels.
+ */
 void NUIFont::setSize(int fontSize) {
     if (!face_) return;
     
@@ -232,7 +243,19 @@ void NUIFont::clearCache() {
 
 // ============================================================================
 // Private Helpers
-// ============================================================================
+/**
+ * @brief Rasterizes a Unicode character into an OpenGL texture and fills the provided glyph structure.
+ *
+ * Loads and renders the character from the current FreeType face, creates a texture from the glyph bitmap,
+ * stores texture ID and UVs, and populates glyph metrics. Width, height, bearings, and advance are divided
+ * by the font's supersample factor to produce metrics for the requested display size.
+ *
+ * @param character Unicode code point of the glyph to rasterize.
+ * @param[out] glyph Destination structure that will be populated with texture ID, UVs, width, height,
+ *                   bearingX, bearingY, and advance.
+ * @return true if the glyph was successfully rasterized and glyph was populated, false if no face is loaded
+ *         or glyph loading/rendering failed.
+ */
 
 bool NUIFont::rasterizeGlyph(uint32_t character, NUIGlyph& glyph) {
     if (!face_) return false;
@@ -267,6 +290,16 @@ bool NUIFont::rasterizeGlyph(uint32_t character, NUIGlyph& glyph) {
     return true;
 }
 
+/**
+ * @brief Creates an OpenGL texture from a FreeType glyph bitmap.
+ *
+ * Converts a single-channel FreeType bitmap into an OpenGL 2D texture suitable for rendering glyphs.
+ * If the bitmap is empty (zero width or height), no texture is created and zero is returned.
+ * The resulting texture samples as RGBA: the glyph's single-channel data is replicated to all RGBA components.
+ *
+ * @param bitmap FreeType bitmap containing the glyph pixel data (1-channel grayscale).
+ * @return uint32_t OpenGL texture ID for the created glyph texture, or `0` if the bitmap is empty or no texture was created.
+ */
 uint32_t NUIFont::createGlyphTexture(FT_Bitmap& bitmap) {
     if (bitmap.width == 0 || bitmap.rows == 0) {
         return 0;  // Empty glyph (e.g., space)
@@ -361,4 +394,3 @@ void NUIFontManager::clearCache() {
 }
 
 } // namespace NomadUI
-

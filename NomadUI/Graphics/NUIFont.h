@@ -8,6 +8,17 @@
 #include <map>
 #include <memory>
 
+/**
+ * Set the supersampling factor used when rasterizing glyphs.
+ * 
+ * The factor is clamped to a minimum of 1; higher values increase internal
+ * raster resolution for smoother glyphs at the cost of memory and CPU.
+ * @param factor Supersampling multiplier (minimum 1)
+ */
+/**
+ * Get the current supersampling factor used for glyph rasterization.
+ * @return Current supersampling multiplier (always >= 1)
+ */
 namespace NomadUI {
 
 /**
@@ -221,4 +232,3 @@ private:
 };
 
 } // namespace NomadUI
-

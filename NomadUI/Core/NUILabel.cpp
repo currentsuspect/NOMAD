@@ -11,6 +11,16 @@ NUILabel::NUILabel(const std::string& text)
     setSize(100, 20); // Default size
 }
 
+/**
+ * @brief Renders the label into the provided renderer.
+ *
+ * Draws the label's optional background and border, then renders the label text
+ * positioned vertically centered within the control and horizontally according
+ * to the current alignment (Left, Center, Right, Justified). Text measurement
+ * is cached and updated only when the text or font size changes.
+ *
+ * @param renderer Renderer used to draw rectangles and text.
+ */
 void NUILabel::onRender(NUIRenderer& renderer)
 {
     auto bounds = getBounds();
@@ -77,7 +87,13 @@ void NUILabel::setText(const std::string& text)
 // {
 //     font_ = font;
 //     repaint();
-// }
+/**
+ * @brief Updates the label's text color.
+ *
+ * Updates the color used to draw the label's text and requests a repaint so the change becomes visible.
+ *
+ * @param color New text color.
+ */
 
 void NUILabel::setTextColor(const NUIColor& color)
 {
@@ -85,6 +101,14 @@ void NUILabel::setTextColor(const NUIColor& color)
     repaint();
 }
 
+/**
+ * @brief Set the font size used to render the label's text.
+ *
+ * Updates the label's font size, invalidates the cached text measurement so it will be remeasured,
+ * and schedules a repaint to reflect the change.
+ *
+ * @param size Font size to use when rendering the text.
+ */
 void NUILabel::setFontSize(float size)
 {
     fontSize_ = size;
@@ -92,6 +116,11 @@ void NUILabel::setFontSize(float size)
     repaint();
 }
 
+/**
+ * @brief Sets the horizontal text alignment for the label and schedules a repaint.
+ *
+ * @param alignment Desired text alignment (e.g., Left, Center, Right, Justified).
+ */
 void NUILabel::setAlignment(Alignment alignment)
 {
     alignment_ = alignment;

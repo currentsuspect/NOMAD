@@ -772,6 +772,16 @@ void WASAPIExclusiveDriver::stopStream() {
     std::cout << "[WASAPI Exclusive] Stream stopped" << std::endl;
 }
 
+/**
+ * @brief Compute the current exclusive-mode stream latency in seconds.
+ *
+ * Returns the latency derived from the audio client's buffer size and the
+ * actual sample rate. If the audio client or wave format is not available,
+ * or the actual sample rate is not greater than zero, the function returns
+ * 0.0.
+ *
+ * @return double Latency in seconds: `bufferFrameCount / m_actualSampleRate`, or `0.0` if unavailable.
+ */
 double WASAPIExclusiveDriver::getStreamLatency() const {
     if (!m_audioClient || !m_waveFormat) {
         return 0.0;
@@ -781,6 +791,17 @@ double WASAPIExclusiveDriver::getStreamLatency() const {
     return (m_actualSampleRate > 0) ? static_cast<double>(m_bufferFrameCount) / m_actualSampleRate : 0.0;
 }
 
+/**
+ * @brief Main real-time audio processing loop that feeds the WASAPI render client with user-provided audio.
+ *
+ * @details
+ * Runs on the driver's audio thread: configures thread priority and MMCSS for low-latency scheduling, then
+ * repeatedly waits for the audio event, obtains the render buffer, invokes the registered user callback to
+ * produce interleaved float samples, applies a soft-start ramp and peak limiting, converts samples to the
+ * device's configured format (IEEE float or PCM 16/24/32), and submits the buffer to the WASAPI render client.
+ * On event timeouts or buffer errors it injects silence to recover from underruns. The routine updates
+ * runtime statistics for callback timing and underruns and reverts MMCSS characteristics before exiting.
+ */
 void WASAPIExclusiveDriver::audioThreadProc() {
     if (!setThreadPriority()) {
         std::cerr << "[WASAPI Exclusive] Warning: Failed to set thread priority" << std::endl;

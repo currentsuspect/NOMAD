@@ -36,13 +36,36 @@ private:
         std::string path;
         double phaseFrames{0.0};
         double sampleRate{48000.0};
-        uint32_t channels{2};
+        /**
+ * Number of audio channels in the preview buffer.
+ *
+ * Defaults to 2 (stereo).
+ */
+uint32_t channels{2};
         float gain{0.5f};
         double durationSeconds{0.0};
         double maxPlaySeconds{0.0};
         double elapsedSeconds{0.0};
         double fadeInPos{0.0};
-        double fadeOutPos{0.0};
+        /**
+ * Load audio file data into an AudioBuffer and obtain its sample rate and channel count.
+ * @param path Filesystem path to the audio file to load.
+ * @param[out] sampleRate Set to the loaded audio's sample rate on success.
+ * @param[out] channels Set to the loaded audio's channel count on success.
+ * @returns Shared pointer to an AudioBuffer containing interleaved float samples, or `nullptr` if loading failed.
+ */
+/**
+ * Convert an input audio buffer to stereo in-place.
+ * If the input channel count differs from 2, the function modifies `data` so it contains interleaved stereo samples.
+ * @param data Interleaved audio samples; modified in-place to contain 2-channel (stereo) interleaved samples.
+ * @param inChannels Number of channels currently represented in `data`.
+ */
+/**
+ * Convert a gain value in decibels to a linear amplitude multiplier.
+ * @param db Gain in decibels.
+ * @returns Linear amplitude multiplier corresponding to `db`.
+ */
+double fadeOutPos{0.0};
         std::atomic<bool> stopRequested{false};
         bool fadeOutActive{false};
         std::atomic<bool> playing{false};

@@ -79,7 +79,59 @@ using AudioCallback = int (*)(
 );
 
 /**
- * @brief Abstract audio driver interface
+ * Represents an abstract audio driver interface for enumerating devices and managing a single audio stream.
+ */
+
+/**
+ * @brief Retrieve available audio devices.
+ * @returns A vector of AudioDeviceInfo describing each available device.
+ */
+
+/**
+ * @brief Get the identifier of the default output device.
+ * @returns The device ID of the system default output device.
+ */
+
+/**
+ * @brief Get the identifier of the default input device.
+ * @returns The device ID of the system default input device.
+ */
+
+/**
+ * @brief Open an audio stream with the specified configuration and callback.
+ * @param config Desired AudioStreamConfig for the stream.
+ * @param callback Audio processing callback invoked for each buffer.
+ * @param userData Opaque pointer passed to the callback.
+ * @returns `true` if the stream was opened successfully, `false` otherwise.
+ */
+
+/**
+ * @brief Close the currently opened audio stream.
+ */
+
+/**
+ * @brief Start processing the opened audio stream.
+ * @returns `true` if the stream successfully started, `false` otherwise.
+ */
+
+/**
+ * @brief Stop processing the audio stream.
+ */
+
+/**
+ * @brief Check whether the audio stream is currently running.
+ * @returns `true` if the stream is running, `false` otherwise.
+ */
+
+/**
+ * @brief Get the current one-way stream latency.
+ * @returns Stream latency in seconds.
+ */
+
+/**
+ * @brief Get the actual sample rate the active stream is using.
+ * @details The reported rate may differ from the requested configuration if the backend performs sample-rate conversion (for example, WASAPI Shared mode).
+ * @returns The stream's sample rate in Hz, or `0` if no stream is open.
  */
 class AudioDriver {
 public:

@@ -18,7 +18,18 @@ namespace Nomad {
 namespace Audio {
 
 namespace {
-    // Utility copied from Track.cpp
+    /**
+     * @brief Mixes interleaved multichannel audio samples down to a stereo interleaved buffer.
+     *
+     * The function reads frames from `input` (interleaved by channel), applies fixed mixing
+     * coefficients for common channel roles (center, LFE, surrounds and additional channels),
+     * writes left/right pairs into `output`, and clamps samples to the [-1.0, 1.0] range.
+     *
+     * @param input Interleaved source samples (size must be a multiple of `inChannels`).
+     * @param inChannels Number of channels in `input`.
+     * @param output Destination vector which will be resized to contain stereo interleaved samples
+     *               (two floats per frame) and filled with the mixed results.
+     */
     void downmixToStereoImpl(const std::vector<float>& input, uint32_t inChannels, std::vector<float>& output) {
         if (inChannels == 0) return;
         const size_t frames = input.size() / inChannels;
@@ -52,6 +63,19 @@ namespace {
         }
     }
 
+    /**
+     * @brief Convert interleaved audio samples to stereo.
+     *
+     * Converts the provided interleaved sample buffer from its current channel count to 2 channels.
+     * If the input is already stereo, the call is a no-op. If the input is mono, each sample is duplicated
+     * to produce left and right channels. For inputs with more than two channels, the function mixes
+     * channels down to stereo.
+     *
+     * @param buffer Interleaved audio samples; interpreted with the channel count given by `channelCount`.
+     *               On return this buffer contains interleaved stereo samples (2 channels). The function
+     *               may reallocate and swap the internal storage.
+     * @param channelCount Number of channels in `buffer` on entry; updated to 2 on successful conversion.
+     */
     void forceStereo(std::vector<float>& buffer, uint32_t& channelCount) {
         if (channelCount == 2) return;
         if (channelCount == 1) {
@@ -82,6 +106,19 @@ namespace {
         uint16_t audioFormat{0};
     };
 
+    /**
+     * @brief Loads and decodes a WAV file into a normalized interleaved float buffer.
+     *
+     * Reads RIFF/WAVE files supporting PCM (format 1) and IEEE float (format 3) sample data,
+     * with 16-, 24-, or 32-bit sample sizes. Decoded samples are converted to host-endian
+     * floats in the range [-1.0, 1.0] and stored interleaved in @p audioData.
+     *
+     * @param filePath Path to the WAV file to load.
+     * @param[out] audioData Filled with interleaved audio samples as normalized floats.
+     * @param[out] sampleRate Set to the file's sample rate (Hz) on success.
+     * @param[out] numChannels Set to the file's channel count on success.
+     * @return true if the file was successfully parsed and decoded; false on any parse or decode error.
+     */
     bool loadWav(const std::string& filePath, std::vector<float>& audioData, uint32_t& sampleRate, uint32_t& numChannels) {
         std::ifstream file(filePath, std::ios::binary);
         if (!file) {
@@ -170,6 +207,18 @@ namespace {
     }
 
 #ifdef _WIN32
+    /**
+     * @brief Loads and decodes an audio file via Windows Media Foundation into a float PCM buffer.
+     *
+     * Decodes the specified file to 32-bit float interleaved samples and fills `audioData` with the raw samples.
+     * On success, `sampleRate` and `numChannels` are set to the decoded stream's sample rate and channel count.
+     *
+     * @param filePath Path to the audio file to decode (UTF-8).
+     * @param audioData Output vector that will be populated with interleaved 32-bit float samples.
+     * @param sampleRate Output sample rate of the decoded audio.
+     * @param numChannels Output number of channels in the decoded audio.
+     * @return bool `true` if decoding produced one or more float samples and outputs were set, `false` otherwise.
+     */
     bool loadWithMediaFoundation(const std::string& filePath,
                                  std::vector<float>& audioData,
                                  uint32_t& sampleRate,
@@ -240,21 +289,51 @@ namespace {
         return !audioData.empty();
     }
 #endif
-} // namespace
+} /**
+     * @brief Initialize PreviewEngine with default playback state.
+     *
+     * Initializes internal state: no active voice, output sample rate set to 48000 Hz,
+     * and global preview gain set to -6 dB.
+     */
 
 PreviewEngine::PreviewEngine()
     : m_activeVoice(nullptr)
     , m_outputSampleRate(48000.0)
     , m_globalGainDb(-6.0f) {}
 
+/**
+ * @brief Ensures any active preview playback is stopped and associated resources are released before destruction.
+ *
+ * The destructor stops ongoing playback so the engine can be safely destroyed without leaving an active voice or pending audio processing.
+ */
 PreviewEngine::~PreviewEngine() {
     stop();
 }
 
+/**
+ * @brief Convert a gain value in decibels to a linear amplitude multiplier.
+ *
+ * @param db Gain in decibels.
+ * @return float Linear amplitude multiplier equal to 10^(db / 20).
+ */
 float PreviewEngine::dbToLinear(float db) const {
     return std::pow(10.0f, db / 20.0f);
 }
 
+/**
+ * @brief Loads an audio file into a pooled AudioBuffer and returns the buffer.
+ *
+ * Attempts to decode the file at the given path, converts the decoded data to stereo,
+ * and populates a pooled AudioBuffer with the audio samples, sample rate, channel count,
+ * frame count, and source path. Supported input paths include WAV files; on Windows other
+ * formats may be decoded via Media Foundation.
+ *
+ * @param path Filesystem path to the audio file to load.
+ * @param sampleRate Output parameter set to the decoded sample rate (Hz) on success.
+ * @param channels Output parameter set to the decoded channel count on success (after forcing stereo).
+ * @return std::shared_ptr<AudioBuffer> Shared pointer to the acquired AudioBuffer on success,
+ *         or `nullptr` if loading or decoding failed.
+ */
 std::shared_ptr<AudioBuffer> PreviewEngine::loadBuffer(const std::string& path, uint32_t& sampleRate, uint32_t& channels) {
     auto loader = [path, &sampleRate, &channels](AudioBuffer& out) -> bool {
         std::string extension;
@@ -293,6 +372,18 @@ std::shared_ptr<AudioBuffer> PreviewEngine::loadBuffer(const std::string& path, 
     return SamplePool::getInstance().acquire(path, loader);
 }
 
+/**
+ * @brief Starts playback of an audio file as a preview and registers it as the active voice.
+ *
+ * Loads or retrieves a cached audio buffer for the given path, configures a PreviewVoice
+ * with playback parameters (sample rate, channel count, duration, gain, and optional maximum
+ * play time), and makes it the engine's active preview.
+ *
+ * @param path Filesystem path to the audio file to preview.
+ * @param gainDb Per-preview gain in decibels; combined with the engine's global preview volume.
+ * @param maxSeconds Maximum playback duration in seconds; if <= 0, the full buffer duration is used.
+ * @return PreviewResult `Success` if playback was started and an active voice was set, `Failed` if loading the buffer failed.
+ */
 PreviewResult PreviewEngine::play(const std::string& path, float gainDb, double maxSeconds) {
     uint32_t sampleRate = 0;
     uint32_t channels = 0;
@@ -334,6 +425,12 @@ PreviewResult PreviewEngine::play(const std::string& path, float gainDb, double 
     return PreviewResult::Success;
 }
 
+/**
+ * @brief Signals the currently active preview to stop and begins a fade-out.
+ *
+ * If a preview is active, marks it as requested to stop and activates its fade-out envelope,
+ * resetting the fade position. This operation is thread-safe.
+ */
 void PreviewEngine::stop() {
     std::lock_guard<std::mutex> lock(m_voiceMutex);
     if (m_activeVoice) {
@@ -343,11 +440,30 @@ void PreviewEngine::stop() {
     }
 }
 
+/**
+ * @brief Set the engine's output sample rate used for resampling during rendering.
+ *
+ * If `sr` is less than or equal to zero, the call is ignored and the sample rate remains unchanged.
+ *
+ * @param sr Output sample rate in hertz (Hz).
+ */
 void PreviewEngine::setOutputSampleRate(double sr) {
     if (sr <= 0.0) return;
     m_outputSampleRate.store(sr, std::memory_order_relaxed);
 }
 
+/**
+ * @brief Renders the current preview voice into an interleaved stereo output buffer and advances playback state.
+ *
+ * Mixes the active preview buffer into the provided interleaved stereo float buffer using linear interpolation,
+ * per-sample gain, and a short fade-in/fade-out envelope. Advances the voice playback phase and elapsed time,
+ * triggers a fade-out when the buffer end or max-play duration is reached, and invokes the completion callback
+ * and clears the active voice when playback has finished.
+ *
+ * @param interleavedOutput Pointer to an interleaved stereo float buffer (L,R,L,R...) that will be mixed into;
+ *                         existing contents are preserved and added to.
+ * @param numFrames Number of output frames to render into the buffer.
+ */
 void PreviewEngine::process(float* interleavedOutput, uint32_t numFrames) {
     std::shared_ptr<PreviewVoice> voice;
     {
@@ -424,20 +540,44 @@ void PreviewEngine::process(float* interleavedOutput, uint32_t numFrames) {
     }
 }
 
+/**
+ * @brief Report whether a preview is currently playing.
+ *
+ * @return `true` if there is an active voice and it is marked as playing, `false` otherwise.
+ */
 bool PreviewEngine::isPlaying() const {
     std::lock_guard<std::mutex> lock(m_voiceMutex);
     auto voice = m_activeVoice;
     return voice && voice->playing.load(std::memory_order_acquire);
 }
 
+/**
+ * @brief Set a callback to be invoked when a preview finishes playback.
+ *
+ * Stores a function that will be called with the previewed file path when playback completes.
+ *
+ * @param callback Function called with the completed preview's file path.
+ */
 void PreviewEngine::setOnComplete(std::function<void(const std::string& path)> callback) {
     m_onComplete = std::move(callback);
 }
 
+/**
+ * @brief Set the global preview volume used for all previews.
+ *
+ * Updates the engine's global gain in decibels which is applied to subsequent playback.
+ *
+ * @param gainDb Global gain in decibels.
+ */
 void PreviewEngine::setGlobalPreviewVolume(float gainDb) {
     m_globalGainDb.store(gainDb, std::memory_order_relaxed);
 }
 
+/**
+ * @brief Accesses the current global preview gain setting.
+ *
+ * @return float Current global preview volume in decibels.
+ */
 float PreviewEngine::getGlobalPreviewVolume() const {
     return m_globalGainDb.load(std::memory_order_relaxed);
 }

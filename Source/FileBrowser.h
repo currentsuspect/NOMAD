@@ -47,10 +47,12 @@ struct FileItem {
 };
 
 /**
- * File Browser Component
- * 
- * A modern file browser with icons, sorting, and navigation.
- * Integrates with NomadUI theme system for consistent styling.
+ * @brief Modern file browser component with icons, sorting, navigation, search, preview, and favorites.
+ *
+ * Provides directory navigation and file listing with file-type icons, multi-selection (Ctrl/Shift),
+ * incremental search/filtering, configurable sorting, a preview panel (including cached waveform data for audio),
+ * favorites management, and navigation history (back/forward). Exposes callbacks for file selection, file open,
+ * path changes, and sound preview.
  */
 class FileBrowser : public NUIComponent {
 public:
@@ -78,8 +80,16 @@ public:
     // Callbacks
     void setOnFileSelected(std::function<void(const FileItem&)> callback) { onFileSelected_ = callback; }
     void setOnFileOpened(std::function<void(const FileItem&)> callback) { onFileOpened_ = callback; }
-    void setOnPathChanged(std::function<void(const std::string&)> callback) { onPathChanged_ = callback; }
-    void setOnSoundPreview(std::function<void(const FileItem&)> callback) { onSoundPreview_ = callback; }
+    /**
+ * Set a callback to be invoked whenever the current path changes.
+ * @param callback Function called with the new path as a `const std::string&` when the browser's current path is updated.
+ */
+void setOnPathChanged(std::function<void(const std::string&)> callback) { onPathChanged_ = callback; }
+    /**
+ * Set the callback invoked when a file's sound should be previewed.
+ * @param callback Function that will be called with the `FileItem` to preview.
+ */
+void setOnSoundPreview(std::function<void(const FileItem&)> callback) { onSoundPreview_ = callback; }
     
     // Multi-select
     void toggleFileSelection(int index, bool ctrlPressed, bool shiftPressed);
@@ -104,10 +114,125 @@ public:
     
     // Properties
     const std::string& getCurrentPath() const { return currentPath_; }
-    const FileItem* getSelectedFile() const { return selectedFile_; }
+    /**
+ * Get the currently selected file item.
+ *
+ * @returns `const FileItem*` Pointer to the selected FileItem, or `nullptr` if no file is selected.
+ */
+const FileItem* getSelectedFile() const { return selectedFile_; }
     const std::vector<FileItem>& getFiles() const { return files_; }
     
-    // Sorting
+    /**
+ * Sorting modes available for file listing.
+ */
+ 
+/**
+ * Set the active sort mode used to order files.
+ * @param mode The sort mode to apply.
+ */
+ 
+/**
+ * Set whether file sorting is ascending.
+ * @param ascending `true` to sort in ascending order, `false` for descending.
+ */
+ 
+/**
+ * Load contents of the current directory into the file list.
+ */
+ 
+/**
+ * Sort the current file list according to the active sort mode and direction.
+ */
+ 
+/**
+ * Determine the FileType corresponding to a file extension.
+ * @param extension File extension (with or without leading dot).
+ * @returns The matching FileType; returns FileType::Unknown if no match is found.
+ */
+ 
+/**
+ * Retrieve the icon associated with a file type.
+ * @param type The file type to get an icon for.
+ * @returns A shared pointer to the icon for `type`, or the unknown-file icon if none is specific.
+ */
+ 
+/**
+ * Render the scrollable list of files.
+ * @param renderer Renderer used to draw UI elements.
+ */
+ 
+/**
+ * Render the interactive breadcrumbs path bar.
+ * @param renderer Renderer used to draw UI elements.
+ */
+ 
+/**
+ * Render the toolbar containing action buttons and controls.
+ * @param renderer Renderer used to draw UI elements.
+ */
+ 
+/**
+ * Render the vertical scrollbar for the file list.
+ * @param renderer Renderer used to draw UI elements.
+ */
+ 
+/**
+ * Render the preview panel for the selected file (e.g., waveform/metadata).
+ * @param renderer Renderer used to draw UI elements.
+ */
+ 
+/**
+ * Render the search box used to filter files.
+ * @param renderer Renderer used to draw UI elements.
+ */
+ 
+/**
+ * Update the current scroll position towards the target, applying smoothing and bounds.
+ */
+ 
+/**
+ * Rebuild breadcrumb items from the current path and cached state.
+ */
+ 
+/**
+ * Navigate to a breadcrumb entry by index.
+ * @param index Index of the breadcrumb to navigate to.
+ */
+ 
+/**
+ * Handle mouse events targeted at the search box.
+ * @param event Mouse event to process.
+ * @returns `true` if the event was consumed by the search box, `false` otherwise.
+ */
+ 
+/**
+ * Handle mouse events targeted at the scrollbar.
+ * @param event Mouse event to process.
+ * @returns `true` if the event was consumed by the scrollbar, `false` otherwise.
+ */
+ 
+/**
+ * Handle mouse events targeted at the breadcrumb bar.
+ * @param event Mouse event to process.
+ * @returns `true` if the event was consumed by the breadcrumbs, `false` otherwise.
+ */
+ 
+/**
+ * Update scrollbar visibility and start/stop fade timers based on content and interaction.
+ */
+ 
+/**
+ * Push a path onto the navigation history stack.
+ * @param path Filesystem path to add to history.
+ */
+ 
+/**
+ * Navigate backward in the navigation history, if possible.
+ */
+ 
+/**
+ * Navigate forward in the navigation history, if possible.
+ */
     enum class SortMode {
         Name,
         Type,

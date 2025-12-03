@@ -59,18 +59,45 @@ class SPSCQueue {
         "Use value types or indices into a separate data structure.");
 
 public:
-    SPSCQueue() noexcept : m_head(0), m_tail(0) {}
-    
-    // Non-copyable, non-movable
-    SPSCQueue(const SPSCQueue&) = delete;
-    SPSCQueue& operator=(const SPSCQueue&) = delete;
-    SPSCQueue(SPSCQueue&&) = delete;
-    SPSCQueue& operator=(SPSCQueue&&) = delete;
+    /**
+ * @brief Constructs an empty queue and initializes internal head and tail indices to zero.
+ *
+ * The resulting queue is empty and ready for single-producer / single-consumer use.
+ */
+SPSCQueue() noexcept : m_head(0), m_tail(0) {}
     
     /**
-     * @brief Try to push an element (producer only)
-     * @param value Element to push
-     * @return true if successful, false if queue is full
+ * @brief Deleted copy constructor; instances of SPSCQueue are not copyable.
+ *
+ * Ensures the queue cannot be copied or duplicated, preventing accidental sharing
+ * of internal atomic state between objects.
+ */
+    SPSCQueue(const SPSCQueue&) = delete;
+    /**
+ * @brief Disabled copy-assignment.
+ *
+ * Prevents assigning one SPSCQueue to another; the queue type is not copy-assignable to preserve exclusive ownership and lock-free correctness.
+ */
+SPSCQueue& operator=(const SPSCQueue&) = delete;
+    /**
+ * @brief Deleted move constructor.
+ *
+ * Disables move construction for SPSCQueue; instances cannot be moved.
+ */
+SPSCQueue(SPSCQueue&&) = delete;
+    /**
+ * @brief Delete move assignment operator to prevent moving a queue instance.
+ *
+ * Instances of SPSCQueue are intentionally non-movable to preserve internal
+ * lock-free invariants and fixed storage layout.
+ */
+SPSCQueue& operator=(SPSCQueue&&) = delete;
+    
+    /**
+     * @brief Attempts to enqueue an element into the queue (producer-only).
+     *
+     * @param value Element to enqueue.
+     * @return `true` if the element was enqueued, `false` if the queue was full.
      */
     [[nodiscard]] bool tryPush(const T& value) noexcept {
         const usize head = m_head.load(std::memory_order_relaxed);
@@ -86,9 +113,10 @@ public:
     }
     
     /**
-     * @brief Try to pop an element (consumer only)
-     * @param value Output parameter for popped element
-     * @return true if successful, false if queue is empty
+     * @brief Attempt to remove the next element from the queue and store it in `value`.
+     *
+     * @param[out] value Destination for the removed element.
+     * @return `true` if an element was removed and written to `value`, `false` if the queue was empty.
      */
     [[nodiscard]] bool tryPop(T& value) noexcept {
         const usize tail = m_tail.load(std::memory_order_relaxed);
@@ -103,8 +131,9 @@ public:
     }
     
     /**
-     * @brief Try to pop an element (consumer only)
-     * @return Optional containing element if successful, empty if queue is empty
+     * @brief Attempts to pop the next element from the queue (consumer thread only).
+     *
+     * @return std::optional<T> containing the element if one was available, `std::nullopt` if the queue is empty.
      */
     [[nodiscard]] std::optional<T> tryPop() noexcept {
         T value;
@@ -115,8 +144,11 @@ public:
     }
     
     /**
-     * @brief Check if queue is empty
-     * @note May be stale by the time you act on it
+     * @brief Reports whether the queue currently contains no elements.
+     *
+     * The result reflects the head and tail indices at the time of the call and may be stale immediately afterwards.
+     *
+     * @return `true` if the queue contains no elements at the time of the check, `false` otherwise.
      */
     [[nodiscard]] bool isEmpty() const noexcept {
         return m_head.load(std::memory_order_acquire) == 
@@ -124,8 +156,11 @@ public:
     }
     
     /**
-     * @brief Check if queue is full
-     * @note May be stale by the time you act on it
+     * @brief Reports whether the queue is currently full.
+     *
+     * The result reflects a snapshot and may be stale by the time the caller acts.
+     *
+     * @return `true` if the queue is full (the reserved slot prevents head from advancing), `false` otherwise.
      */
     [[nodiscard]] bool isFull() const noexcept {
         const usize head = m_head.load(std::memory_order_acquire);
@@ -134,8 +169,11 @@ public:
     }
     
     /**
-     * @brief Get approximate number of elements
-     * @note May be stale by the time you act on it
+     * @brief Reports the approximate number of elements currently stored in the queue.
+     *
+     * The value is a snapshot and may be stale immediately due to concurrent producer/consumer activity.
+     *
+     * @return usize Approximate count of elements in the queue.
      */
     [[nodiscard]] usize sizeApprox() const noexcept {
         const usize head = m_head.load(std::memory_order_acquire);
@@ -144,7 +182,9 @@ public:
     }
     
     /**
-     * @brief Get queue capacity
+     * @brief Maximum number of elements the queue can hold.
+     *
+     * @return usize The usable capacity (Capacity - 1). One slot is reserved to distinguish full from empty.
      */
     [[nodiscard]] static constexpr usize capacity() noexcept {
         return Capacity - 1; // One slot reserved for full/empty differentiation
@@ -199,6 +239,12 @@ class MPSCQueue {
     };
 
 public:
+    /**
+     * @brief Initializes the queue internal state for use by producers and the consumer.
+     *
+     * Initializes each slot's sequence counter to its index and sets the head and tail indices to zero,
+     * preparing the ring buffer for concurrent push/pop operations.
+     */
     MPSCQueue() noexcept {
         for (usize i = 0; i < Capacity; ++i) {
             m_buffer[i].sequence.store(i, std::memory_order_relaxed);
@@ -207,18 +253,39 @@ public:
         m_tail.store(0, std::memory_order_relaxed);
     }
     
-    // Non-copyable, non-movable
+    /**
+ * @brief Deleted copy constructor; copying an MPSCQueue is prohibited.
+ *
+ * Enforces non-copyable semantics to prevent multiple owners of the queue's internal state.
+ */
     MPSCQueue(const MPSCQueue&) = delete;
-    MPSCQueue& operator=(const MPSCQueue&) = delete;
-    MPSCQueue(MPSCQueue&&) = delete;
-    MPSCQueue& operator=(MPSCQueue&&) = delete;
+    /**
+ * @brief Disable copy assignment for MPSCQueue.
+ *
+ * Copy assignment is deleted to prevent duplicating queue instances; MPSCQueue is non-copyable.
+ */
+MPSCQueue& operator=(const MPSCQueue&) = delete;
+    /**
+ * @brief Deleted move constructor to make the queue non-movable.
+ *
+ * Prevents move construction so instances retain stable identity and ownership semantics required by the lock-free implementation.
+ */
+MPSCQueue(MPSCQueue&&) = delete;
+    /**
+ * @brief Disabled move-assignment operator that prevents moving an MPSCQueue instance.
+ *
+ * @note MPSCQueue objects are intentionally neither copyable nor movable to preserve internal concurrency
+ * invariants and memory-layout guarantees.
+ */
+MPSCQueue& operator=(MPSCQueue&&) = delete;
     
     /**
-     * @brief Try to push an element (any producer thread)
-     * @param value Element to push (will be copied)
-     * @return true if successful, false if queue is full
-     * 
-     * @security Value is copied atomically. T must be trivially copyable.
+     * @brief Enqueues an element from any producer thread.
+     *
+     * @param value Element to enqueue; it will be copied into the queue.
+     * @return true if the element was enqueued, false otherwise.
+     *
+     * @note The element type `T` must be trivially copyable.
      */
     [[nodiscard]] bool tryPush(const T& value) noexcept {
         Slot* slot;
@@ -283,8 +350,9 @@ public:
     }
     
     /**
-     * @brief Try to pop an element (consumer thread only)
-     * @return Optional containing element if successful, empty if queue is empty
+     * @brief Attempts to pop the next element from the queue (consumer thread only).
+     *
+     * @return std::optional<T> containing the element if one was available, `std::nullopt` if the queue is empty.
      */
     [[nodiscard]] std::optional<T> tryPop() noexcept {
         T value;
@@ -295,8 +363,11 @@ public:
     }
     
     /**
-     * @brief Check if queue appears empty
-     * @note May be stale by the time you act on it
+     * @brief Reports whether the queue currently contains no elements.
+     *
+     * The result reflects the head and tail indices at the time of the call and may be stale immediately afterwards.
+     *
+     * @return `true` if the queue contains no elements at the time of the check, `false` otherwise.
      */
     [[nodiscard]] bool isEmpty() const noexcept {
         return m_head.load(std::memory_order_acquire) == 
@@ -304,8 +375,11 @@ public:
     }
     
     /**
-     * @brief Get approximate number of elements
-     * @note May be stale by the time you act on it
+     * @brief Reports an approximate number of elements currently in the queue.
+     *
+     * The value may be stale due to concurrent producers/consumer.
+     *
+     * @return usize Approximate count of elements; may be stale.
      */
     [[nodiscard]] usize sizeApprox() const noexcept {
         const usize head = m_head.load(std::memory_order_acquire);
@@ -314,7 +388,9 @@ public:
     }
     
     /**
-     * @brief Get queue capacity
+     * @brief Report the maximum number of elements the queue can contain.
+     *
+     * @return size_t The maximum number of elements the queue can hold (equal to `Capacity`).
      */
     [[nodiscard]] static constexpr usize capacity() noexcept {
         return Capacity;
@@ -344,7 +420,11 @@ struct alignas(8) Message {
     
     u32 type;           ///< Application-defined message type
     u32 size;           ///< Actual data size
-    std::array<u8, MaxSize - 8> data;  ///< Message payload
+    std::array<u8, MaxSize - 8> data;  /**
+ * @brief Initializes an empty message with type and size set to 0 and payload bytes zeroed.
+ *
+ * Constructs a Message with `type = 0`, `size = 0`, and `data` filled with zeros.
+ */
     
     Message() noexcept : type(0), size(0), data{} {}
     
@@ -353,6 +433,20 @@ struct alignas(8) Message {
      * @tparam PayloadT Payload type (must fit in data array)
      */
     template <typename PayloadT>
+    /**
+     * @brief Constructs a Message containing a trivially copyable payload.
+     *
+     * Creates a Message whose `type` is set to `msgType`, whose `size` is set to `sizeof(PayloadT)`,
+     * and whose payload bytes are copied into the internal data buffer.
+     *
+     * @tparam PayloadT Type of the payload; must be trivially copyable and fit within the message payload buffer.
+     * @param msgType 32-bit message type identifier.
+     * @param payload Payload value to embed in the message; its bytes are memcpy'd into the message buffer.
+     * @return Message A Message with `type`, `size`, and `data` populated from the provided payload.
+     *
+     * @note Compile-time checks enforce `std::is_trivially_copyable_v<PayloadT>` and
+     *       `sizeof(PayloadT) <= MaxSize - 8`.
+     */
     static Message create(u32 msgType, const PayloadT& payload) noexcept {
         static_assert(std::is_trivially_copyable_v<PayloadT>,
             "Message payload must be trivially copyable");
@@ -370,6 +464,15 @@ struct alignas(8) Message {
      * @brief Extract typed payload from message
      */
     template <typename PayloadT>
+    /**
+     * @brief Extracts a typed payload from the message.
+     *
+     * If the stored payload size is at least sizeof(PayloadT), copies that many bytes into and returns a `PayloadT` value.
+     * If the stored size is smaller than `sizeof(PayloadT)`, returns a default-constructed `PayloadT`.
+     *
+     * @tparam PayloadT Trivially copyable type to extract; a static assertion enforces this.
+     * @return PayloadT The extracted payload or a default-constructed `PayloadT` when the stored size is insufficient.
+     */
     [[nodiscard]] PayloadT payload() const noexcept {
         static_assert(std::is_trivially_copyable_v<PayloadT>,
             "Message payload must be trivially copyable");
