@@ -35,6 +35,8 @@ set(NOMADUI_CORE_SOURCES
     Core/NUIAdaptiveFPS.cpp
     Core/NUIFrameProfiler.h
     Core/NUIFrameProfiler.cpp
+    Core/NUIDragDrop.h
+    Core/NUIDragDrop.cpp
     Core/NUIButton.h
     Core/NUIButton.cpp
     Core/NUILabel.h
@@ -162,6 +164,8 @@ if(NOMADUI_BUILD_OPENGL)
         Graphics/OpenGL/NUIDirtyRegion.cpp
         Graphics/OpenGL/NUIRenderCache.h
         Graphics/OpenGL/NUIRenderCache.cpp
+        Graphics/NUITextRendererSDF.h
+        Graphics/NUITextRendererSDF.cpp
     )
     
     add_library(NomadUI_OpenGL STATIC

@@ -21,10 +21,12 @@
 #include "../NomadUI/Core/NUIThemeSystem.h"
 #include "../NomadUI/Core/NUIAdaptiveFPS.h"
 #include "../NomadUI/Core/NUIFrameProfiler.h"
+#include "../NomadUI/Core/NUIDragDrop.h"
 #include "../NomadUI/Graphics/NUIRenderer.h"
 #include "../NomadUI/Graphics/OpenGL/NUIRendererGL.h"
 #include "../NomadUI/Platform/NUIPlatformBridge.h"
 #include "../NomadAudio/include/NomadAudio.h"
+#include "../NomadAudio/include/PreviewEngine.h"
 #include "../NomadCore/include/NomadLog.h"
 #include "../NomadCore/include/NomadProfiler.h"
 #include "TransportBar.h"
@@ -35,13 +37,19 @@
 #include "PerformanceHUD.h"
 #include "TrackManagerUI.h"
 #include "FPSDisplay.h"
-
+#include "ProjectSerializer.h"
 #include <memory>
 #include <iostream>
 #include <chrono>
 #include <thread>
 #include <cmath>
 #include <cstring>
+#include <cstdlib>
+#include <filesystem>
+
+#ifdef _WIN32
+#include <shlobj.h>
+#endif
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -155,11 +163,8 @@ public:
         m_audioVisualizer->setShowStereo(true);
         addChild(m_audioVisualizer);
 
-        // Initialize sound preview system
-        m_previewTrack = m_trackManager->addTrack("Preview");
-        m_previewTrack->setVolume(0.5f); // Lower volume for preview
-        m_previewTrack->setColor(0xFFFF8800); // Orange color for preview track
-        m_previewTrack->setSystemTrack(true); // Mark as system track (not affected by transport)
+        // Initialize preview engine
+        m_previewEngine = std::make_unique<PreviewEngine>();
         m_previewIsPlaying = false;
         m_previewStartTime = std::chrono::steady_clock::time_point(); // Default construct
         m_previewDuration = 5.0; // 5 seconds preview
@@ -186,7 +191,9 @@ public:
     std::shared_ptr<NomadUI::AudioVisualizer> getAudioVisualizer() const {
         return m_audioVisualizer;
     }
-    
+
+    PreviewEngine* getPreviewEngine() const { return m_previewEngine.get(); }
+
     std::shared_ptr<TrackManager> getTrackManager() const {
         return m_trackManager;
     }
@@ -317,58 +324,29 @@ public:
         // Stop any currently playing preview
         stopSoundPreview();
 
-        // Check if preview track exists
-        if (!m_previewTrack) {
-            Log::error("Preview track not initialized");
+        if (!m_previewEngine) {
+            Log::error("Preview engine not initialized");
             return;
         }
 
-        // Load the audio file into the preview track
-        Log::info("Attempting to load audio file...");
-        bool loaded = false;
-        try {
-            loaded = m_previewTrack->loadAudioFile(file.path);
-        } catch (const std::exception& e) {
-            Log::error("Exception loading audio file: " + std::string(e.what()));
-            return;
-        }
-
-        if (loaded) {
-            Log::info("Preview audio loaded successfully");
-
-            // Set volume for preview (lower than normal)
-            m_previewTrack->setVolume(0.5f);
-
-            // Start playing the preview
-            m_previewTrack->play();
+        auto result = m_previewEngine->play(file.path, -6.0f, m_previewDuration);
+        if (result == PreviewResult::Success) {
             m_previewIsPlaying = true;
             m_previewStartTime = std::chrono::steady_clock::now();
             m_currentPreviewFile = file.path;
-
-            Log::info("Sound preview started - Track state: " + 
-                      std::to_string(static_cast<int>(m_previewTrack->getState())));
+            Log::info("Sound preview started");
         } else {
             Log::warning("Failed to load preview audio: " + file.path);
         }
     }
 
     void stopSoundPreview() {
-        if (m_previewTrack) {
-            bool wasPlaying = m_previewIsPlaying;
-            Log::info("stopSoundPreview called - wasPlaying: " + std::string(wasPlaying ? "true" : "false") + 
-                     ", track state before: " + std::to_string(static_cast<int>(m_previewTrack->getState())));
-            
-            if (m_previewIsPlaying) {
-                m_previewTrack->stop();
-                m_previewTrack->setPosition(0.0);
-                m_previewTrack->clearAudioData(); // Clear the audio data so it doesn't keep playing
-                m_previewIsPlaying = false;
-                m_currentPreviewFile.clear();
-                
-                Log::info("Sound preview stopped - track state after: " + 
-                         std::to_string(static_cast<int>(m_previewTrack->getState())) +
-                         ", isPlaying: " + std::string(m_previewTrack->isPlaying() ? "true" : "false"));
-            }
+        if (m_previewEngine && m_previewIsPlaying) {
+            Log::info("stopSoundPreview called - wasPlaying: true");
+            m_previewEngine->stop();
+            m_previewIsPlaying = false;
+            m_currentPreviewFile.clear();
+            Log::info("Sound preview stopped");
         }
     }
     
@@ -444,13 +422,15 @@ public:
     }
 
     void updateSoundPreview() {
-        if (m_previewIsPlaying) {
-            // Check if 5 seconds have elapsed
-            auto currentTime = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(currentTime - m_previewStartTime);
-
-            if (elapsed.count() >= m_previewDuration) {
+        if (m_previewEngine && m_previewIsPlaying) {
+            if (!m_previewEngine->isPlaying()) {
                 stopSoundPreview();
+            } else {
+                auto currentTime = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(currentTime - m_previewStartTime);
+                if (elapsed.count() >= m_previewDuration) {
+                    stopSoundPreview();
+                }
             }
         }
     }
@@ -540,7 +520,7 @@ private:
     std::shared_ptr<NomadUI::AudioVisualizer> m_audioVisualizer;
     std::shared_ptr<TrackManager> m_trackManager;
     std::shared_ptr<TrackManagerUI> m_trackManagerUI;
-    std::shared_ptr<Track> m_previewTrack;  // Dedicated track for sound previews
+    std::unique_ptr<PreviewEngine> m_previewEngine; // Dedicated preview engine (separate from transport)
     bool m_audioActive = false;
 
     // Sound preview state
@@ -610,6 +590,65 @@ private:
     std::shared_ptr<FPSDisplay> m_fpsDisplay;
     std::shared_ptr<PerformanceHUD> m_performanceHUD;
 };
+
+/**
+ * @brief Get the application data directory path
+ * 
+ * Returns a platform-specific path for storing application data:
+ * - Windows: %APPDATA%/Nomad/
+ * - macOS: ~/Library/Application Support/Nomad/
+ * - Linux: ~/.local/share/Nomad/
+ * 
+ * Creates the directory if it doesn't exist.
+ */
+std::string getAppDataPath() {
+    std::filesystem::path appDataDir;
+    
+#ifdef _WIN32
+    char path[MAX_PATH];
+    if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, path))) {
+        appDataDir = std::filesystem::path(path) / "Nomad";
+    } else {
+        // Fallback to current directory
+        appDataDir = std::filesystem::current_path();
+    }
+#elif defined(__APPLE__)
+    const char* home = std::getenv("HOME");
+    if (home) {
+        appDataDir = std::filesystem::path(home) / "Library" / "Application Support" / "Nomad";
+    } else {
+        appDataDir = std::filesystem::current_path();
+    }
+#else
+    // Linux/Unix
+    const char* xdgData = std::getenv("XDG_DATA_HOME");
+    if (xdgData) {
+        appDataDir = std::filesystem::path(xdgData) / "Nomad";
+    } else {
+        const char* home = std::getenv("HOME");
+        if (home) {
+            appDataDir = std::filesystem::path(home) / ".local" / "share" / "Nomad";
+        } else {
+            appDataDir = std::filesystem::current_path();
+        }
+    }
+#endif
+    
+    // Create directory if it doesn't exist
+    std::error_code ec;
+    if (!std::filesystem::create_directories(appDataDir, ec) && ec) {
+        Log::warning("Failed to create app data directory: " + appDataDir.string() + " (" + ec.message() + ")");
+    }
+    
+    return appDataDir.string();
+}
+
+/**
+ * @brief Get the autosave file path
+ */
+std::string getAutosavePath() {
+    return (std::filesystem::path(getAppDataPath()) / "autosave.nomadproj").string();
+}
 
 /**
  * @brief Main application class
@@ -691,6 +730,14 @@ public:
             }
             
             Log::info("UI renderer initialized");
+            
+            // Enable debug logging for FBO cache (temporary for testing)
+            #ifdef _DEBUG
+            if (m_renderer->getRenderCache()) {
+                m_renderer->getRenderCache()->setDebugEnabled(true);
+                Log::info("FBO cache debug logging enabled");
+            }
+            #endif
         }
         catch (const std::exception& e) {
             std::string errorMsg = "Exception during renderer initialization: ";
@@ -823,6 +870,18 @@ public:
         m_content->setAudioStatus(m_audioInitialized);
         m_customWindow->setContent(m_content.get());
         
+        // Attempt to load last project state
+        auto loadResult = loadProject();
+        if (loadResult.ok) {
+            if (m_content->getTransportBar()) {
+                m_content->getTransportBar()->setTempo(static_cast<float>(loadResult.tempo));
+                m_content->getTransportBar()->setPosition(loadResult.playhead);
+            }
+            if (m_content->getTrackManager()) {
+                m_content->getTrackManager()->setPosition(loadResult.playhead);
+            }
+        }
+        
         // Configure latency compensation for all tracks (if audio was initialized)
         if (m_audioInitialized && m_audioManager && m_content->getTrackManager()) {
             double inputLatencyMs = 0.0;
@@ -846,6 +905,10 @@ public:
             
             transport->setOnPlay([this]() {
                 Log::info("Transport: Play");
+                // Stop preview when transport starts
+                if (m_content) {
+                    m_content->stopSoundPreview();
+                }
                 if (m_content && m_content->getTrackManagerUI()) {
                     m_content->getTrackManagerUI()->getTrackManager()->play();
                 }
@@ -860,6 +923,10 @@ public:
             
             transport->setOnStop([this, transport]() {
                 Log::info("Transport: Stop");
+                // Stop preview when transport stops
+                if (m_content) {
+                    m_content->stopSoundPreview();
+                }
                 if (m_content && m_content->getTrackManagerUI()) {
                     m_content->getTrackManagerUI()->getTrackManager()->stop();
                 }
@@ -873,6 +940,14 @@ public:
                 Log::info(ss.str());
                 // TODO: Update track manager tempo
             });
+
+            // Keep transport time in sync for scrubbing and playback
+            if (m_content->getTrackManagerUI() && m_content->getTrackManagerUI()->getTrackManager()) {
+                auto trackManager = m_content->getTrackManagerUI()->getTrackManager();
+                trackManager->setOnPositionUpdate([transport](double pos) {
+                    transport->setPosition(pos);
+                });
+            }
         }
         
         // Create audio settings dialog (pass TrackManager so test sound can be added as a track)
@@ -1128,6 +1203,9 @@ public:
             return;
         }
 
+        // Save project state before tearing down
+        saveProject();
+
         Log::info("Shutting down NOMAD DAW...");
 
         // Stop and close audio
@@ -1163,6 +1241,23 @@ public:
 
         m_running = false;
         Log::info("NOMAD DAW shutdown complete");
+    }
+
+    ProjectSerializer::LoadResult loadProject() {
+        if (!m_content || !m_content->getTrackManager()) {
+            return {};
+        }
+        return ProjectSerializer::load(m_projectPath, m_content->getTrackManager());
+    }
+
+    bool saveProject() {
+        if (!m_content || !m_content->getTrackManager()) return false;
+        double tempo = 120.0;
+        double playhead = m_content->getTrackManager()->getPosition();
+        if (m_content->getTransportBar()) {
+            tempo = m_content->getTransportBar()->getTempo();
+        }
+        return ProjectSerializer::save(m_projectPath, m_content->getTrackManager(), tempo, playhead);
     }
 
 private:
@@ -1380,6 +1475,9 @@ private:
 
         // Render root component (which contains custom window)
         m_rootComponent->onRender(*m_renderer);
+        
+        // Render drag ghost on top of everything (if dragging)
+        NUIDragDropManager::getInstance().renderDragGhost(*m_renderer);
 
         m_renderer->endFrame();
     }
@@ -1402,16 +1500,35 @@ private:
         // Process audio through track manager
         if (app->m_content && app->m_content->getTrackManagerUI()) {
             auto trackManager = app->m_content->getTrackManagerUI()->getTrackManager();
+            PreviewEngine* previewEngine = app->m_content->getPreviewEngine();
             if (trackManager) {
                 // Let track manager mix all playing tracks
+                double actualRate = 0.0;
+                if (app->m_audioManager) {
+                    actualRate = static_cast<double>(app->m_audioManager->getStreamSampleRate());
+                }
+                if (actualRate <= 0.0) {
+                    actualRate = static_cast<double>(app->m_mainStreamConfig.sampleRate);
+                }
+                trackManager->setOutputSampleRate(actualRate);
                 trackManager->processAudio(outputBuffer, nFrames, streamTime);
+                if (previewEngine) {
+                    previewEngine->setOutputSampleRate(actualRate);
+                    previewEngine->process(outputBuffer, nFrames);
+                }
             }
         }
         
         // Generate test sound if active (directly in callback, no track needed)
         if (app->m_audioSettingsDialog && app->m_audioSettingsDialog->isPlayingTestSound()) {
-            // Use actual sample rate from config instead of hardcoded value
-            const double sampleRate = static_cast<double>(app->m_mainStreamConfig.sampleRate);
+            // Use actual sample rate (fallback to config)
+            double sampleRate = 0.0;
+            if (app->m_audioManager) {
+                sampleRate = static_cast<double>(app->m_audioManager->getStreamSampleRate());
+            }
+            if (sampleRate <= 0.0) {
+                sampleRate = static_cast<double>(app->m_mainStreamConfig.sampleRate);
+            }
             const double frequency = 440.0; // A4
             const double amplitude = 0.05; // 5% volume (gentle test tone)
             const double twoPi = 2.0 * 3.14159265358979323846;
@@ -1463,6 +1580,7 @@ private:
     bool m_running;
     bool m_audioInitialized;
     AudioStreamConfig m_mainStreamConfig;  // Store main audio stream configuration
+    std::string m_projectPath{getAutosavePath()};
 };
 
 /**

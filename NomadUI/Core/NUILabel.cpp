@@ -31,17 +31,17 @@ void NUILabel::onRender(NUIRenderer& renderer)
     // Draw text
     if (!text_.empty())
     {
-        float fontSize = 14.0f;
+        float fontSize = fontSize_;
         
-        // OPTIMIZATION: Cache text measurements - only measure when text changes
+        // OPTIMIZATION: Cache text measurements - only measure when text or size changes
         if (!textSizeValid_) {
             cachedTextSize_ = renderer.measureText(text_, fontSize);
             textSizeValid_ = true;
         }
         
-        // Calculate text position based on alignment
+        // Calculate text position based on alignment (top-left Y)
         float textX = bounds.x;
-        float textY = bounds.y + (bounds.height - cachedTextSize_.height) / 2.0f;
+        float textY = bounds.y + (bounds.height - fontSize) * 0.5f;
         
         switch (alignment_)
         {
@@ -82,6 +82,13 @@ void NUILabel::setText(const std::string& text)
 void NUILabel::setTextColor(const NUIColor& color)
 {
     textColor_ = color;
+    repaint();
+}
+
+void NUILabel::setFontSize(float size)
+{
+    fontSize_ = size;
+    textSizeValid_ = false;
     repaint();
 }
 
