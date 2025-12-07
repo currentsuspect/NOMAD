@@ -250,7 +250,6 @@ For detailed contribution guidelines, see **[Contributing Guide →](docs/CONTRI
 ### SPDX Identifier
 
 ```SPDX
-
 SPDX-License-Identifier: NSSAL
 ```
 
@@ -347,7 +346,7 @@ See the full **[Roadmap →](docs/ROADMAP.md)** for detailed milestones.
 
 ## 📜 Repository Structure
 
-```FILESYSTEM
+```text
 NOMAD/
 ├── docs/               # Comprehensive documentation portal
 ├── NomadCore/          # Core utilities (math, threading, file I/O, logging)
