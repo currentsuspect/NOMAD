@@ -81,7 +81,7 @@ public:
     void selectFile(const std::string& path);
     void openFile(const std::string& path);
     void openFolder(const std::string& path);
-    void toggleFolder(FileItem* item);
+    void toggleFolder(const FileItem* item);
     
     // Callbacks
     void setOnFileSelected(std::function<void(const FileItem&)> callback) { onFileSelected_ = callback; }
@@ -98,6 +98,7 @@ public:
     void setSearchQuery(const std::string& query);
     void applyFilter();
     const std::string& getSearchQuery() const { return searchQuery_; }
+    bool isSearchBoxFocused() const { return searchBoxFocused_; }
     
     // Preview panel
     void setPreviewPanelVisible(bool visible);
@@ -110,10 +111,14 @@ public:
     void toggleFavorite(const std::string& path);
     const std::vector<std::string>& getFavorites() const { return favoritesPaths_; }
     
+    // Persistent state (save/load expanded folders, scroll position, last path)
+    void saveState(const std::string& filePath);
+    void loadState(const std::string& filePath);
+    
     // Properties
     const std::string& getCurrentPath() const { return currentPath_; }
     const FileItem* getSelectedFile() const { return selectedFile_; }
-    const std::vector<FileItem*>& getFiles() const { return displayItems_; }
+    const std::vector<const FileItem*>& getFiles() const { return displayItems_; }
     
     // Sorting
     enum class SortMode {
@@ -130,7 +135,7 @@ private:
     void loadDirectoryContents();
     void loadFolderContents(FileItem* item);
     void updateDisplayList();
-    void updateDisplayListRecursive(FileItem& item, std::vector<FileItem*>& list);
+    void updateDisplayListRecursive(FileItem& item, std::vector<const FileItem*>& list);
     void sortFiles();
     FileType getFileTypeFromExtension(const std::string& extension);
     std::shared_ptr<NUIIcon> getIconForFileType(FileType type);
@@ -154,8 +159,8 @@ private:
     // File management
     std::string currentPath_;
     std::vector<FileItem> rootItems_;
-    std::vector<FileItem*> displayItems_;
-    std::vector<FileItem*> filteredFiles_;  // Filtered files for search
+    std::vector<const FileItem*> displayItems_;
+    std::vector<const FileItem*> filteredFiles_;  // Filtered files for search
     const FileItem* selectedFile_;
     int selectedIndex_;
     std::vector<int> selectedIndices_;     // Multi-select support
@@ -180,6 +185,7 @@ private:
     float scrollbarThumbHeight_;
     float scrollbarThumbY_;
     bool isDraggingScrollbar_;
+    bool scrollbarHovered_;
     float dragStartY_;
     float dragStartScrollOffset_;
     float scrollbarFadeTimer_;
@@ -193,6 +199,7 @@ private:
     std::string searchQuery_;
     bool searchBoxFocused_;
     float searchBoxWidth_;
+    NUIRect searchBoxBounds_;
     
     // Preview panel state
     bool previewPanelVisible_;
@@ -208,6 +215,7 @@ private:
     };
     std::vector<Breadcrumb> breadcrumbs_;
     int hoveredBreadcrumbIndex_;
+    NUIRect breadcrumbBounds_;
     
     // Favorites state
     std::vector<std::string> favoritesPaths_;

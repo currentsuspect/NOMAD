@@ -1,6 +1,7 @@
 // © 2025 Nomad Studios — All Rights Reserved. Licensed for personal & educational use only.
 #include "PreviewEngine.h"
 #include "NomadLog.h"
+#include "MiniAudioDecoder.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -271,10 +272,12 @@ std::shared_ptr<AudioBuffer> PreviewEngine::loadBuffer(const std::string& path, 
         if (extension == "wav") {
             ok = loadWav(path, decoded, sr, ch);
         } else {
+            // Prefer miniaudio when enabled; fallback to platform decoder.
+            ok = loadWithMiniAudio(path, decoded, sr, ch);
 #ifdef _WIN32
-            ok = loadWithMediaFoundation(path, decoded, sr, ch);
-#else
-            ok = false;
+            if (!ok) {
+                ok = loadWithMediaFoundation(path, decoded, sr, ch);
+            }
 #endif
         }
 
@@ -325,21 +328,18 @@ PreviewResult PreviewEngine::play(const std::string& path, float gainDb, double 
     voice->fadeOutActive = false;
     voice->playing.store(true, std::memory_order_release);
 
-    {
-        std::lock_guard<std::mutex> lock(m_voiceMutex);
-        m_activeVoice = voice;
-    }
+    std::atomic_store_explicit(&m_activeVoice, voice, std::memory_order_release);
     Log::info("PreviewEngine: Playing '" + path + "' (" + std::to_string(sampleRate) + " Hz, " +
               std::to_string(voice->durationSeconds) + " sec)");
     return PreviewResult::Success;
 }
 
 void PreviewEngine::stop() {
-    std::lock_guard<std::mutex> lock(m_voiceMutex);
-    if (m_activeVoice) {
-        m_activeVoice->stopRequested.store(true, std::memory_order_release);
-        m_activeVoice->fadeOutActive = true;
-        m_activeVoice->fadeOutPos = 0.0;
+    auto voice = std::atomic_load_explicit(&m_activeVoice, std::memory_order_acquire);
+    if (voice) {
+        voice->stopRequested.store(true, std::memory_order_release);
+        voice->fadeOutActive = true;
+        voice->fadeOutPos = 0.0;
     }
 }
 
@@ -349,11 +349,7 @@ void PreviewEngine::setOutputSampleRate(double sr) {
 }
 
 void PreviewEngine::process(float* interleavedOutput, uint32_t numFrames) {
-    std::shared_ptr<PreviewVoice> voice;
-    {
-        std::lock_guard<std::mutex> lock(m_voiceMutex);
-        voice = m_activeVoice;
-    }
+    auto voice = std::atomic_load_explicit(&m_activeVoice, std::memory_order_acquire);
     if (!voice || !voice->playing.load(std::memory_order_acquire) || !interleavedOutput) {
         return;
     }
@@ -419,14 +415,16 @@ void PreviewEngine::process(float* interleavedOutput, uint32_t numFrames) {
         if (m_onComplete) {
             m_onComplete(voice->path);
         }
-        std::lock_guard<std::mutex> lock(m_voiceMutex);
-        m_activeVoice.reset();
+        // Clear only if still the active voice
+        std::shared_ptr<PreviewVoice> expected = voice;
+        std::atomic_compare_exchange_strong_explicit(
+            &m_activeVoice, &expected, std::shared_ptr<PreviewVoice>(),
+            std::memory_order_acq_rel, std::memory_order_relaxed);
     }
 }
 
 bool PreviewEngine::isPlaying() const {
-    std::lock_guard<std::mutex> lock(m_voiceMutex);
-    auto voice = m_activeVoice;
+    auto voice = std::atomic_load_explicit(&m_activeVoice, std::memory_order_acquire);
     return voice && voice->playing.load(std::memory_order_acquire);
 }
 
