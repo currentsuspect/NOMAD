@@ -42,6 +42,17 @@ public:
 
     // Capabilities (Optional)
     virtual bool supportsExclusiveMode() const { return false; }
+
+    /**
+     * @brief Poll for deferred errors that occurred in real-time threads.
+     * @param[out] outError The error code.
+     * @param[out] outMsg The constructed error message.
+     * @return true if an error was retrieved, false otherwise.
+     */
+    virtual bool pollDeferredError(DriverError& outError, std::string& outMsg) { 
+        (void)outError; (void)outMsg;
+        return false; 
+    }
 };
 
 } // namespace Audio

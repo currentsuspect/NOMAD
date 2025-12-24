@@ -851,8 +851,15 @@ DriverError AudioDeviceManager::pollError(std::string& outMessage) {
         std::lock_guard<std::mutex> lock(msgMutex);
         outMessage = m_pendingErrorMsg;
         m_pendingErrorMsg.clear(); 
+        return err;
     }
-    return err;
+    
+    // Also poll current driver for deferred RT errors
+    if (m_activeDriver && m_activeDriver->pollDeferredError(err, outMessage)) {
+        return err;
+    }
+    
+    return DriverError::NONE;
 }
 
 } // namespace Audio
