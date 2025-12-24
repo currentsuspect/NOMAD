@@ -65,13 +65,8 @@ AudioSettingsDialog::AudioSettingsDialog(Audio::AudioDeviceManager* audioManager
     , m_activeTab("settings")
 {
     // Subscribe to stream errors (e.g. device disconnection)
+    // Subscribe to stream errors (Poll-based now)
     if (m_audioManager) {
-        m_audioManager->setStreamErrorCallback([this](Audio::DriverError error, const std::string& msg) {
-            std::lock_guard<std::mutex> lock(m_errorMutex);
-            m_pendingErrorMessage = msg;
-            m_hasPendingError = true;
-        });
-        
         // LIMITATION FIX: Check for errors that occurred BEFORE we subscribed (Startup Race Condition)
         if (m_audioManager->getLatchedError() != Audio::DriverError::NONE) {
             std::lock_guard<std::mutex> lock(m_errorMutex);
@@ -618,7 +613,18 @@ void AudioSettingsDialog::onResize(int width, int height) {
 }
 
 void AudioSettingsDialog::onUpdate(double deltaTime) {
-    // Check for pending errors from audio thread
+    // Check for pending errors from audio thread (Polling Model)
+    if (m_audioManager) {
+        std::string pollMsg;
+        Audio::DriverError err = m_audioManager->pollError(pollMsg);
+        if (err != Audio::DriverError::NONE) {
+             std::lock_guard<std::mutex> lock(m_errorMutex);
+             m_hasPendingError = true;
+             // Use polled message if available, otherwise generic
+             m_pendingErrorMessage = pollMsg.empty() ? "Audio device disconnected or invalidated." : pollMsg;
+        }
+    }
+
     {
         std::lock_guard<std::mutex> lock(m_errorMutex);
         if (m_hasPendingError) {

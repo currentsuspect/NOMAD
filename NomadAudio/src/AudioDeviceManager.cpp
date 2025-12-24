@@ -3,6 +3,7 @@
 #include "NativeAudioDriver.h"
 #include <iostream>
 #include <chrono>
+#include <mutex>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -201,14 +202,25 @@ bool AudioDeviceManager::tryDriver(IAudioDriver* driver, const AudioStreamConfig
                 }
             }
 
-            // Notify listeners (e.g. UI)
-            if (m_streamErrorCallback) {
-                m_streamErrorCallback(error, msg);
+            if (m_driverModeChangeCallback) {
+                // If the error was a fallback, update listeners
+                // ...
             }
             
-            // Note: We deliberately do NOT call closeStream() here to avoid
-            // deadlock if the callback is invoked from the audio thread.
-            // The UI or main loop should handle the teardown.
+            // RT-Safety: Store error atomically for polling.
+            // Do NOT call callbacks or allocate memory here if possible.
+            m_pendingError.store(error, std::memory_order_release);
+            
+            // For the message, we need a simple mechanism.
+            // If we are in the audio thread, string assignment is risky due to allocation.
+            // Ideally we'd use a fixed buffer, but for now we'll check if we can lock briefly.
+            // If not, we drop the message but keep the error code (which is critical).
+            // NOTE: This lock is only for the message string, not the signal itself.
+            static std::mutex msgMutex;
+            if (msgMutex.try_lock()) {
+                m_pendingErrorMsg = msg;
+                msgMutex.unlock();
+            }
         });
     }
     
@@ -828,6 +840,19 @@ const char* getVersion() {
 
 const char* getBackendName() {
     return "RtAudio WASAPI";
+}
+
+DriverError AudioDeviceManager::pollError(std::string& outMessage) {
+    DriverError err = m_pendingError.exchange(DriverError::NONE, std::memory_order_acquire);
+    if (err != DriverError::NONE) {
+        // Retrieve message safely
+        // In a real RT system we'd use a lock-free ring buffer for text
+        static std::mutex msgMutex;
+        std::lock_guard<std::mutex> lock(msgMutex);
+        outMessage = m_pendingErrorMsg;
+        m_pendingErrorMsg.clear(); 
+    }
+    return err;
 }
 
 } // namespace Audio

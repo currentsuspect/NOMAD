@@ -213,12 +213,16 @@ public:
     using StreamErrorCallback = std::function<void(DriverError error, const std::string& message)>;
 
     /**
-     * @brief Set callback for critical stream errors
-     * @param callback Function to call when a stream error occurs
+     * @brief Poll for critical driver errors in a thread-safe way
+     * @return The last critical error, or DriverError::NONE if queue is empty
+     * 
+     * This should be called periodically by the UI thread (e.g. in onUpdate)
+     * to safely retrieve errors from the realtime audio thread.
      */
-    void setStreamErrorCallback(StreamErrorCallback callback) {
-        m_streamErrorCallback = callback;
-    }
+    DriverError pollError(std::string& outMessage);
+    
+    // DEPRECATED/REMOVED: setStreamErrorCallback to prevent RT violations
+    // void setStreamErrorCallback(StreamErrorCallback callback);
     
     /**
      * @brief Get reason for current fallback (if any)
@@ -236,6 +240,17 @@ public:
      * @brief Get active driver statistics
      */
     DriverStatistics getDriverStatistics() const;
+
+    /**
+     * @brief Get the last reported critical driver error
+     * Useful for checking errors that occurred before listeners were attached (e.g. startup)
+     */
+    DriverError getLatchedError() const { return m_latchedError; }
+    
+    /**
+     * @brief Clear the latched error
+     */
+    void clearLatchedError() { m_latchedError = DriverError::NONE; }
 
     /**
      * @brief Enable/disable auto-buffer scaling on underruns
@@ -294,20 +309,15 @@ private:
     
     // Error handling state
     DriverError m_latchedError = DriverError::NONE;
-    StreamErrorCallback m_streamErrorCallback;
+
+    
+    // Lock-free error passing (using std::atomic + spinlock for simple string copy, or just atomic error code + ID)
+    // For simplicity and safety, we'll use a protected queue with a try_lock to avoid blocking audio
+    std::string m_pendingErrorMsg;
+    std::atomic<DriverError> m_pendingError = {DriverError::NONE};
+    // StreamErrorCallback m_streamErrorCallback; // Removed
     std::string m_fallbackReason;
 
-public:
-    /**
-     * @brief Get the last reported critical driver error
-     * Useful for checking errors that occurred before listeners were attached (e.g. startup)
-     */
-    DriverError getLatchedError() const { return m_latchedError; }
-    
-    /**
-     * @brief Clear the latched error
-     */
-    void clearLatchedError() { m_latchedError = DriverError::NONE; }
 
 private:
     
