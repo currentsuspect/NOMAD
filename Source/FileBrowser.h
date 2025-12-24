@@ -119,7 +119,6 @@ public:
     // Loading state control (for external async operations)
     void setLoadingPlayback(bool loading) { 
         isLoadingPlayback_ = loading;
-        if (loading) loadingAnimationTime_ = 0.0f;
         setDirty(true);
     }
     bool isLoadingPlayback() const { return isLoadingPlayback_; }
@@ -135,9 +134,9 @@ public:
     std::string getSearchQuery() const;
     bool isSearchBoxFocused() const;
     
-    // Preview panel
-    void setPreviewPanelVisible(bool visible);
-    bool isPreviewPanelVisible() const { return previewPanelVisible_; }
+    // Preview panel (Removed)
+    // void setPreviewPanelVisible(bool visible);
+    // bool isPreviewPanelVisible() const { return previewPanelVisible_; }
     
     // Favorites
     void addToFavorites(const std::string& path);
@@ -218,7 +217,7 @@ public:
 		    void renderInteractiveBreadcrumbs(NUIRenderer& renderer);
 		    void renderToolbar(NUIRenderer& renderer);
 	    void renderScrollbar(NUIRenderer& renderer);
-	    void renderPreviewPanel(NUIRenderer& renderer);
+	    // void renderPreviewPanel(NUIRenderer& renderer); // Moved to FilePreviewPanel
     void renderSearchBox(NUIRenderer& renderer);
     void updateScrollPosition();
 	    void updateBreadcrumbs();
@@ -305,12 +304,12 @@ public:
 	    std::unordered_map<std::string, std::vector<std::string>> tagsByPath_;
 	    std::string activeTagFilter_;
     
-    // Preview panel state
-    bool previewPanelVisible_;
-    float previewPanelWidth_;
-    std::vector<float> waveformData_;      // Cached waveform amplitude data
-    bool isLoadingPreview_;                // True while loading waveform/preview
-    float loadingAnimationTime_;           // Animation timer for loading spinner
+    // Preview panel state (Removed: Moved to FilePreviewPanel)
+    // bool previewPanelVisible_;
+    // float previewPanelWidth_;
+    // std::vector<float> waveformData_;
+    // bool isLoadingPreview_;
+    // float loadingAnimationTime_;
     bool isLoadingPlayback_;               // True while loading audio for playback
     bool wasLoadingPlayback_;              // Previous frame's playback loading state
     

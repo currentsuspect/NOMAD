@@ -208,6 +208,23 @@ public:
     }
     
     /**
+     * @brief Callback type for critical stream errors (e.g. device disconnection)
+     */
+    using StreamErrorCallback = std::function<void(DriverError error, const std::string& message)>;
+
+    /**
+     * @brief Poll for critical driver errors in a thread-safe way
+     * @return The last critical error, or DriverError::NONE if queue is empty
+     * 
+     * This should be called periodically by the UI thread (e.g. in onUpdate)
+     * to safely retrieve errors from the realtime audio thread.
+     */
+    DriverError pollError(std::string& outMessage);
+    
+    // DEPRECATED/REMOVED: setStreamErrorCallback to prevent RT violations
+    // void setStreamErrorCallback(StreamErrorCallback callback);
+    
+    /**
      * @brief Get reason for current fallback (if any)
      * @return Human-readable reason, or empty string if using preferred driver
      */
@@ -225,11 +242,44 @@ public:
     DriverStatistics getDriverStatistics() const;
 
     /**
+     * @brief Get the last reported critical driver error
+     * Useful for checking errors that occurred before listeners were attached (e.g. startup)
+     */
+    DriverError getLatchedError() const { return m_latchedError; }
+    
+    /**
+     * @brief Clear the latched error
+     */
+    void clearLatchedError() { m_latchedError = DriverError::NONE; }
+
+    /**
      * @brief Enable/disable auto-buffer scaling on underruns
      * @param enable True to enable auto-scaling, false to disable
      * @param underrunsPerMinuteThreshold Number of underruns/min before scaling (default: 10)
      */
     void setAutoBufferScaling(bool enable, uint32_t underrunsPerMinuteThreshold = 10);
+
+    /**
+     * @brief Configure whether to release the driver when the application is in the background
+     */
+    void setReleaseInBackground(bool enable) { m_releaseInBackground = enable; }
+    
+    /**
+     * @brief Check if background release is enabled
+     */
+    bool getReleaseInBackground() const { return m_releaseInBackground; }
+
+    /**
+     * @brief Suspend audio system (releases driver)
+     * Called when application loses focus (if enabled)
+     */
+    void suspendAudio();
+
+    /**
+     * @brief Resume audio system (re-acquires driver)
+     * Called when application regains focus
+     */
+    void resumeAudio();
 
     /**
      * @brief Check underrun rate and auto-scale buffer if needed
@@ -247,11 +297,29 @@ private:
     AudioCallback m_currentCallback;
     void* m_currentUserData;
     bool m_initialized;
+    
+    // State tracking
     bool m_wasRunning;
+    bool m_releaseInBackground = true;
+    bool m_isSuspended = false;
+    bool m_wasRunningBeforeSuspend = false;
     
     // Driver mode change notification
     DriverModeChangeCallback m_driverModeChangeCallback;
+    
+    // Error handling state
+    DriverError m_latchedError = DriverError::NONE;
+
+    
+    // Lock-free error passing (using std::atomic + spinlock for simple string copy, or just atomic error code + ID)
+    // For simplicity and safety, we'll use a protected queue with a try_lock to avoid blocking audio
+    std::string m_pendingErrorMsg;
+    std::atomic<DriverError> m_pendingError = {DriverError::NONE};
+    // StreamErrorCallback m_streamErrorCallback; // Removed
     std::string m_fallbackReason;
+
+
+private:
     
     // Auto-buffer scaling
     bool m_autoBufferScalingEnabled = false;

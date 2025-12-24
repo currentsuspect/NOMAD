@@ -58,6 +58,9 @@ public:
     void setErrorCallback(ErrorCallback callback) override { m_errorCallback = callback; }
 
     bool supportsExclusiveMode() const override { return false; }
+    
+    // Defer RT errors to polling thread
+    bool pollDeferredError(DriverError& outError, std::string& outMsg) override;
 
 
     // AudioDriver interface
@@ -98,6 +101,11 @@ private:
     std::string m_errorMessage;
     DriverStatistics m_statistics;
     ErrorCallback m_errorCallback;
+    
+    // Deferred Error Handling (Atomic/Lock-free for RT safety)
+    std::atomic<bool> m_hasDeferredError{ false };
+    std::atomic<DriverError> m_deferredError{ DriverError::NONE };
+    std::atomic<uint32_t> m_deferredHResult{ 0 };
 
     // Stream configuration
     AudioStreamConfig m_config;

@@ -645,6 +645,19 @@ void WASAPISharedDriver::audioThreadProc() {
         BYTE* data = nullptr;
         hr = reinterpret_cast<IAudioRenderClient*>(m_renderClient)->GetBuffer(availableFrames, &data);
         if (FAILED(hr)) {
+            if (hr == AUDCLNT_E_DEVICE_INVALIDATED || 
+                hr == AUDCLNT_E_SERVICE_NOT_RUNNING || 
+                hr == AUDCLNT_E_RESOURCES_INVALIDATED) {
+                // SECURE-LOG: We avoid I/O logging here in the RT thread.
+                // Store error details atomically for the main thread to pick up.
+                m_deferredHResult.store(static_cast<uint32_t>(hr), std::memory_order_relaxed);
+                m_deferredError.store(DriverError::DEVICE_NOT_FOUND, std::memory_order_relaxed);
+                m_hasDeferredError.store(true, std::memory_order_release);
+                
+                // Signal thread exit
+                break;
+            }
+
             m_statistics.underrunCount++;
             continue;
         }
@@ -713,6 +726,14 @@ void WASAPISharedDriver::audioThreadProc() {
         // Release buffer
         hr = reinterpret_cast<IAudioRenderClient*>(m_renderClient)->ReleaseBuffer(availableFrames, 0);
         if (FAILED(hr)) {
+             if (hr == AUDCLNT_E_DEVICE_INVALIDATED || 
+                hr == AUDCLNT_E_SERVICE_NOT_RUNNING) {
+                // SECURE-LOG: Avoid I/O and allocation in RT thread
+                m_deferredHResult.store(static_cast<uint32_t>(hr), std::memory_order_relaxed);
+                m_deferredError.store(DriverError::DEVICE_NOT_FOUND, std::memory_order_relaxed);
+                m_hasDeferredError.store(true, std::memory_order_release);
+                break;
+            }
             std::cerr << "[WASAPI Shared] Failed to release buffer" << std::endl;
         }
 
@@ -726,6 +747,9 @@ void WASAPISharedDriver::audioThreadProc() {
     if (avrtHandle) {
         AvRevertMmThreadCharacteristics(avrtHandle);
     }
+    
+    // Ensure properly marked as stopped
+    m_isRunning = false;
 
     std::cout << "[WASAPI Shared] Audio thread exiting" << std::endl;
 }
@@ -778,6 +802,35 @@ uint32_t WASAPISharedDriver::getStreamSampleRate() const {
     if (!m_waveFormat) return 0;
     WAVEFORMATEX* wf = reinterpret_cast<WAVEFORMATEX*>(m_waveFormat);
     return wf->nSamplesPerSec;
+}
+
+
+
+bool WASAPISharedDriver::pollDeferredError(DriverError& outError, std::string& outMsg) {
+    if (m_hasDeferredError.exchange(false, std::memory_order_acquire)) {
+        outError = m_deferredError.load(std::memory_order_relaxed);
+        uint32_t hr = m_deferredHResult.load(std::memory_order_relaxed);
+        
+        // Construct detailed error message ON THE MAIN THREAD
+        // Convert HRESULT to string manually since HResultToString might be helper
+        // Use standard hex formatting if HResultToString not available or expensive
+        std::stringstream ss;
+        ss << "Audio device disconnected or invalidated (HRESULT: 0x" 
+           << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << hr << ")";
+           
+        outMsg = "Audio device disconnected or invalidated."; // User friendly msg
+        
+        // Log the detailed one locally
+        std::cerr << "[WASAPIShared] Deferred Error: " << ss.str() << std::endl;
+        
+        // Sync internal state
+        m_lastError = outError;
+        m_errorMessage = outMsg;
+        m_state = DriverState::DRIVER_ERROR;
+        
+        return true;
+    }
+    return false;
 }
 
 } // namespace Audio

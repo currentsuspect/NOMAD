@@ -19,6 +19,7 @@
 #include <functional>
 #include <vector>
 #include <iostream>
+#include <mutex>
 
 namespace Nomad {
 
@@ -176,6 +177,13 @@ private:
     std::shared_ptr<NomadUI::NUILabel> m_threadCountLabel;
     std::shared_ptr<NomadUI::NUILabel> m_nomadModeLabel;  // Nomad Mode label
     
+    // Release in background toggle
+    std::shared_ptr<NomadUI::NUIButton> m_releaseInBackgroundToggle;
+    std::shared_ptr<NomadUI::NUILabel> m_releaseInBackgroundLabel;
+    
+    // Original state for Release in Background
+    bool m_originalReleaseInBackground = false;
+    
     // Callbacks
     std::function<void()> m_onApply;
     std::function<void()> m_onCancel;
@@ -224,6 +232,11 @@ private:
     std::shared_ptr<NomadUI::NUITabBar> m_tabBar;
     std::string m_activeTab; // "settings" or "info"
     
+    // Thread-safe error handling
+    mutable std::mutex m_errorMutex;
+    bool m_hasPendingError = false;
+    std::string m_pendingErrorMessage;
+
     // Info tab content
     std::shared_ptr<NomadUI::NUILabel> m_infoTitle;
     std::shared_ptr<NomadUI::NUILabel> m_infoContent;
