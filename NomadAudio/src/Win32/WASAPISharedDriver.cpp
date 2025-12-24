@@ -728,8 +728,10 @@ void WASAPISharedDriver::audioThreadProc() {
         if (FAILED(hr)) {
              if (hr == AUDCLNT_E_DEVICE_INVALIDATED || 
                 hr == AUDCLNT_E_SERVICE_NOT_RUNNING) {
-                setError(DriverError::DEVICE_NOT_FOUND, 
-                    "Audio device invalidated during release (0x" + HResultToString(hr) + ")");
+                // SECURE-LOG: Avoid I/O and allocation in RT thread
+                m_deferredHResult.store(static_cast<uint32_t>(hr), std::memory_order_relaxed);
+                m_deferredError.store(DriverError::DEVICE_NOT_FOUND, std::memory_order_relaxed);
+                m_hasDeferredError.store(true, std::memory_order_release);
                 break;
             }
             std::cerr << "[WASAPI Shared] Failed to release buffer" << std::endl;
