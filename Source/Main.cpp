@@ -3005,6 +3005,17 @@ private:
 
         // Window focus callback (authoritative reset for modifiers + focus)
         m_window->setFocusCallback([this](bool focused) {
+            Log::info("Focus: " + std::string(focused ? "GAINED" : "LOST"));
+            
+            // Handle audio auto-release
+            if (m_audioManager) {
+                if (focused) {
+                    m_audioManager->resumeAudio();
+                } else if (m_audioManager->getReleaseInBackground()) {
+                    m_audioManager->suspendAudio();
+                }
+            }
+
             if (focused) return;
 
             m_keyModifiers = NomadUI::NUIModifiers::None;

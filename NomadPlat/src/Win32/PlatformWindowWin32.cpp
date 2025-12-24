@@ -655,13 +655,36 @@ LRESULT PlatformWindowWin32::handleMessage(UINT msg, WPARAM wParam, LPARAM lPara
             return 0;
         }
 
+        case WM_ACTIVATEAPP:
+            if (m_focusCallback) {
+                m_focusCallback(wParam == TRUE);
+            }
+            return 0;
+
+        case WM_ACTIVATE: {
+            // Low-order word: Activation state
+            // High-order word: Non-zero if minimized
+            bool active = (LOWORD(wParam) != WA_INACTIVE);
+            bool minimized = (HIWORD(wParam) != 0);
+
+            if (active && !minimized) {
+                if (m_focusCallback) m_focusCallback(true);
+            } else {
+                // If deactivated OR minimized, treat as focus lost
+                if (m_focusCallback) m_focusCallback(false);
+            }
+            return 0;
+        }
+
         case WM_SETFOCUS:
+             // Redundant but safe
             if (m_focusCallback) {
                 m_focusCallback(true);
             }
             return 0;
 
         case WM_KILLFOCUS:
+             // Redundant but safe
             if (m_focusCallback) {
                 m_focusCallback(false);
             }

@@ -208,6 +208,19 @@ public:
     }
     
     /**
+     * @brief Callback type for critical stream errors (e.g. device disconnection)
+     */
+    using StreamErrorCallback = std::function<void(DriverError error, const std::string& message)>;
+
+    /**
+     * @brief Set callback for critical stream errors
+     * @param callback Function to call when a stream error occurs
+     */
+    void setStreamErrorCallback(StreamErrorCallback callback) {
+        m_streamErrorCallback = callback;
+    }
+    
+    /**
      * @brief Get reason for current fallback (if any)
      * @return Human-readable reason, or empty string if using preferred driver
      */
@@ -232,6 +245,28 @@ public:
     void setAutoBufferScaling(bool enable, uint32_t underrunsPerMinuteThreshold = 10);
 
     /**
+     * @brief Configure whether to release the driver when the application is in the background
+     */
+    void setReleaseInBackground(bool enable) { m_releaseInBackground = enable; }
+    
+    /**
+     * @brief Check if background release is enabled
+     */
+    bool getReleaseInBackground() const { return m_releaseInBackground; }
+
+    /**
+     * @brief Suspend audio system (releases driver)
+     * Called when application loses focus (if enabled)
+     */
+    void suspendAudio();
+
+    /**
+     * @brief Resume audio system (re-acquires driver)
+     * Called when application regains focus
+     */
+    void resumeAudio();
+
+    /**
      * @brief Check underrun rate and auto-scale buffer if needed
      * Call this periodically (e.g., every second) to monitor performance
      */
@@ -247,11 +282,34 @@ private:
     AudioCallback m_currentCallback;
     void* m_currentUserData;
     bool m_initialized;
+    
+    // State tracking
     bool m_wasRunning;
+    bool m_releaseInBackground = true;
+    bool m_isSuspended = false;
+    bool m_wasRunningBeforeSuspend = false;
     
     // Driver mode change notification
     DriverModeChangeCallback m_driverModeChangeCallback;
+    
+    // Error handling state
+    DriverError m_latchedError = DriverError::NONE;
+    StreamErrorCallback m_streamErrorCallback;
     std::string m_fallbackReason;
+
+public:
+    /**
+     * @brief Get the last reported critical driver error
+     * Useful for checking errors that occurred before listeners were attached (e.g. startup)
+     */
+    DriverError getLatchedError() const { return m_latchedError; }
+    
+    /**
+     * @brief Clear the latched error
+     */
+    void clearLatchedError() { m_latchedError = DriverError::NONE; }
+
+private:
     
     // Auto-buffer scaling
     bool m_autoBufferScalingEnabled = false;

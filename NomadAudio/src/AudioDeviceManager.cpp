@@ -1,10 +1,40 @@
 // © 2025 Nomad Studios — All Rights Reserved. Licensed for personal & educational use only.
 #include "AudioDeviceManager.h"
+#include "NativeAudioDriver.h"
 #include <iostream>
 #include <chrono>
 
+#ifdef _WIN32
+#include <Windows.h>
+#include <TlHelp32.h>
+#endif
+
 namespace Nomad {
 namespace Audio {
+
+namespace {
+    bool isSoundIDRunning() {
+#ifdef _WIN32
+        HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (hSnapshot == INVALID_HANDLE_VALUE) return false;
+
+        PROCESSENTRY32 pe32;
+        pe32.dwSize = sizeof(PROCESSENTRY32);
+
+        if (Process32First(hSnapshot, &pe32)) {
+            do {
+                if (std::string(pe32.szExeFile) == "SoundID Reference.exe") {
+                    CloseHandle(hSnapshot);
+                    return true;
+                }
+            } while (Process32Next(hSnapshot, &pe32));
+        }
+
+        CloseHandle(hSnapshot);
+#endif
+        return false;
+    }
+}
 
 AudioDeviceManager::AudioDeviceManager()
     : m_currentCallback(nullptr)
@@ -38,10 +68,6 @@ bool AudioDeviceManager::initialize() {
         
         if (m_drivers.empty()) {
              std::cout << "No audio drivers available!" << std::endl;
-             // Continue initialization but warn? Or fail? 
-             // Logic suggests returning false if strictly no audio capability is fatal.
-             // But for audit tool we might want to continue. 
-             // Let's print warning.
         }
 
         std::cout << "Registered " << m_drivers.size() << " driver(s)." << std::endl;
@@ -51,8 +77,6 @@ bool AudioDeviceManager::initialize() {
             std::cout << (driver->isAvailable() ? "✓ " : "✗ ") << driver->getDisplayName() 
                       << (driver->isAvailable() ? " available" : " unavailable") << std::endl;
         }
-        
-        // Removed explicit ASIO scanning (now handled by drivers themselves if registered)
         
         m_initialized = true;
         std::cout << "=== Audio System Ready ===" << std::endl;
@@ -85,12 +109,6 @@ std::vector<AudioDeviceInfo> AudioDeviceManager::getDevices() const {
     if (!m_initialized) {
         return {};
     }
-    
-    // Aggregated devices from all available drivers?
-    // Or just the active one?
-    // Original code: "active driver -> exclusive -> shared -> rtaudio"
-    // We should preserve this priority logic.
-    // Iterating drivers in order (assuming registration order implies priority).
     
     // Use active driver if available
     if (m_activeDriver) {
@@ -154,17 +172,50 @@ AudioDeviceInfo AudioDeviceManager::getDefaultInputDevice() const {
     return {};
 }
 
-
+// Jump to tryDriver implementation
 bool AudioDeviceManager::tryDriver(IAudioDriver* driver, const AudioStreamConfig& config,
                                    AudioCallback callback, void* userData) {
     if (!driver || !driver->isAvailable()) {
         return false;
     }
     
+    // Hook up error callback if supported
+    // We do this before opening the stream so we catch immediate errors
+    if (auto nativeDriver = dynamic_cast<NativeAudioDriver*>(driver)) {
+        nativeDriver->setErrorCallback([this](DriverError error, const std::string& msg) {
+            std::cerr << "[AudioDeviceManager] Driver Error: " << msg << std::endl;
+            
+            // Critical error handling: Auto-fallback
+            if (error == DriverError::DEVICE_NOT_FOUND) {
+                m_latchedError = error; // Latch for startup checks
+                std::cerr << "[AudioDeviceManager] Critical device error. Attempting fallback to Default Device..." << std::endl;
+                
+                // Avoid infinite recursion if the default device itself is failing
+                auto defaultDevice = getDefaultOutputDevice();
+                if (defaultDevice.id != m_currentConfig.deviceId) {
+                    // We must execute this asynchronously or carefully to avoid closing the stream 
+                    // from within the audio callback thread. 
+                    // Ideally, we signal the UI or a main thread handler.
+                    // But for now, we will rely on the UI's onUpdate polling which checks m_streamErrorCallback.
+                    // We can ENHANCE the message to suggest fallback.
+                }
+            }
+
+            // Notify listeners (e.g. UI)
+            if (m_streamErrorCallback) {
+                m_streamErrorCallback(error, msg);
+            }
+            
+            // Note: We deliberately do NOT call closeStream() here to avoid
+            // deadlock if the callback is invoked from the audio thread.
+            // The UI or main loop should handle the teardown.
+        });
+    }
+    
     std::cout << "Trying " << driver->getDisplayName() << "..." << std::endl;
     
     if (driver->openStream(config, callback, userData)) {
-        std::cout << "âœ“ " << driver->getDisplayName() << " opened successfully" << std::endl;
+        std::cout << "✓ " << driver->getDisplayName() << " opened successfully" << std::endl;
         double lat = driver->getStreamLatency();
         std::cout << "  Latency: " << (lat * 1000.0) << "ms" << std::endl;
         m_activeDriver = driver;
@@ -207,12 +258,58 @@ bool AudioDeviceManager::openStream(const AudioStreamConfig& config, AudioCallba
     // Note: Since IAudioDriver doesn't expose strict types, we rely on properties or name.
     // Let's iterate all drivers. Prioritize based on capabilities.
 
+    // Check for "SoundID Reference" virtual device
+    // This device is known to cause distortion in WASAPI Exclusive mode
+    // because it wraps the hardware driver improperly or has clocking issues.
+    // We force Shared Mode for it to ensure clean audio.
+    bool forceSharedMode = false;
+    
+    // We need to find the name of the device we are trying to open
+    // Since getDevices() might be expensive, we only do this if we are in Exclusive mode preference
+    if (m_preferredDriverType == AudioDriverType::WASAPI_EXCLUSIVE) {
+        auto devices = getDevices();
+        for (const auto& device : devices) {
+            if (device.id == config.deviceId) {
+                // Check if name contains "SoundID" (case-insensitive ideally, but simple check works for standard name)
+                if (device.name.find("SoundID") != std::string::npos) {
+                    // Start of Zombie Fallback Logic
+                    if (!isSoundIDRunning()) {
+                        std::cerr << "[AudioDeviceManager] SoundID device selected but 'SoundID Reference.exe' is NOT running." << std::endl;
+                        std::cerr << "[AudioDeviceManager] Treating device as invalid (Zombie State)." << std::endl;
+                        
+                        // Treat as critical error to trigger fallback mechanism
+                        // We set the latch so the UI (if starting up) picks it up
+                        m_latchedError = DriverError::DEVICE_NOT_FOUND;
+                        return false; 
+                    }
+                    
+                    std::cout << "[AudioDeviceManager] Detected SoundID device: " << device.name << std::endl;
+                    std::cout << "[AudioDeviceManager] Forcing WASAPI Shared Mode to prevent distortion." << std::endl;
+                    forceSharedMode = true;
+                }
+                break;
+            }
+        }
+    }
+
     // Try preferred strategy
     for (auto& driver : m_drivers) {
+        // If forcing shared mode, skip exclusive drivers
+        if (forceSharedMode && driver->supportsExclusiveMode()) {
+            continue;
+        }
+
         bool isExclusiveFn = driver->supportsExclusiveMode();
         bool wantExclusive = (m_preferredDriverType == AudioDriverType::WASAPI_EXCLUSIVE);
         
-        if (wantExclusive == isExclusiveFn) {
+        if (!forceSharedMode && wantExclusive == isExclusiveFn) {
+             if (tryDriver(driver.get(), config, callback, userData)) {
+                 return true;
+             }
+        }
+        
+        // If forcing shared mode, try non-exclusive drivers immediately
+        if (forceSharedMode && !isExclusiveFn) {
              if (tryDriver(driver.get(), config, callback, userData)) {
                  return true;
              }
@@ -223,13 +320,18 @@ bool AudioDeviceManager::openStream(const AudioStreamConfig& config, AudioCallba
     for (auto& driver : m_drivers) {
         if (m_activeDriver == driver.get()) continue; // Skip if somehow active? (shouldn't happen here)
         
+        // If forcing shared mode, skip exclusive drivers in fallback logic too
+        if (forceSharedMode && driver->supportsExclusiveMode()) {
+            continue;
+        }
+        
         if (tryDriver(driver.get(), config, callback, userData)) {
             // Notify fallback
             if (m_driverModeChangeCallback) {
                  m_driverModeChangeCallback(
                     m_preferredDriverType,
                     AudioDriverType::UNKNOWN, // Can't easily map back without RTTI or type field
-                    "Preferred driver unavailable"
+                    forceSharedMode ? "Forced Shared Mode (SoundID)" : "Preferred driver unavailable"
                  );
             }
             return true;
@@ -680,6 +782,44 @@ void AudioDeviceManager::checkAndAutoScaleBuffer() {
     
     m_lastUnderrunCheck = now;
     m_lastUnderrunCount = stats.underrunCount;
+}
+
+void AudioDeviceManager::suspendAudio() {
+    if (!m_initialized || !m_activeDriver || m_isSuspended) {
+        return;
+    }
+
+    std::cout << "[AudioDeviceManager] Suspending audio (releasing driver)..." << std::endl;
+
+    m_wasRunningBeforeSuspend = isStreamRunning();
+    
+    if (m_wasRunningBeforeSuspend) {
+        stopStream();
+    }
+    
+    // Close stream to fully release the device (especially for WASAPI Exclusive)
+    closeStream();
+    
+    m_isSuspended = true;
+}
+
+void AudioDeviceManager::resumeAudio() {
+    if (!m_initialized || !m_isSuspended) {
+        return;
+    }
+
+    std::cout << "[AudioDeviceManager] Resuming audio..." << std::endl;
+
+    // Reopen stream with saved config
+    if (openStream(m_currentConfig, m_currentCallback, m_currentUserData)) {
+        // Restore running state if it was playing before suspend
+        if (m_wasRunningBeforeSuspend) {
+            startStream();
+        }
+        m_isSuspended = false;
+    } else {
+        std::cerr << "[AudioDeviceManager] Failed to resume audio stream!" << std::endl;
+    }
 }
 
 const char* getVersion() {

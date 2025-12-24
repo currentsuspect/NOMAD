@@ -64,6 +64,30 @@ AudioSettingsDialog::AudioSettingsDialog(Audio::AudioDeviceManager* audioManager
     , m_isRenderingToCache(false)
     , m_activeTab("settings")
 {
+    // Subscribe to stream errors (e.g. device disconnection)
+    if (m_audioManager) {
+        m_audioManager->setStreamErrorCallback([this](Audio::DriverError error, const std::string& msg) {
+            std::lock_guard<std::mutex> lock(m_errorMutex);
+            m_pendingErrorMessage = msg;
+            m_hasPendingError = true;
+        });
+        
+        // LIMITATION FIX: Check for errors that occurred BEFORE we subscribed (Startup Race Condition)
+        if (m_audioManager->getLatchedError() != Audio::DriverError::NONE) {
+            std::lock_guard<std::mutex> lock(m_errorMutex);
+            m_hasPendingError = true;
+            m_pendingErrorMessage = "Audio device error detected on startup (Latched).";
+            
+            // If it's a critical error (like SoundID zombie), refine message
+            if (m_audioManager->getLatchedError() == Audio::DriverError::DEVICE_NOT_FOUND) {
+                m_pendingErrorMessage += " Device not found/invalidated.";
+            }
+            
+            // Clear the latch so we don't re-trigger it
+            m_audioManager->clearLatchedError();
+        }
+    }
+
     createUI();
     loadCurrentSettings();
 }
@@ -421,6 +445,26 @@ void AudioSettingsDialog::createUI() {
     });
     addChild(m_nomadModeDropdown);
 
+    // Release in Background Toggle
+    m_releaseInBackgroundLabel = std::make_shared<NomadUI::NUILabel>();
+    m_releaseInBackgroundLabel->setText("Release in Background:");
+    addChild(m_releaseInBackgroundLabel);
+
+    m_releaseInBackgroundToggle = std::make_shared<NomadUI::NUIButton>();
+    m_releaseInBackgroundToggle->setText("ON");
+    m_releaseInBackgroundToggle->setStyle(NomadUI::NUIButton::Style::Secondary);
+    m_releaseInBackgroundToggle->setHoverColor(NomadUI::NUIColor::white().withAlpha(0.5f));
+    m_releaseInBackgroundToggle->setOnClick([this]() {
+        if (m_releaseInBackgroundToggle->getText() == "ON") {
+            m_releaseInBackgroundToggle->setText("OFF");
+        } else {
+            m_releaseInBackgroundToggle->setText("ON");
+        }
+        m_cacheInvalidated = true;
+        markSettingsChanged();
+    });
+    addChild(m_releaseInBackgroundToggle);
+
     // Create buttons
     m_applyButton = std::make_shared<NomadUI::NUIButton>();
     m_applyButton->setText("Apply");
@@ -574,6 +618,49 @@ void AudioSettingsDialog::onResize(int width, int height) {
 }
 
 void AudioSettingsDialog::onUpdate(double deltaTime) {
+    // Check for pending errors from audio thread
+    {
+        std::lock_guard<std::mutex> lock(m_errorMutex);
+        if (m_hasPendingError) {
+            m_errorMessage = m_pendingErrorMessage;
+            m_errorMessageAlpha = 1.0f; // Fade in
+            m_hasPendingError = false;
+            
+            Nomad::Log::error("[AudioSettingsDialog] Stream error detected: " + m_errorMessage);
+            
+            // Stop test sound if playing
+            if (m_isPlayingTestSound) {
+                stopTestSound();
+            }
+            
+            // Refresh logic to reflect device state
+            updateDriverList();
+            updateDeviceList();
+            
+            // Auto-Fallback Logic
+            // If the device was invalidated (e.g. SoundID closed), try to switch to default
+            if (m_errorMessage.find("invalidated") != std::string::npos || 
+                m_errorMessage.find("disconnected") != std::string::npos ||
+                m_errorMessage.find("not found") != std::string::npos) {
+                
+                Nomad::Log::warning("[AudioSettingsDialog] Device invalidated. Attempting auto-fallback to Default Device...");
+                
+                auto defaultDevice = m_audioManager->getDefaultOutputDevice();
+                if (defaultDevice.id != 0 && defaultDevice.id != m_selectedDeviceId) {
+                     Nomad::Log::info("[AudioSettingsDialog] Switching to default device: " + defaultDevice.name);
+                     
+                     // Verify default device is valid first
+                     if (m_audioManager->validateDeviceConfig(defaultDevice.id, m_selectedSampleRate)) {
+                         m_selectedDeviceId = defaultDevice.id;
+                         applySettings(); // Re-apply settings with new device
+                         updateDeviceList(); // Force UI update to show new device
+                         m_errorMessage = "Device disconnected. Switched to " + defaultDevice.name;
+                     }
+                }
+            }
+        }
+    }
+
     // Skip expensive updates when hidden
     if (!m_visible) return;
     
@@ -886,6 +973,12 @@ void AudioSettingsDialog::loadCurrentSettings() {
     m_selectedDriverType = m_originalDriverType;
 
     updateLatencyEstimate();
+    
+    // Load Release in Background state
+    m_originalReleaseInBackground = m_audioManager->getReleaseInBackground();
+    if (m_releaseInBackgroundToggle) {
+        m_releaseInBackgroundToggle->setText(m_originalReleaseInBackground ? "ON" : "OFF");
+    }
 }
 
 void AudioSettingsDialog::captureOriginalQualityStateFromUi() {
@@ -930,6 +1023,11 @@ bool AudioSettingsDialog::hasUnsavedChanges() const {
     }
     if (m_nomadModeDropdown && m_originalNomadModeIndex != -1 &&
         m_nomadModeDropdown->getSelectedIndex() != m_originalNomadModeIndex) {
+        return true;
+    }
+    
+    if (m_releaseInBackgroundToggle && 
+       (m_releaseInBackgroundToggle->getText() == "ON") != m_originalReleaseInBackground) {
         return true;
     }
 
@@ -996,6 +1094,11 @@ void AudioSettingsDialog::restoreOriginalUiState() {
     }
     if (m_nomadModeDropdown && m_originalNomadModeIndex != -1) {
         m_nomadModeDropdown->setSelectedIndex(m_originalNomadModeIndex);
+    }
+    
+    // Restore Release in Background
+    if (m_releaseInBackgroundToggle) {
+        m_releaseInBackgroundToggle->setText(m_originalReleaseInBackground ? "ON" : "OFF");
     }
 
     updateLatencyEstimate();
@@ -1154,6 +1257,12 @@ void AudioSettingsDialog::applySettings() {
         Log::info("  Thread Count: " + std::to_string(threadCount));
     }
     
+    // Apply Release in Background setting
+    bool releaseInBackground = (m_releaseInBackgroundToggle->getText() == "ON");
+    m_audioManager->setReleaseInBackground(releaseInBackground);
+    m_originalReleaseInBackground = releaseInBackground;
+    Log::info("  Release in Background: " + std::string(releaseInBackground ? "ON" : "OFF"));
+    
     // Treat Apply as the new baseline for dirty tracking
     captureOriginalQualityStateFromUi();
     updateApplyButtonState();
@@ -1265,6 +1374,8 @@ void AudioSettingsDialog::layoutComponents() {
         m_threadCountDropdown->setBounds(NomadUI::NUIRect(0, 0, 0, 0));
         m_nomadModeLabel->setBounds(NomadUI::NUIRect(0, 0, 0, 0));
         m_nomadModeDropdown->setBounds(NomadUI::NUIRect(0, 0, 0, 0));
+        m_releaseInBackgroundLabel->setBounds(NomadUI::NUIRect(0, 0, 0, 0));
+        m_releaseInBackgroundToggle->setBounds(NomadUI::NUIRect(0, 0, 0, 0));
         m_asioInfoLabel->setBounds(NomadUI::NUIRect(0, 0, 0, 0));
         
         // Show info content
@@ -1374,6 +1485,11 @@ void AudioSettingsDialog::layoutComponents() {
         rightY += dropdownHeight + sectionSpacing;
         m_nomadModeLabel->setBounds(NomadUI::NUIRect(rightLabelX, rightY, labelWidth, dropdownHeight));
         m_nomadModeDropdown->setBounds(NomadUI::NUIRect(rightDropdownX, rightY, dropdownWidth, dropdownHeight));
+        
+        // Release in Background toggle
+        rightY += dropdownHeight + sectionSpacing;
+        m_releaseInBackgroundLabel->setBounds(NomadUI::NUIRect(rightLabelX, rightY, labelWidth, dropdownHeight));
+        m_releaseInBackgroundToggle->setBounds(NomadUI::NUIRect(rightToggleX, rightY, toggleWidth, dropdownHeight));
         
         // Hide ASIO info label
         m_asioInfoLabel->setBounds(NomadUI::NUIRect(0, 0, 0, 0));
@@ -1558,12 +1674,16 @@ void AudioSettingsDialog::renderDialog(NomadUI::NUIRenderer& renderer) {
 	                          11.0f, headerTextColor);
 	    }
     
-    // Error message (if any) - displayed below subtitle with fade animation
+    // Error message (if any) - displayed at the BOTTOM of the dialog to avoid overlapping tabs
     if (m_errorMessageAlpha > 0.0f && !m_errorMessage.empty()) {
         NomadUI::NUIColor errorColor = NomadUI::NUIColor(1.0f, 0.3f, 0.2f, m_errorMessageAlpha); // Red with fade
-        float errorY = titleBar.bottom() + 27.0f; // Below subtitle
-        renderer.drawText(m_errorMessage, 
-                         NomadUI::NUIPoint(titleX + 2, errorY), 12, errorColor);
+        
+        // Position above the buttons
+        float buttonY = m_dialogBounds.y + m_dialogBounds.height - 40.0f; 
+        float errorY = buttonY - 20.0f; 
+        float errorX = m_dialogBounds.x + 30.0f;
+        
+        renderer.drawText(m_errorMessage, NomadUI::NUIPoint(errorX, errorY), 12.0f, errorColor);
     }
 }
 

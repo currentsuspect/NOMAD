@@ -645,6 +645,15 @@ void WASAPISharedDriver::audioThreadProc() {
         BYTE* data = nullptr;
         hr = reinterpret_cast<IAudioRenderClient*>(m_renderClient)->GetBuffer(availableFrames, &data);
         if (FAILED(hr)) {
+            if (hr == AUDCLNT_E_DEVICE_INVALIDATED || 
+                hr == AUDCLNT_E_SERVICE_NOT_RUNNING || 
+                hr == AUDCLNT_E_RESOURCES_INVALIDATED) {
+                
+                setError(DriverError::DEVICE_NOT_FOUND, 
+                    "Audio device disconnected or invalidated (0x" + HResultToString(hr) + ")");
+                break; // Fatal error, exit thread
+            }
+
             m_statistics.underrunCount++;
             continue;
         }
@@ -713,6 +722,12 @@ void WASAPISharedDriver::audioThreadProc() {
         // Release buffer
         hr = reinterpret_cast<IAudioRenderClient*>(m_renderClient)->ReleaseBuffer(availableFrames, 0);
         if (FAILED(hr)) {
+             if (hr == AUDCLNT_E_DEVICE_INVALIDATED || 
+                hr == AUDCLNT_E_SERVICE_NOT_RUNNING) {
+                setError(DriverError::DEVICE_NOT_FOUND, 
+                    "Audio device invalidated during release (0x" + HResultToString(hr) + ")");
+                break;
+            }
             std::cerr << "[WASAPI Shared] Failed to release buffer" << std::endl;
         }
 
@@ -726,6 +741,9 @@ void WASAPISharedDriver::audioThreadProc() {
     if (avrtHandle) {
         AvRevertMmThreadCharacteristics(avrtHandle);
     }
+    
+    // Ensure properly marked as stopped
+    m_isRunning = false;
 
     std::cout << "[WASAPI Shared] Audio thread exiting" << std::endl;
 }
