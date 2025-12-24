@@ -648,9 +648,12 @@ void WASAPISharedDriver::audioThreadProc() {
             if (hr == AUDCLNT_E_DEVICE_INVALIDATED || 
                 hr == AUDCLNT_E_SERVICE_NOT_RUNNING || 
                 hr == AUDCLNT_E_RESOURCES_INVALIDATED) {
-                
+                // SECURE-LOG: Log the detailed HRESULT internally for debugging
+                std::cerr << "[WASAPIShared] Fatal error in audio loop: 0x" << HResultToString(hr) << std::endl;
+
+                // GENERIC-ERROR: Show a user-friendly message without internal codes to the UI
                 setError(DriverError::DEVICE_NOT_FOUND, 
-                    "Audio device disconnected or invalidated (0x" + HResultToString(hr) + ")");
+                    "Audio device disconnected or invalidated.");
                 break; // Fatal error, exit thread
             }
 
