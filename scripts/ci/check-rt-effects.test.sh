@@ -46,22 +46,42 @@ fi
 # fixture has to have that shape for the derivation to be under test at all. A
 # fixture that fed the script a file list directly would be testing a different
 # program from the one CI runs.
+# The third argument is extra compile flags, defaulting to a define whose value
+# contains quotes. That default is deliberate and is the regression: the script
+# used to hand args to the compiler through an unquoted shell string, so a flag
+# needing quoting arrived with its quote characters intact and clang reported a
+# missing file. Every flag in the tree was quote-free until AESTRA_VERSION_STRING
+# was added, so the gate broke on its own plumbing the day a version reached it.
+# Baking it into the default fixture means every case below now exercises it.
 make_fixture() {
     local root="$1" body="$2"
+    # Written as the compiler would receive it: a define whose *value* is a
+    # quoted string, exactly the shape CMake emits for AESTRA_VERSION_STRING.
+    local flags="${3:--DAESTRA_VERSION_STRING=\"0.0.0\"}"
     mkdir -p "${root}/AestraAudio/src" "${root}/build"
     cat >"${root}/AestraAudio/src/unit.cpp" <<EOF
 #define AESTRA_RT_NONBLOCKING [[clang::nonblocking]]
 ${body}
 EOF
-    cat >"${root}/build/compile_commands.json" <<EOF
-[
-  {
-    "directory": "${root}",
-    "command": "${CXX} -std=c++20 -c -o unit.o ${root}/AestraAudio/src/unit.cpp",
-    "file": "${root}/AestraAudio/src/unit.cpp"
-  }
-]
-EOF
+    # Generated rather than heredoc'd. The command field has to survive two
+    # decodings -- JSON, then shlex -- and hand-escaping through both in a
+    # shell heredoc is how you end up testing your own escaping instead of the
+    # script. Python does both layers correctly, so the fixture holds what a
+    # real compile_commands.json holds.
+    AESTRA_FIXTURE_ROOT="$root" AESTRA_FIXTURE_CXX="$CXX" \
+    AESTRA_FIXTURE_FLAGS="$flags" python3 - <<'PY'
+import json, os, shlex
+root = os.environ["AESTRA_FIXTURE_ROOT"]
+src = f"{root}/AestraAudio/src/unit.cpp"
+# ONE literal argument, quoted so shlex.split hands it back byte-for-byte --
+# which is precisely what CMake does when a define's value contains quotes or
+# spaces. Splitting it on whitespace first would strip the very quotes this
+# fixture exists to carry, and the test would then pass for the wrong reason.
+flag = shlex.quote(os.environ["AESTRA_FIXTURE_FLAGS"])
+command = f'{os.environ["AESTRA_FIXTURE_CXX"]} -std=c++20 {flag} -c -o unit.o {src}'
+with open(f"{root}/build/compile_commands.json", "w") as fh:
+    json.dump([{"directory": root, "command": command, "file": src}], fh, indent=2)
+PY
 }
 
 # expect <pass|fail> <label> <build-dir-relative> [required-substring]
@@ -107,6 +127,25 @@ void mix(float* out, unsigned n) AESTRA_RT_NONBLOCKING {
     for (unsigned i = 0; i < n; ++i) out[i] *= 0.5f;
 }'
 expect pass "clean annotated translation unit" "${WORK}/clean"
+
+# ── A flag whose value contains quotes must reach the compiler intact ───────
+# The unit reads the define, so if the flag were mangled in transit this fails
+# to compile rather than passing for the wrong reason.
+make_fixture "${WORK}/quoted" '
+const char* version() { return AESTRA_VERSION_STRING; }
+void mix(float* out, unsigned n) AESTRA_RT_NONBLOCKING {
+    for (unsigned i = 0; i < n; ++i) out[i] *= 0.5f;
+}'
+expect pass "define whose value contains quotes" "${WORK}/quoted"
+
+# ── And a flag containing a space survives too ─────────────────────────────
+# The same defect class: anything the old shell round-trip had to quote.
+make_fixture "${WORK}/spaced" '
+const char* who() { return AESTRA_BUILD_LABEL; }
+void mix(float* out, unsigned n) AESTRA_RT_NONBLOCKING {
+    for (unsigned i = 0; i < n; ++i) out[i] *= 0.5f;
+}' '-DAESTRA_BUILD_LABEL="Aestra 0.7.1 (Core)"'
+expect pass "define whose value contains a space" "${WORK}/spaced"
 
 # ── Allocation is caught, FOR THE RIGHT REASON ──────────────────────────────
 make_fixture "${WORK}/alloc" '
