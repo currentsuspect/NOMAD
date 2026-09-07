@@ -309,7 +309,9 @@ bool AestraApp::initialize(const std::string& projectPath) {
 
     if (!transitionToInitializing()) return false;
 
-    Log::info("Aestra v1.0.0 - Initializing...");
+    // Was a hand-written "v1.0.0", wrong since 0.5 and quoted back in reports
+    // as though it were the build. It comes from the build now.
+    Log::info(std::string("Aestra v") + AESTRA_VERSION_STRING + " - Initializing...");
 
     {
         StartupTimer t("Platform init");
