@@ -118,16 +118,33 @@ for rel in "${ANNOTATED[@]}"; do
     # Pull this TU's real compile line out of the database, so the check sees
     # the same macros and include paths the build does. A hand-rolled command
     # line drifts, and a drifted one silently checks a different program.
-    args="$(python3 - "$DB" "$abs" <<'PY'
+    # NUL-separated into a bash array, never a shell string.
+    #
+    # This used to print the args shell-quoted and expand them unquoted. That is
+    # wrong in a way that stays invisible until a flag needs quoting: word
+    # splitting does NOT re-parse quote characters, so clang received a literal
+    #
+    #     '-DAESTRA_VERSION_STRING="0.7.1"'
+    #
+    # quotes and all, and reported it as a missing file. Every flag in the tree
+    # happened to be quote-free until a version string with embedded quotes was
+    # added, at which point the gate failed on its own plumbing rather than on
+    # anything it was checking.
+    #
+    # A temp file rather than a pipeline because python's exit status has to be
+    # readable: process substitution would give us mapfile's status instead, and
+    # an empty array is ambiguous between "no compile command" and "no flags".
+    argfile="$(mktemp -t rt-effects-args-XXXXXX)"
+    python3 - "$DB" "$abs" "$argfile" <<'PY'
 import json, shlex, sys
-db_path, target = sys.argv[1], sys.argv[2]
+db_path, target, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
 for entry in json.load(open(db_path)):
     if entry["file"] == target:
         argv = shlex.split(entry.get("command") or "")[1:] if entry.get("command") \
                else list(entry["arguments"])[1:]
         keep = []
         skip_next = False
-        for i, a in enumerate(argv):
+        for a in argv:
             if skip_next:
                 skip_next = False
                 continue
@@ -138,23 +155,26 @@ for entry in json.load(open(db_path)):
             if a == target or a.endswith(".o"):
                 continue
             keep.append(a)
-        print(shlex.join(keep))
+        with open(out_path, "w") as fh:
+            fh.write("\0".join(keep))
         break
 else:
     sys.exit(3)
 PY
-)"
     if [[ $? -ne 0 ]]; then
+        rm -f "$argfile"
         echo "FAIL: ${rel} carries AESTRA_RT_NONBLOCKING but has no compile"
         echo "      command in ${DB}. It is annotated and unchecked, which is"
         echo "      exactly the gap this script exists to prevent."
         failed=1
         continue
     fi
+    args=()
+    mapfile -t -d '' args < "$argfile"
+    rm -f "$argfile"
 
     out="$(mktemp -t rt-effects-XXXXXX.log)"
-    # shellcheck disable=SC2086
-    if "$CXX" $args -Wfunction-effects -Werror=function-effects \
+    if "$CXX" "${args[@]}" -Wfunction-effects -Werror=function-effects \
               -fsyntax-only "$abs" >"$out" 2>&1; then
         echo "  ok    ${rel}"
     else
