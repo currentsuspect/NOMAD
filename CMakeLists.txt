@@ -16,7 +16,17 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/aestra-core/cmake/AestraCoreMode.cmake")
 	include(${CMAKE_SOURCE_DIR}/aestra-core/cmake/AestraCoreMode.cmake)
 endif()
 
-project(AESTRA VERSION 0.7.0 LANGUAGES C CXX)
+project(AESTRA VERSION 0.7.1 LANGUAGES C CXX)
+
+# The version, once, where the build can see it.
+#
+# It used to be here and nowhere else, so the running application had no way to
+# say which version it was: the startup banner carried a hand-written
+# "Aestra v1.0.0" that had been wrong since 0.5, and the build id was the
+# literal "Aestra-2025-Core" with no version and no commit in it. A crash report
+# asking "which build?" could not be answered from the log it came with, which
+# is the one place the answer has to be.
+add_compile_definitions(AESTRA_VERSION_STRING="${PROJECT_VERSION}")
 
 # Ensure CTest discovery/registration works from the build root.
 include(CTest)
