@@ -1851,12 +1851,10 @@ bool AudioEngine::setBufferConfig(uint32_t maxFrames, uint32_t numChannels) {
         const size_t channelCount = trackMgr->getChannelCount();
         for (size_t i = 0; i < channelCount; ++i) {
             if (auto* channel = trackMgr->getChannel(i)) {
-                channel->prepareProcessingBuffers(maxBlockSize);
                 channel->getEffectChain().prepare(sampleRate, maxBlockSize);
             }
         }
         if (auto* master = trackMgr->getMasterChannel()) {
-            master->prepareProcessingBuffers(maxBlockSize);
             master->getEffectChain().prepare(sampleRate, maxBlockSize);
         }
     }

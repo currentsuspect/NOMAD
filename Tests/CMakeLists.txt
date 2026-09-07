@@ -1014,15 +1014,13 @@ add_test(NAME PluginRemoveTakesEffectWithoutClipMoveTest COMMAND AestraPluginGra
 set_tests_properties(PluginInsertTakesEffectWithoutClipMoveTest PluginRemoveTakesEffectWithoutClipMoveTest
     PROPERTIES LABELS "audio;plugin;regression;contract:audio")
 
-# MixerChannel scratch buffer regression tests
-add_executable(AestraMixerChannelScratchBufferTest AestraAudio/MixerChannelScratchBufferTest.cpp)
-target_link_libraries(AestraMixerChannelScratchBufferTest PRIVATE AestraAudio)
-target_include_directories(AestraMixerChannelScratchBufferTest PRIVATE
-    ${CMAKE_SOURCE_DIR}/AestraAudio/include
-    ${CMAKE_SOURCE_DIR}/AestraCore/include
-)
-add_test(NAME AestraMixerChannelScratchBufferTest COMMAND AestraMixerChannelScratchBufferTest)
-set_tests_properties(AestraMixerChannelScratchBufferTest PROPERTIES LABELS "audio;plugin;regression;contract:audio")
+# AestraMixerChannelScratchBufferTest was removed with MixerChannel::processAudio
+# in the v0.7.1 dead-code pass. It was the only caller of that path, so it was
+# testing code production never ran -- coverage of a route the audio never took.
+# The live route (EffectChain -> getEffectChainSnapshot -> AudioGraphBuilder ->
+# renderGraph) is covered by EffectChainSnapshotTest,
+# EffectChainInstanceIdentityTest, MasterEffectChainTest and
+# PluginGraphInvalidationTest, which is why removing it opens no real gap.
 
 # Transient shaper material tests (P-1, TS-3)
 add_executable(AestraTransientTest AestraAudio/AestraTransientTest.cpp)
