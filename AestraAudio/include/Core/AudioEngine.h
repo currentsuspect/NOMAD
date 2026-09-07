@@ -666,7 +666,6 @@ public:
                 }
                 const double sampleRate =
                     static_cast<double>(prepareConfig->sampleRate.load(std::memory_order_relaxed));
-                channel.prepareProcessingBuffers(maxBlockSize);
                 channel.getEffectChain().prepare(sampleRate, maxBlockSize);
             };
             current->setChannelPrepareCallback(prepareChannel);
