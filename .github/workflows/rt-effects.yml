@@ -64,6 +64,15 @@ jobs:
         with:
           submodules: false
 
+      - name: Install build dependencies
+        # Same set the headless CI lane configures against. Configuring is the
+        # only thing this lane needs them for — nothing here links — but CMake
+        # still resolves every find_package before it will generate.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libasound2-dev \
+            libx11-dev libsodium-dev libsecret-1-dev
+
       - name: Install Clang with function-effects analysis
         run: |
           set -euo pipefail
