@@ -39,6 +39,25 @@ option(AESTRA_ALLOW_LICENSE_GATE_OFF "Allow lab/development builds to omit offli
 option(AESTRA_ENABLE_TEST_LICENSES "Enable test-only mock license acceptance" OFF)
 option(AESTRA_REVERB_PROFILE "Enable AestraVerb stage profiling (lab/benchmark only)" OFF)
 option(AESTRA_REVERB_DIAGNOSTICS "Enable AestraVerb output-level diagnostics (lab only)" OFF)
+option(AESTRA_RT_EFFECT_CHECK "Enforce AESTRA_RT_NONBLOCKING at compile time (Clang only, B-005)" OFF)
+
+# B-005's compile-time half. -Wfunction-effects only inspects functions carrying
+# [[clang::nonblocking]] (AESTRA_RT_NONBLOCKING), so this is inert on code nobody
+# has annotated — turning it on cannot break an unannotated tree. It is an error
+# rather than a warning because a warning nobody fails on is not a gate.
+if(AESTRA_RT_EFFECT_CHECK)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-Wfunction-effects -Werror=function-effects)
+    message(STATUS "RT effect check: ON (-Werror=function-effects)")
+  else()
+    # Not fatal: the annotations are no-ops off Clang, so a GCC build is simply
+    # unchecked rather than wrong. Say so, because a silently-skipped gate reads
+    # as a passing one.
+    message(WARNING
+      "AESTRA_RT_EFFECT_CHECK requested but ${CMAKE_CXX_COMPILER_ID} has no "
+      "function-effects analysis — the RT annotations are inert in this build.")
+  endif()
+endif()
 
 if(AESTRA_HEADLESS_ONLY)
   set(AESTRA_ENABLE_UI OFF CACHE BOOL "Build the AESTRA_DAW UI application" FORCE)
