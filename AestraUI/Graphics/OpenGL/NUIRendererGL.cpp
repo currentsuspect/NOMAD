@@ -455,7 +455,15 @@ bool NUIRendererGL::initialize(int width, int height) {
         }
         
         if (!fontLoaded) {
-            AESTRA_LOG_WARNING("Could not load any font; text will fall back to width estimation");
+            // Two different fallbacks, and naming only one of them has misled a
+            // reader before: drawText() draws a rectangle per printable character
+            // so a fontless build is visibly wrong rather than silently blank,
+            // while measureText() estimates width at 0.6 em. Both key off
+            // effectiveFontSize, so the placeholder a caller measures is the
+            // placeholder it gets.
+            AESTRA_LOG_WARNING(
+                "Could not load any font: drawText falls back to rectangle placeholders "
+                "and measureText to width estimation");
         }
 
         // Load CJK fallback face (no atlas — glyphs added on demand)
