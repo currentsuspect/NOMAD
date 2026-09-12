@@ -47,6 +47,7 @@ public:
     
     void beginFrame() override;
     void setTextContrast(float contrast) override { textContrast_ = contrast; }
+    bool getTextDiagnostics(TextDiagnostics& out) const override;
     void endFrame() override;
     void clear(const NUIColor& color) override;
     

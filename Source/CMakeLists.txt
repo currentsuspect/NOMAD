@@ -120,6 +120,8 @@ set(Aestra_SOURCES
 	# HUD
 	HUD/PerformanceHUD.h
 	HUD/PerformanceHUD.cpp
+	HUD/TextDiagnosticOverlay.h
+	HUD/TextDiagnosticOverlay.cpp
 	HUD/UnifiedHUD.h
 	HUD/UnifiedHUD.cpp
 	

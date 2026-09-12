@@ -49,6 +49,33 @@
 
 namespace AestraUI {
 
+// The text uniforms are derived, not configured: one float — textContrast_, set
+// per frame from background luminance — resolves into all three. They live here
+// as functions rather than inline expressions so the shader and
+// getTextDiagnostics() cannot disagree about what the pipeline is doing. A
+// diagnostic that recomputes its own answer is a second implementation, and
+// would eventually report a pipeline that no longer exists.
+namespace {
+constexpr float kTextGammaTiny  = 0.74f;  // x-small / small atlases
+constexpr float kTextGammaLarge = 0.93f;  // medium / regular atlases
+constexpr float kTextSharpenTiny  = 0.20f;
+constexpr float kTextSharpenLarge = 0.28f;
+// Light themes take a heavy lift. Recorded, not endorsed: at 0.35 a label drawn
+// at alpha 0.5 renders at 0.78, which is why secondary text loses its
+// separation from primary in light mode (V8-C9 finding F7).
+constexpr float kTextAlphaLiftCompensated = 0.35f;
+
+inline float resolveTextGamma(bool tinyAtlas, float textContrast) {
+    return (tinyAtlas ? kTextGammaTiny : kTextGammaLarge) * textContrast;
+}
+inline float resolveTextSharpen(bool tinyAtlas) {
+    return tinyAtlas ? kTextSharpenTiny : kTextSharpenLarge;
+}
+inline float resolveTextAlphaLift(float textContrast) {
+    return textContrast < 1.0f ? kTextAlphaLiftCompensated : 1.0f;
+}
+} // namespace
+
 // ============================================================================
 // UTF-8 Decoding Helper
 // ============================================================================
@@ -1288,6 +1315,44 @@ NUIRendererGL::AtlasInfo NUIRendererGL::selectAtlas(float fontSize) const {
     }
     
     return info;
+}
+
+// Deliberately adjacent to selectAtlas(): the thresholds below must match the
+// branch conditions above, and the only thing keeping them matched is that a
+// reader changing one has the other on screen. The resolved uniforms come from
+// the shared resolveText* helpers rather than being recomputed here, so those
+// cannot drift at all.
+bool NUIRendererGL::getTextDiagnostics(TextDiagnostics& out) const {
+    if (!fontInitialized_) {
+        return false;
+    }
+
+    out = TextDiagnostics{};
+    out.lcdSubpixel = fontUseLCD_;
+    out.framebufferSRGB = framebufferSRGBEnabled_;
+    out.outputLinearActive = framebufferSRGBEnabled_ && !renderingToLinearTarget_;
+    out.textContrast = textContrast_;
+    out.alphaLift = resolveTextAlphaLift(textContrast_);
+    out.fontPath = defaultFontPath_.c_str();
+
+    // Order matches selectAtlas()'s branch order, smallest served size first.
+    const struct { const char* name; int size; float maxFont; bool tiny; } kTiers[] = {
+        {"XSmall",  atlasFontSizeXSmall_, 11.25f, true},
+        {"Small",   atlasFontSizeSmall_,  17.0f,  true},
+        {"Medium",  atlasFontSizeMedium_, 20.5f,  false},
+        {"Regular", static_cast<int>(atlasFontSize_), 0.0f, false},
+    };
+
+    out.tierCount = 0;
+    for (const auto& t : kTiers) {
+        TextDiagnostics::Tier& tier = out.tiers[out.tierCount++];
+        tier.name = t.name;
+        tier.atlasSize = t.size;
+        tier.maxFontSize = t.maxFont;
+        tier.gamma = resolveTextGamma(t.tiny, textContrast_);
+        tier.sharpen = resolveTextSharpen(t.tiny);
+    }
+    return true;
 }
 
 void NUIRendererGL::drawCleanCharacter(char c, float x, float y, float width, float height, const NUIColor& color) {
@@ -2842,7 +2907,7 @@ void NUIRendererGL::drawTexture(const NUIRect& bounds, const unsigned char* rgba
     glUniform2f(primitiveShader_.textTexelSizeLoc, 0.0f, 0.0f);
     glUniform1f(primitiveShader_.textSharpenLoc, 0.0f);
     glUniform1f(primitiveShader_.textGammaLoc, 1.0f);
-    glUniform1f(primitiveShader_.textAlphaLiftLoc, textContrast_ < 1.0f ? 0.35f : 1.0f);
+    glUniform1f(primitiveShader_.textAlphaLiftLoc, resolveTextAlphaLift(textContrast_));
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);
@@ -3155,7 +3220,7 @@ void NUIRendererGL::flush() {
     glUniform2f(primitiveShader_.textTexelSizeLoc, 0.0f, 0.0f);
     glUniform1f(primitiveShader_.textSharpenLoc, 0.0f);
     glUniform1f(primitiveShader_.textGammaLoc, 1.0f);
-    glUniform1f(primitiveShader_.textAlphaLiftLoc, textContrast_ < 1.0f ? 0.35f : 1.0f);
+    glUniform1f(primitiveShader_.textAlphaLiftLoc, resolveTextAlphaLift(textContrast_));
     // Note: opacity is already in vertex colors
     glUniform1i(primitiveShader_.primitiveTypeLoc, currentPrimitiveType_);
     // Default to no texturing; enable below if a texture is bound
@@ -3191,8 +3256,8 @@ void NUIRendererGL::flush() {
             // features — the 'e' crossbar thins to a 'c' and edges go ragged.
             const bool tinyAtlas = (currentTextureId_ == fontAtlasTextureIdXSmall_
                                     || currentTextureId_ == fontAtlasTextureIdSmall_);
-            glUniform1f(primitiveShader_.textSharpenLoc, tinyAtlas ? 0.20f : 0.28f);
-            glUniform1f(primitiveShader_.textGammaLoc, (tinyAtlas ? 0.74f : 0.93f) * textContrast_);
+            glUniform1f(primitiveShader_.textSharpenLoc, resolveTextSharpen(tinyAtlas));
+            glUniform1f(primitiveShader_.textGammaLoc, resolveTextGamma(tinyAtlas, textContrast_));
         }
     }
     
