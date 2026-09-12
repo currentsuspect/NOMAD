@@ -4,6 +4,7 @@
 #include "../../AestraUI/Core/NUIThemeSystem.h"
 #include "../../AestraUI/Graphics/OpenGL/NUIRenderCache.h"
 
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <sstream>
@@ -42,14 +43,15 @@ std::string f(float v, int precision = 3) {
 } // namespace
 
 TextDiagnosticOverlay::TextDiagnosticOverlay() {
-    setBounds(NUIRect(0, 0, PANEL_WIDTH, PANEL_HEIGHT));
+    setBounds(NUIRect(0, 0, PANEL_WIDTH, PANEL_MIN_HEIGHT));
 }
 
 void TextDiagnosticOverlay::onUpdate(double /*deltaTime*/) {
     if (!m_visible) return;
     if (auto* parent = getParent()) {
         const auto pb = parent->getBounds();
-        setBounds(NUIRect(pb.width - PANEL_WIDTH - 10.0f, 35.0f, PANEL_WIDTH, PANEL_HEIGHT));
+        const float h = std::max(PANEL_MIN_HEIGHT, m_contentHeight);
+        setBounds(NUIRect(pb.width - PANEL_WIDTH - 10.0f, 35.0f, PANEL_WIDTH, h));
     }
 }
 
@@ -281,4 +283,8 @@ void TextDiagnosticOverlay::onRender(NUIRenderer& renderer) {
     renderAlphaRamp(renderer, d, y);
     renderPolarity(renderer, d, y);
     renderCacheSplit(renderer, y);
+
+    // What the next frame sizes the panel to. Taken from where the layout
+    // actually finished rather than from a constant restating it.
+    m_contentHeight = (y - getBounds().y) + PADDING;
 }

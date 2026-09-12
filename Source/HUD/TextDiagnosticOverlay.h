@@ -55,7 +55,12 @@
 class TextDiagnosticOverlay : public AestraUI::NUIComponent {
 public:
     static constexpr float PANEL_WIDTH = 470.0f;
-    static constexpr float PANEL_HEIGHT = 560.0f;
+    // Floor, not the height. The panel sizes itself to its content — see
+    // m_contentHeight. A fixed height is what let the last section render
+    // outside the background: NUIComponent::renderChildren does not clip, so
+    // overflow is silent, and every row added to a section would re-introduce
+    // it. Sized from the content, adding a row cannot break the panel.
+    static constexpr float PANEL_MIN_HEIGHT = 560.0f;
     static constexpr float PADDING = 12.0f;
     static constexpr float LINE = 13.0f;
 
@@ -89,4 +94,9 @@ private:
     void renderCacheSplit(AestraUI::NUIRenderer& renderer, float& y);
 
     bool m_visible{false};
+    // Measured at the end of onRender and applied by the next onUpdate. The
+    // first frame after a toggle can therefore be one layout behind; that is
+    // acceptable for a panel nobody screenshots on frame one, and it is the
+    // price of not maintaining a second, drifting copy of the layout.
+    float m_contentHeight{PANEL_MIN_HEIGHT};
 };
