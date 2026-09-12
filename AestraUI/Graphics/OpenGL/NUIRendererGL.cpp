@@ -60,19 +60,11 @@ constexpr float kTextGammaTiny  = 0.74f;  // x-small / small atlases
 constexpr float kTextGammaLarge = 0.93f;  // medium / regular atlases
 constexpr float kTextSharpenTiny  = 0.20f;
 constexpr float kTextSharpenLarge = 0.28f;
-// Light themes take a heavy lift. Recorded, not endorsed: at 0.35 a label drawn
-// at alpha 0.5 renders at 0.78, which is why secondary text loses its
-// separation from primary in light mode (V8-C9 finding F7).
-constexpr float kTextAlphaLiftCompensated = 0.35f;
-
 inline float resolveTextGamma(bool tinyAtlas, float textContrast) {
     return (tinyAtlas ? kTextGammaTiny : kTextGammaLarge) * textContrast;
 }
 inline float resolveTextSharpen(bool tinyAtlas) {
     return tinyAtlas ? kTextSharpenTiny : kTextSharpenLarge;
-}
-inline float resolveTextAlphaLift(float textContrast) {
-    return textContrast < 1.0f ? kTextAlphaLiftCompensated : 1.0f;
 }
 } // namespace
 
@@ -232,7 +224,6 @@ uniform bool uUseTexture;
 uniform vec2 uTextTexelSize;
 uniform float uTextSharpen;
 uniform float uTextGamma;
-uniform float uTextAlphaLift; // exponent on text alpha; 1 = neutral, <1 lifts faded text
 uniform bool uOutputLinear;
 
 // Squircle SDF Implementation
@@ -291,8 +282,20 @@ void main() {
         vec4 texColor = texture(uTexture, vTexCoord);
         if (primitiveID == 4) {
                // Bitmap text — atlas stores coverage in alpha channel.
+               //
+               // The caller's alpha is multiplied, never reshaped. It used to be
+               // raised to uTextAlphaLift (0.35 on light themes) to compensate
+               // for dark-on-light strokes reading thin. That mechanism could
+               // not do the job it was given and did damage instead: pow(1, k)
+               // is 1 for every k, so it left primary text — which carries the
+               // whole of the problem — untouched, while pulling alpha 0.5 up
+               // to 0.78 and collapsing the gap between secondary and primary.
+               // Stroke weight is a property of coverage and belongs to
+               // uTextGamma, which already carries it. Alpha is what the caller
+               // meant by "this label is secondary", and the renderer does not
+               // get to reinterpret that.
                float coverage = pow(sampleTextCoverage(vTexCoord), uTextGamma);
-               color.a = pow(color.a, uTextAlphaLift) * coverage;
+               color.a *= coverage;
         } else {
              // Regular textured primitive
              color *= texColor;
@@ -1332,7 +1335,7 @@ bool NUIRendererGL::getTextDiagnostics(TextDiagnostics& out) const {
     out.framebufferSRGB = framebufferSRGBEnabled_;
     out.outputLinearActive = framebufferSRGBEnabled_ && !renderingToLinearTarget_;
     out.textContrast = textContrast_;
-    out.alphaLift = resolveTextAlphaLift(textContrast_);
+    out.alphaPreserved = true;  // color.a *= coverage — no reshaping. See the type 4 shader branch.
     out.fontPath = defaultFontPath_.c_str();
 
     // Order matches selectAtlas()'s branch order, smallest served size first.
@@ -2629,35 +2632,27 @@ void NUIRendererGL::renderTextWithFont(const std::string& text, const NUIPoint& 
     // fontSize is in logical pixels - no DPI scaling needed here
     // Scale factor from atlas size to requested font size
     float scale = fontSize / static_cast<float>(atlas.atlasSize);
-    NUIColor glyphColor = color;
-    constexpr float kPrimaryAlphaFloor = 0.94f;
-    constexpr float kSecondaryAlphaFloor = 0.88f;
-    constexpr float kTertiaryAlphaFloor = 0.84f;
-    const bool isSecondary = color.a < 0.92f;
-    const bool isTertiary = color.a < 0.80f;
-    if (fontSize <= 13.5f) {
-        // Small UI text can look dim compared to larger readouts (e.g. BPM/timer).
-        // Lift opacity/brightness slightly so dense labels stay readable.
-        glyphColor.a = std::min(1.0f, glyphColor.a * 1.08f + 0.02f);
-        if (!isSecondary) {
-            glyphColor.a = std::max(glyphColor.a, kPrimaryAlphaFloor);
-        } else if (!isTertiary) {
-            glyphColor.a = std::max(glyphColor.a, kSecondaryAlphaFloor);
-        } else {
-            glyphColor.a = std::max(glyphColor.a, kTertiaryAlphaFloor);
-        }
-        if (fontSize <= 11.75f) {
-            glyphColor.a = std::max(glyphColor.a, 0.84f);
-        }
-        const float luma = 0.2126f * glyphColor.r + 0.7152f * glyphColor.g + 0.0722f * glyphColor.b;
-        const float targetLuma = (fontSize <= 11.75f) ? 0.80f : 0.73f;
-        if (luma < targetLuma) {
-            const float lift = std::min(0.10f, (targetLuma - luma) * 0.20f);
-            glyphColor.r = std::min(1.0f, glyphColor.r + lift);
-            glyphColor.g = std::min(1.0f, glyphColor.g + lift);
-            glyphColor.b = std::min(1.0f, glyphColor.b + lift);
-        }
-    }
+    // The caller's colour is used as given. This used to be rewritten for any
+    // text at or below 13.5 px — which is most of the UI — and the rewrite is
+    // the larger half of V8-C9 finding F7:
+    //
+    //   alpha was scaled by 1.08 + 0.02, then floored at 0.94 / 0.88 / 0.84
+    //   depending on a tier the renderer inferred from the alpha it was handed,
+    //   with a further 0.84 floor below 11.75 px; then the colour itself was
+    //   brightened toward a luminance target.
+    //
+    // The effect was that a label requested at alpha 0.25 rendered at 0.84, so
+    // primary, secondary and tertiary text converged on the same weight. The
+    // diagnostic's alpha ramp measured 0.891 of full ink at a requested 0.25 —
+    // alpha-based hierarchy was not attenuated, it was very nearly absent.
+    //
+    // It cannot be rescued by retuning the constants, because the mechanism is
+    // wrong in kind: the renderer was inferring a semantic tier from alpha and
+    // then overriding the caller's choice for it. Tiers are the caller's to
+    // decide and the theme's to define. If small text reads too dim after this,
+    // the fix is the theme's alpha values — a decision someone can see and
+    // argue with — not a floor buried in the glyph path.
+    const NUIColor& glyphColor = color;
 
     // position.y is the BASELINE position (already adjusted by caller)
     // Pixel-align starting position for crisp text
@@ -2907,7 +2902,6 @@ void NUIRendererGL::drawTexture(const NUIRect& bounds, const unsigned char* rgba
     glUniform2f(primitiveShader_.textTexelSizeLoc, 0.0f, 0.0f);
     glUniform1f(primitiveShader_.textSharpenLoc, 0.0f);
     glUniform1f(primitiveShader_.textGammaLoc, 1.0f);
-    glUniform1f(primitiveShader_.textAlphaLiftLoc, resolveTextAlphaLift(textContrast_));
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);
@@ -3220,7 +3214,6 @@ void NUIRendererGL::flush() {
     glUniform2f(primitiveShader_.textTexelSizeLoc, 0.0f, 0.0f);
     glUniform1f(primitiveShader_.textSharpenLoc, 0.0f);
     glUniform1f(primitiveShader_.textGammaLoc, 1.0f);
-    glUniform1f(primitiveShader_.textAlphaLiftLoc, resolveTextAlphaLift(textContrast_));
     // Note: opacity is already in vertex colors
     glUniform1i(primitiveShader_.primitiveTypeLoc, currentPrimitiveType_);
     // Default to no texturing; enable below if a texture is bound
@@ -3343,7 +3336,6 @@ bool NUIRendererGL::loadShaders() {
     primitiveShader_.textTexelSizeLoc = glGetUniformLocation(primitiveShader_.id, "uTextTexelSize");
     primitiveShader_.textSharpenLoc = glGetUniformLocation(primitiveShader_.id, "uTextSharpen");
     primitiveShader_.textGammaLoc = glGetUniformLocation(primitiveShader_.id, "uTextGamma");
-    primitiveShader_.textAlphaLiftLoc = glGetUniformLocation(primitiveShader_.id, "uTextAlphaLift");
     primitiveShader_.outputLinearLoc = glGetUniformLocation(primitiveShader_.id, "uOutputLinear");
 
     

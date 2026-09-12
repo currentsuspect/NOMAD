@@ -192,7 +192,6 @@ private:
         int32_t textTexelSizeLoc = -1;
         int32_t textSharpenLoc = -1;
         int32_t textGammaLoc = -1;
-        int32_t textAlphaLiftLoc = -1;
         int32_t outputLinearLoc = -1;
     };
     
