@@ -192,7 +192,6 @@ private:
         int32_t textTexelSizeLoc = -1;
         int32_t textSharpenLoc = -1;
         int32_t textGammaLoc = -1;
-        int32_t outputLinearLoc = -1;
     };
     
     // Transform stack
@@ -436,11 +435,6 @@ private:
     int widthBackup_ = 0;
     int heightBackup_ = 0;
 
-    // True while rendering into a linear (non-sRGB) offscreen target such as
-    // the FBO render cache. Disables the shader's sRGB->linear output
-    // conversion so cached content is stored as-authored and converted exactly
-    // once when composited to the sRGB screen (see beginOffscreen()).
-    bool renderingToLinearTarget_ = false;
 };
 
 } // namespace AestraUI

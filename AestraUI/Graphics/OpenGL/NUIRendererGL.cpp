@@ -224,7 +224,6 @@ uniform bool uUseTexture;
 uniform vec2 uTextTexelSize;
 uniform float uTextSharpen;
 uniform float uTextGamma;
-uniform bool uOutputLinear;
 
 // Squircle SDF Implementation
 // Based on "sdContinuousRect" logic but optimized for GLSL 3.3
@@ -267,10 +266,6 @@ float sampleTextCoverage(vec2 uv) {
     float neighborhood = (n + s + e + w) * 0.25;
     float sharpened = center + (center - neighborhood) * uTextSharpen;
     return clamp(sharpened, 0.0, 1.0);
-}
-
-vec3 srgbToLinear(vec3 c) {
-    return pow(max(c, vec3(0.0)), vec3(2.2));
 }
 
 void main() {
@@ -358,9 +353,6 @@ void main() {
     
     // Type 5: Solid colored geometry (lines, triangles) - already handled by default color
     
-    if (uOutputLinear) {
-        color.rgb = srgbToLinear(color.rgb);
-    }
     FragColor = color;
 }
 
@@ -530,17 +522,33 @@ bool NUIRendererGL::initialize(int width, int height) {
     // Prefer smoother edges when a multisampled default framebuffer is available.
     glEnable(GL_MULTISAMPLE);
 
-    // The palette is authored in sRGB, so the shader converts to linear on output
-    // (uOutputLinear) and relies on the driver re-encoding on write. That only
-    // happens when the default framebuffer is actually sRGB-capable.
+    // ONE COMPOSITING SPACE: gamma (sRGB), everywhere.
     //
-    // KNOWN DEFECT: this probe cannot tell. glEnable(GL_FRAMEBUFFER_SRGB) does not
-    // raise an error when there is no sRGB attachment to act on, so this reports
-    // true on Win32 — where no sRGB pixel format is ever requested — and the
-    // shader's pow(rgb, 2.2) is then never inverted. Replace with
-    // GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING once the Win32 pixel format lands.
-    glEnable(GL_FRAMEBUFFER_SRGB);
-    framebufferSRGBEnabled_ = (glGetError() == GL_NO_ERROR);
+    // The palette is authored in sRGB, so the simplest correct pipeline stores
+    // it unchanged and blends it where it was authored. GL_FRAMEBUFFER_SRGB
+    // would instead have the driver decode, blend in linear light and re-encode,
+    // and that is the wrong choice for a UI for two measured reasons:
+    //
+    //   Alpha stops meaning what the caller meant. Linear blending is correct
+    //   light mixing, but a UI's alpha is a perceptual weight — "this label is
+    //   secondary" — and CSS, Qt, Cocoa and Skia all composite in gamma space
+    //   for exactly that reason. Measured on the light theme, textPrimary at
+    //   alpha 0.72 (what track names use) gives 7.2:1 contrast blended in gamma
+    //   and 3.1:1 blended in linear. The same alpha on a dark theme goes the
+    //   other way, 8.7:1 to 12.2:1. So alpha-based hierarchy read correctly in
+    //   dark and failed WCAG in light, from the blend space alone.
+    //
+    //   It was never uniform anyway. The widget cache renders into a plain
+    //   RGBA8 target where GL_FRAMEBUFFER_SRGB does nothing, so cached content
+    //   always blended in gamma space while the screen blended in linear. One
+    //   space removes the split rather than propagating it.
+    //
+    // This also retires the probe that used to live here: glEnable does not
+    // fail when there is no sRGB attachment, so framebufferSRGBEnabled_ was
+    // reporting true on Win32 where no sRGB pixel format is ever requested.
+    // Nothing now depends on the answer.
+    glDisable(GL_FRAMEBUFFER_SRGB);
+    framebufferSRGBEnabled_ = false;
     
     return true;
 }
@@ -1333,7 +1341,6 @@ bool NUIRendererGL::getTextDiagnostics(TextDiagnostics& out) const {
     out = TextDiagnostics{};
     out.lcdSubpixel = fontUseLCD_;
     out.framebufferSRGB = framebufferSRGBEnabled_;
-    out.outputLinearActive = framebufferSRGBEnabled_ && !renderingToLinearTarget_;
     out.textContrast = textContrast_;
     out.alphaPreserved = true;  // color.a *= coverage — no reshaping. See the type 4 shader branch.
     out.fontPath = defaultFontPath_.c_str();
@@ -2898,7 +2905,6 @@ void NUIRendererGL::drawTexture(const NUIRect& bounds, const unsigned char* rgba
     glUseProgram(primitiveShader_.id);
     glUniformMatrix4fv(primitiveShader_.projectionLoc, 1, GL_FALSE, projectionMatrix_);
     glUniform1i(primitiveShader_.primitiveTypeLoc, 0);
-    glUniform1i(primitiveShader_.outputLinearLoc, (framebufferSRGBEnabled_ && !renderingToLinearTarget_) ? 1 : 0);
     glUniform2f(primitiveShader_.textTexelSizeLoc, 0.0f, 0.0f);
     glUniform1f(primitiveShader_.textSharpenLoc, 0.0f);
     glUniform1f(primitiveShader_.textGammaLoc, 1.0f);
@@ -3141,16 +3147,11 @@ uint32_t NUIRendererGL::getGLTextureId(uint32_t textureId) const {
 // glyphs against the surface behind the panel — invisible over dark themes,
 // a gray wash over light ones (and sub-1.0 backbuffer alpha for DWM).
 void NUIRendererGL::beginOffscreen(int width, int height) {
-    // Offscreen caches render into linear GL_RGBA8 textures where
-    // GL_FRAMEBUFFER_SRGB does NOT re-encode on write. The shader's
-    // sRGB->linear conversion (uOutputLinear) must therefore be disabled while
-    // rendering into them: values are stored as-authored (sRGB), and the
-    // conversion happens exactly once when the cached texture is composited to
-    // the sRGB screen. With the flag left on, cached content was linearized
-    // on the way in AND on the way out — one uncompensated pow(2.2) that
-    // crushed every dark color drawn through the cache (#observed as the
-    // timeline rendering far darker than its authored palette).
-    renderingToLinearTarget_ = true;
+    // No colour-space switch here any more. The cache renders into a plain
+    // RGBA8 target and the screen composites in the same gamma space, so the
+    // cached and direct paths are now the same pipeline — which is the point.
+    // This function used to flip uOutputLinear off on the way in and back on at
+    // the way out, and that asymmetry was the whole of F3.
 
     // Backup current size and projection
     widthBackup_ = width_;
@@ -3166,9 +3167,8 @@ void NUIRendererGL::beginOffscreen(int width, int height) {
 }
 
 void NUIRendererGL::endOffscreen() {
-    // Flush offscreen geometry before restoring the screen color-space mode.
+    // Flush offscreen geometry before restoring the screen projection.
     flush();
-    renderingToLinearTarget_ = false;
 
     // Restore original projection and size
     width_ = widthBackup_;
@@ -3210,7 +3210,6 @@ void NUIRendererGL::flush() {
     // Use shader
     glUseProgram(primitiveShader_.id);
     glUniformMatrix4fv(primitiveShader_.projectionLoc, 1, GL_FALSE, projectionMatrix_);
-    glUniform1i(primitiveShader_.outputLinearLoc, (framebufferSRGBEnabled_ && !renderingToLinearTarget_) ? 1 : 0);
     glUniform2f(primitiveShader_.textTexelSizeLoc, 0.0f, 0.0f);
     glUniform1f(primitiveShader_.textSharpenLoc, 0.0f);
     glUniform1f(primitiveShader_.textGammaLoc, 1.0f);
@@ -3336,7 +3335,6 @@ bool NUIRendererGL::loadShaders() {
     primitiveShader_.textTexelSizeLoc = glGetUniformLocation(primitiveShader_.id, "uTextTexelSize");
     primitiveShader_.textSharpenLoc = glGetUniformLocation(primitiveShader_.id, "uTextSharpen");
     primitiveShader_.textGammaLoc = glGetUniformLocation(primitiveShader_.id, "uTextGamma");
-    primitiveShader_.outputLinearLoc = glGetUniformLocation(primitiveShader_.id, "uOutputLinear");
 
     
     return true;

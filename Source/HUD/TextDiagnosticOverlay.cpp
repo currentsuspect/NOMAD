@@ -99,10 +99,10 @@ void TextDiagnosticOverlay::renderState(NUIRenderer& renderer, const NUIRenderer
              d.alphaPreserved ? "preserved — multiplied, never reshaped"
                               : "RESHAPED — see section B",
              y, true, !d.alphaPreserved);
-    keyValue(renderer, "framebuffer sRGB", d.framebufferSRGB ? "believed enabled" : "disabled", y);
-    keyValue(renderer, "uOutputLinear", d.outputLinearActive ? "on — screen blends LINEAR" : "off — blends GAMMA", y);
-    keyValue(renderer, "blend split",
-             "screen LINEAR vs cache GAMMA — same font, two weights (F3)", y, true, true);
+    keyValue(renderer, "blend space",
+             d.framebufferSRGB ? "LINEAR — split from the cache, see F3"
+                               : "gamma (sRGB) — cached and direct agree",
+             y, true, d.framebufferSRGB);
 }
 
 void TextDiagnosticOverlay::renderTierTable(NUIRenderer& renderer, const NUIRenderer::TextDiagnostics& d, float& y) {
@@ -268,7 +268,7 @@ void TextDiagnosticOverlay::renderPolarity(NUIRenderer& renderer, const NUIRende
 }
 
 void TextDiagnosticOverlay::renderCacheSplit(NUIRenderer& renderer, float& y) {
-    sectionRule(renderer, "D · BLEND SPACE — direct vs through the render cache", y);
+    sectionRule(renderer, "D · RENDER CACHE — same blend space as direct since F3", y);
     const float x = getBounds().x + PADDING;
 
     renderer.drawText("direct", NUIPoint(x, y), kLabelSize, kLabel);

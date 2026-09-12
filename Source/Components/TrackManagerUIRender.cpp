@@ -299,11 +299,18 @@ void TrackManagerUI::renderTrackManagerStatic(AestraUI::NUIRenderer& renderer) {
         const float planeHeight = viewportBottom - planeTop;
         // Same quiet arrangement grammar the per-track grid used, with bars
         // carrying the continuity: majors obvious, beats/subdivisions whispers.
+        // Alphas are gamma-space (F3). They were previously tuned against linear
+        // blending, which inflated low-alpha light-on-dark by ~6x on its way to
+        // the screen — bar lines authored at 0.028 rendered as (42,42,42) and,
+        // once compositing was unified, as (7,7,7): a 1.04:1 ratio against the
+        // black bed, mathematically present and visually gone. These values
+        // reproduce the ORIGINAL rendered result, so the design is unchanged;
+        // only the number needed to express it moved.
         const AestraUI::TimelineGridStyle planeStyle{
-            0.028f, // bars
-            0.005f, // beats
-            0.0016f, // subdivisions
-            0.0f    // no empty-canvas zebra
+            0.179f,  // bars          (was 0.028 linear-era)
+            0.057f,  // beats         (was 0.005)
+            0.019f,  // subdivisions  (was 0.0016)
+            0.0f     // no empty-canvas zebra
         };
         // Snap drives the drawn tiers (same contract as the piano roll): a
         // tier finer than or misaligned with the active snap is hidden, and
@@ -331,16 +338,21 @@ void TrackManagerUI::renderTrackManagerStatic(AestraUI::NUIRenderer& renderer) {
         // expanded lanes read as one block under their track. Translucent, so
         // the shared grid plane shows through.
         if (track->isNestedLane()) {
-            renderer.fillRect(trackBounds, themeManager.getColor("accentSecondary").withAlpha(0.05f));
+            renderer.fillRect(trackBounds, themeManager.getColor("accentSecondary").withAlpha(0.244f)); // gamma-space (F3), was 0.05
         }
 
         track->renderStatic(renderer);
 
         // Row separators sit ON the plane: a quiet full-width line that says
         // "another track" without cutting the vertical grid or forming cells.
+        // Gamma-space alpha (F3). Authored as 0.018 against linear blending, which
+        // rendered it (33,33,33) on the black bed; after compositing was unified
+        // the same number gave (4,4,4) — a 1.02:1 ratio, which is why the
+        // horizontals disappeared while the verticals merely dimmed. 0.139
+        // reproduces the original rendered line.
         renderer.drawLine({bounds.x + gridStartX, trackBounds.bottom()},
                           {bounds.x + trackWidth, trackBounds.bottom()}, 1.0f,
-                          themeManager.getCurrentTheme().textPrimary.withAlpha(0.018f));
+                          themeManager.getCurrentTheme().textPrimary.withAlpha(0.139f));
     }
 
     // Clear clip rect before drawing the time band (it should draw fully)
