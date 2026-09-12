@@ -118,7 +118,11 @@ public:
         bool framebufferSRGB = false;  //!< GL_FRAMEBUFFER_SRGB believed enabled — see the probe's KNOWN DEFECT.
         bool outputLinearActive = false; //!< Shader converts sRGB->linear on output right now.
         float textContrast = 1.0f;     //!< The single input both uniforms below derive from.
-        float alphaLift = 1.0f;        //!< Resolved uTextAlphaLift; text alpha is raised to this power.
+        //!< The renderer multiplies caller alpha and never reshapes it. A backend
+        //!< that reintroduces a lift, curve or floor on text alpha MUST report false
+        //!< here — the diagnostic asserts this, and F7 was exactly this contract
+        //!< being broken silently.
+        bool alphaPreserved = true;
         Tier tiers[4]{};
         int tierCount = 0;
         const char* fontPath = "";

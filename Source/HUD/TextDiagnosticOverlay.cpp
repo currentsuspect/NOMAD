@@ -95,8 +95,10 @@ void TextDiagnosticOverlay::renderState(NUIRenderer& renderer, const NUIRenderer
         keyValue(renderer, "", "subpixel data is averaged away in the shader (F1)", y, true, true);
     }
     keyValue(renderer, "textContrast_", f(d.textContrast), y);
-    keyValue(renderer, "uTextAlphaLift", f(d.alphaLift), y,
-             d.alphaLift < 1.0f, d.alphaLift < 1.0f);
+    keyValue(renderer, "caller alpha",
+             d.alphaPreserved ? "preserved — multiplied, never reshaped"
+                              : "RESHAPED — see section B",
+             y, true, !d.alphaPreserved);
     keyValue(renderer, "framebuffer sRGB", d.framebufferSRGB ? "believed enabled" : "disabled", y);
     keyValue(renderer, "uOutputLinear", d.outputLinearActive ? "on — screen blends LINEAR" : "off — blends GAMMA", y);
     keyValue(renderer, "blend split",
@@ -150,35 +152,63 @@ void TextDiagnosticOverlay::renderAtlasTierSamples(NUIRenderer& renderer, float&
 }
 
 void TextDiagnosticOverlay::renderAlphaRamp(NUIRenderer& renderer, const NUIRenderer::TextDiagnostics& d, float& y) {
-    sectionRule(renderer, "B · ALPHA RAMP — F7, predicted vs rendered", y);
+    sectionRule(renderer, "B · ALPHA RAMP — caller alpha must survive the pipeline", y);
     const float x = getBounds().x + PADDING;
-    // Both lift values, not just the live one. On a dark theme the lift is 1.0
-    // and every prediction is the identity, so a panel showing only the live
-    // value would report "nothing to see here" on exactly the theme where F7
-    // cannot be reproduced — and the finding is about the other theme.
-    constexpr float kCompensatedLift = 0.35f;
-    renderer.drawText("live lift " + f(d.alphaLift, 2), NUIPoint(x + 268.0f, y), kLabelSize, kLabel);
-    renderer.drawText("light-theme 0.35", NUIPoint(x + 350.0f, y), kLabelSize, kLabel);
+
+    // This section used to predict a distortion. It now asserts its absence,
+    // which is the shape a regression check wants: the renderer reports whether
+    // it reshapes caller alpha, and the ramp shows what that looks like.
+    //
+    // The old 0.35 light-theme lift is still computed, as the counter-example.
+    // Keeping it visible is the point — it is what a reintroduced compensation
+    // would do, and the "was" column is the only thing that makes "is" legible.
+    constexpr float kRemovedLift = 0.35f;
+    constexpr float kLightThemeContrast = 0.88f;
+
+    // Two rendered columns, not one. A single column proves nothing on a dark
+    // theme: textContrast_ is 1.0 there, the removed lift resolved to 1.0 too,
+    // and the old pipeline produced identity as well. The discriminating case
+    // needs alpha < 1 AND the light-theme contrast at the same time, which no
+    // other section produces — C varies contrast at full alpha, and this used to
+    // vary alpha at whatever contrast happened to be live.
+    //
+    // So the right column is drawn under textContrast_ = 0.88. Before the fix it
+    // rendered visibly heavier than the left at every step below 1.0; the two
+    // columns matching is the proof, and it holds on either theme.
+    renderer.drawText("at live contrast", NUIPoint(x + 190.0f, y), kLabelSize, kLabel);
+    renderer.drawText("at 0.88 (light)", NUIPoint(x + 300.0f, y), kLabelSize, kLabel);
+    renderer.drawText("was", NUIPoint(x + 410.0f, y), kLabelSize, kLabel);
     y += LINE;
 
     const float alphas[] = {1.0f, 0.75f, 0.5f, 0.25f};
     for (float a : alphas) {
-        const float live = std::pow(a, d.alphaLift);
-        const float compensated = std::pow(a, kCompensatedLift);
         renderer.drawText("a=" + f(a, 2), NUIPoint(x, y), kLabelSize, kLabel);
-        renderer.drawText(SAMPLE, NUIPoint(x + 48.0f, y), 12.0f, kSampleInk.withAlpha(a));
-        renderer.drawText("-> " + f(live), NUIPoint(x + 268.0f, y), kLabelSize,
-                          std::abs(live - a) > 0.02f ? kBad : kLabel);
-        renderer.drawText("-> " + f(compensated), NUIPoint(x + 350.0f, y), kLabelSize,
-                          std::abs(compensated - a) > 0.02f ? kBad : kLabel);
-        y += LINE + 2.0f;
+
+        renderer.drawText(SAMPLE, NUIPoint(x + 48.0f, y), 11.0f, kSampleInk.withAlpha(a));
+        renderer.flush();
+        renderer.setTextContrast(kLightThemeContrast);
+        renderer.drawText(SAMPLE, NUIPoint(x + 190.0f, y), 11.0f, kSampleInk.withAlpha(a));
+        renderer.flush();
+        renderer.setTextContrast(d.textContrast);
+        renderer.flush();
+
+        renderer.drawText("(" + f(std::pow(a, kRemovedLift)) + ")",
+                          NUIPoint(x + 410.0f, y), kLabelSize, kLabel);
+        y += LINE + 3.0f;
     }
-    // The lift is a no-op at full alpha — pow(1, k) is 1 for every k — so the
-    // compensation does nothing for primary text and everything to secondary
-    // text. That distribution is the finding, and it is visible here as the
-    // first row matching while the rest diverge.
-    renderer.drawText("lift is a no-op at a=1.00: it moves only secondary text",
-                      NUIPoint(x + 48.0f, y), kLabelSize, kLabel);
+
+    // The assertion, stated so a reader does not have to infer it from four rows
+    // of numbers agreeing.
+    // State the check rather than claim a verdict: the panel cannot read back
+    // its own pixels, so it says what a reader must look for. Both columns
+    // fading in step with a is the pass; either one staying flat is the F7
+    // regression. The columns are not expected to be identical — 0.88 contrast
+    // legitimately thickens strokes through uTextGamma — but their ramps must
+    // have the same shape.
+    renderer.drawText(d.alphaPreserved
+                          ? "both columns must fade in step with a; a flat column = renderer overriding alpha"
+                          : "FAIL — the renderer reports it is reshaping caller alpha (F7 regression)",
+                      NUIPoint(x + 48.0f, y), kLabelSize, d.alphaPreserved ? kGood : kBad);
     y += LINE;
 }
 
