@@ -699,6 +699,11 @@ void AestraWindowManager::setUnifiedHUD(std::shared_ptr<UnifiedHUD> hud) {
     if (m_rootComponent) m_rootComponent->setUnifiedHUD(m_unifiedHUD);
 }
 
+void AestraWindowManager::setTextDiagnostics(std::shared_ptr<TextDiagnosticOverlay> overlay) {
+    m_textDiagnostics = overlay;
+    if (m_rootComponent) m_rootComponent->setTextDiagnostics(m_textDiagnostics);
+}
+
 void AestraWindowManager::setMenuBar(std::shared_ptr<AestraUI::NUIMenuBar> menuBar) {
     m_menuBar = menuBar;
     if (m_customWindow) {

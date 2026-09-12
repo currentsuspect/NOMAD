@@ -25,6 +25,7 @@ namespace Aestra {
     class MissingAssetsDialog;
 }
 class UnifiedHUD;
+class TextDiagnosticOverlay;
 class AestraRootComponent;
 class AestraContent;
 
@@ -91,6 +92,7 @@ public:
     void setMissingAssetsDialog(std::shared_ptr<Aestra::MissingAssetsDialog> dialog);
     /** @brief Attach the unified HUD overlay. */
     void setUnifiedHUD(std::shared_ptr<UnifiedHUD> hud);
+    void setTextDiagnostics(std::shared_ptr<TextDiagnosticOverlay> overlay);
 
     /** @brief Get the settings dialog. */
     std::shared_ptr<Aestra::SettingsDialog> getSettingsDialog() { return m_settingsDialog; }
@@ -199,6 +201,7 @@ private:
     std::shared_ptr<Aestra::RecoveryDialog> m_recoveryDialog;
     std::shared_ptr<Aestra::MissingAssetsDialog> m_missingAssetsDialog;
     std::shared_ptr<UnifiedHUD> m_unifiedHUD;
+    std::shared_ptr<TextDiagnosticOverlay> m_textDiagnostics;
     std::shared_ptr<class ExportDialog> m_exportDialog;
 
     std::unique_ptr<AestraUI::NUIAdaptiveFPS> m_adaptiveFPS;

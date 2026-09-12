@@ -92,6 +92,40 @@ public:
      */
     virtual void setTextContrast(float contrast) { (void)contrast; }
 
+    /**
+     * Read-only introspection of the text pipeline, for diagnostics (V8-C9).
+     *
+     * This exists because the text path's behaviour is decided by values a
+     * caller cannot see: one float set from background luminance resolves into
+     * two shader uniforms, and which atlas serves a given font size is a
+     * threshold table inside the backend. A diagnostic that can only show the
+     * rendered result can say "this looks wrong" but never "this is the
+     * variable that made it wrong" — so the variables themselves are exported.
+     *
+     * Reporting only. Nothing here changes rendering, and a backend that has no
+     * text pipeline to describe returns false rather than inventing values.
+     */
+    struct TextDiagnostics {
+        struct Tier {
+            const char* name = "";
+            int atlasSize = 0;        //!< Baked atlas pixel size.
+            float maxFontSize = 0.0f; //!< Upper bound this tier serves; <=0 means "everything above".
+            float gamma = 1.0f;       //!< Resolved uTextGamma for this tier.
+            float sharpen = 0.0f;     //!< Resolved uTextSharpen for this tier.
+        };
+
+        bool lcdSubpixel = false;      //!< FreeType rasterised through the LCD filter.
+        bool framebufferSRGB = false;  //!< GL_FRAMEBUFFER_SRGB believed enabled — see the probe's KNOWN DEFECT.
+        bool outputLinearActive = false; //!< Shader converts sRGB->linear on output right now.
+        float textContrast = 1.0f;     //!< The single input both uniforms below derive from.
+        float alphaLift = 1.0f;        //!< Resolved uTextAlphaLift; text alpha is raised to this power.
+        Tier tiers[4]{};
+        int tierCount = 0;
+        const char* fontPath = "";
+    };
+
+    virtual bool getTextDiagnostics(TextDiagnostics& out) const { (void)out; return false; }
+
     virtual void setClipRect(const NUIRect& rect) = 0;
     
     /**

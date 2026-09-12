@@ -7,6 +7,8 @@
 #include "ServiceLocator.h"
 #include "AestraRootComponent.h"
 #include "Preferences.h"
+
+#include <cstdlib>
 #include "../AestraCore/include/AestraFile.h"
 #include "../AestraCore/include/AestraUnifiedProfiler.h"
 #include "../AestraCore/include/PointerRegistry.h"
@@ -488,6 +490,19 @@ void AestraApp::initializeContent() {
     unifiedHUD->setVisible(false);
     unifiedHUD->setAudioEngine(m_audioController->getEngine());
     m_windowManager->setUnifiedHUD(unifiedHUD);
+
+    // Text pipeline diagnostic (V8-C9, FD-21). Built here for the same reason
+    // the HUD is: an overlay created lazily is a key that does nothing until
+    // the user happens to open something else first.
+    auto textDiagnostics = std::make_shared<TextDiagnosticOverlay>();
+    // AESTRA_TEXT_DIAG=1 starts it open. A diagnostic that can only be reached
+    // by a keypress can only be used by a human at a keyboard — this one has to
+    // compose with AESTRA_DISABLE_LCD=1, because the LCD comparison is a
+    // two-run comparison by construction (fontUseLCD_ is read while the atlas
+    // is baked). Launch flag and F11 toggle are the same overlay.
+    const char* diagEnv = std::getenv("AESTRA_TEXT_DIAG");
+    textDiagnostics->setVisible(diagEnv != nullptr && diagEnv[0] == '1');
+    m_windowManager->setTextDiagnostics(textDiagnostics);
 }
 
 std::chrono::seconds AestraApp::resolveAutosaveInterval() {
