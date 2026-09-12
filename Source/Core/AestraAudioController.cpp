@@ -1,7 +1,7 @@
 // © 2025 Aestra Studios — All Rights Reserved. Licensed for personal & educational use only.
 #include "AestraAudioController.h"
 #include "AestraContent.h"
-#include "AudioThreadConstraints.h"
+#include "RealtimeThreadGuard.h"
 #include "AudioRT.h"
 #include "AudioTelemetry.h"
 #include "MidiInputService.h"
@@ -200,6 +200,14 @@ void AestraAudioController::shutdown() {
     }
     m_midiInput.reset();
     m_audioEngine.reset();
+    // T-6: drop the record-latency provider before the device manager dies.
+    // A late take commit after this point falls back to zero compensation
+    // instead of calling into freed memory.
+    if (auto content = m_content.lock()) {
+        if (auto tm = content->getTrackManager()) {
+            tm->setRecordLatencyProvider(nullptr);
+        }
+    }
     m_audioManager.reset();
     m_initialized = false;
 }
@@ -380,7 +388,12 @@ bool AestraAudioController::startStream() {
                 auto* trackManager = controller->m_rtTrackManager.load(std::memory_order_acquire);
                 if (trackManager) {
                     trackManager->updateInputDiagnostics(input, n);
-                    trackManager->processInput(input, n, &controller->m_audioEngine->telemetry());
+                    // T-6: hand the engine's authoritative frame to capture
+                    // placement; the UI-cached position lags by buffers.
+                    const uint64_t frame = controller->m_audioEngine
+                                               ? controller->m_audioEngine->getGlobalSamplePos()
+                                               : Aestra::Audio::TrackManager::kUnknownTransportFrame;
+                    trackManager->processInput(input, n, &controller->m_audioEngine->telemetry(), frame);
                 }
             }
         }, this);
@@ -412,6 +425,16 @@ bool AestraAudioController::startStream() {
             tm->setOutputSampleRate(static_cast<double>(m_streamConfig.sampleRate));
             tm->setInputSampleRate(static_cast<double>(m_streamConfig.sampleRate));
             tm->setInputChannelCount(m_streamConfig.numInputChannels);
+            // T-6: take placement pulls device latency live at commit through
+            // this provider, so buffer/device/rate reconfigures from any path
+            // (including settings-page direct manager calls that bypass this
+            // function) are always reflected. Pushing values here instead went
+            // stale on exactly those paths.
+            tm->setRecordLatencyProvider([manager = m_audioManager.get()](double& inMs, double& outMs) {
+                if (manager) {
+                    manager->getLatencyCompensationValues(inMs, outMs);
+                }
+            });
             tm->publishInputMonitoringSnapshot();
             Log::info("AestraAudioController: Updated TrackManager Sample Rate to " + std::to_string(m_streamConfig.sampleRate));
         }
@@ -482,7 +505,6 @@ int AestraAudioController::audioCallback(float* outputBuffer, const float* input
     // Uses the canonical RT flag (RealtimeThreadGuard.h); nests cleanly with the
     // inner ScopedRealtimeAudioThread inside AudioEngine::processBlock.
     Aestra::Audio::ScopedRealtimeAudioThread audioThreadGuard;
-    Aestra::Audio::AudioThreadStats::instance().totalCallbacks.fetch_add(1, std::memory_order_relaxed);
 
     AestraAudioController* controller = static_cast<AestraAudioController*>(userData);
     if (!controller || !outputBuffer) return 1;

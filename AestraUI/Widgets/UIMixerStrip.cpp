@@ -31,14 +31,17 @@ namespace {
     constexpr float SECTION_GAP = 8.0f;
     constexpr float METER_W = 22.0f;
     constexpr float MASTER_METER_W = 36.0f;
-    // Technical master readouts are contextual (meter hover/interaction), not
-    // a permanent dashboard below the signal controls.
+    // Technical master readouts (held peak dBFS, integrated LUFS, gain) are a
+    // permanent fixture under the master's meter/fader columns — the master
+    // strip has no footer, so this is the strip's live level dashboard.
     constexpr float MASTER_LABEL_H = 12.0f;
     constexpr float MASTER_VALUE_H = 14.0f;
     constexpr float MASTER_BLOCK_H = MASTER_LABEL_H + MASTER_VALUE_H;  // 26
-    // Two stacked blocks plus bottom slack. With only 4px of slack the second
-    // value landed on the strip's bottom edge and was not drawn at all.
-    constexpr float MASTER_READOUT_H = 0.0f;
+    // The master reserves a labelled Peak/LUFS/Gain block at the foot of the
+    // strip (its footer is hidden, so the space is otherwise dead). Two stacked
+    // blocks plus bottom slack: with only 4px of slack the second value landed
+    // on the strip's bottom edge and was not drawn at all.
+    constexpr float MASTER_READOUT_H = MASTER_BLOCK_H * 2.0f + 14.0f;
 
     constexpr float SELECT_TOP_H = 3.0f;
     constexpr float MIXER_MIN_CHANNEL_HEIGHT = 220.0f;
@@ -237,6 +240,10 @@ UIMixerStrip::UIMixerStrip(uint32_t channelId,
 
         channel->trimDb = db;
         m_continuousParams->setTrimDb(channel->slotIndex, db);
+
+        // Undo/redo parity with pan: route through the command history so the
+        // serialized MixerChannel state and the RT buffer move together.
+        if (onTrimChanged) onTrimChanged(db, channel->slotIndex);
     };
     addChild(m_trimKnob);
 
@@ -314,18 +321,20 @@ UIMixerStrip::UIMixerStrip(uint32_t channelId,
         // Fire undo/redo callback
         if (onSoloChanged) onSoloChanged(soloed);
     };
-    m_buttons->onArmToggled = [this](bool armed) {
+    m_buttons->onMonitorToggled = [this](bool monitored) {
         if (!m_viewModel) return;
         auto* channel = m_viewModel->getChannelById(m_channelId);
         if (!channel || channel->id == 0) return;
 
-        // v3.0: Recording is handled by PlaylistModel/TrackManager transport logic, not MixerChannel.
-        channel->armed = armed;
+        // FD-14 #6: the mixer slot is input monitoring, not record arm. The
+        // engine's monitor routes gate on channel armed + monitorInput.
+        channel->monitored = monitored;
         invalidateStaticCache();
 
-        if (auto mc = channel->channel) {
-            mc->setArmed(armed);
-        }
+        // Engine side goes through the command history (SetMonitoringCommand)
+        // for dirty/undo parity with mute/solo/pan. The snapshot refresh
+        // rides setArmed's own notification.
+        if (onMonitorToggled) onMonitorToggled(monitored);
     };
     addChild(m_buttons);
 
@@ -671,7 +680,9 @@ void UIMixerStrip::onUpdate(double deltaTime)
     if (m_buttons && m_buttons->isVisible()) {
         m_buttons->setMuted(channel->muted);
         m_buttons->setSoloed(channel->soloed);
-        m_buttons->setArmed(channel->armed);
+        // The monitor button reflects the engine's arm flag — post-FD-14 #6
+        // that flag is the input-monitoring gate, never a recording control.
+        m_buttons->setMonitored(channel->armed);
     }
 
     if (m_trimKnob && m_trimKnob->isVisible() && !m_trimKnob->isDragging()) {

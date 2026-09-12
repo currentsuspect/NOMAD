@@ -106,7 +106,8 @@ void TruePeakMeter::generateCoefficients() noexcept {
     }
 }
 
-void TruePeakMeter::processStereo(const float* interleavedStereo, uint32_t numFrames) noexcept {
+void TruePeakMeter::processStereo(const float* interleavedStereo,
+                                  uint32_t numFrames) noexcept AESTRA_RT_NONBLOCKING {
     if (!interleavedStereo || numFrames == 0) {
         return;
     }
@@ -129,7 +130,8 @@ void TruePeakMeter::processStereo(const float* interleavedStereo, uint32_t numFr
     }
 }
 
-void TruePeakMeter::processMono(const float* mono, uint32_t numFrames) noexcept {
+void TruePeakMeter::processMono(const float* mono,
+                                uint32_t numFrames) noexcept AESTRA_RT_NONBLOCKING {
     if (!mono || numFrames == 0) {
         return;
     }

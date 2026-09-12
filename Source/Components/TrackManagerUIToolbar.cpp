@@ -6,6 +6,7 @@
 #include "../AestraCore/include/AestraLog.h"
 #include "../AestraCore/include/AestraUnifiedProfiler.h"
 #include "../AestraUI/Core/NUIDragDrop.h"
+#include "../AestraUI/Core/NUICursorRegistry.h"
 #include "../AestraUI/Core/NUIThemeSystem.h"
 #include "../AestraUI/Graphics/NUIRenderer.h"
 #include "../AestraUI/Platform/NUIPlatformBridge.h"
@@ -85,6 +86,15 @@ void TrackManagerUI::createToolIcons() {
     const char* moveSvg =
         R"(<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.05 2.2h1.9v19.6h-1.9z"/><path d="M2.2 11.05h19.6v1.9H2.2z"/><path d="M12 1 15.1 5.2H8.9L12 1zm0 22-3.1-4.2h6.2L12 23zM1 12l4.2-3.1v6.2L1 12zm22 0-4.2 3.1V8.9L23 12z"/></svg>)";
     m_moveCursorIcon = std::make_shared<AestraUI::NUIIcon>(moveSvg);
+
+    // Trim-edge stretch cursor: the canonical registry glyph (tinted at render
+    // time), replacing the old ad-hoc drawLine arrow construction.
+    m_trimCursorIcon = std::make_shared<AestraUI::NUIIcon>(AestraUI::nuiTrimResizeCursorSvg());
+    // Minimap window-resize cursor: the canonical high-contrast ResizeEW glyph.
+    m_resizeCursorIcon = std::make_shared<AestraUI::NUIIcon>(AestraUI::nuiCursorSvg(AestraUI::NUICursorStyle::ResizeEW));
+    // Ruler / minimap-pan hand cursor: the canonical grab glyph.
+    m_grabCursorIcon = std::make_shared<AestraUI::NUIIcon>(AestraUI::nuiCursorSvg(AestraUI::NUICursorStyle::Grab));
+
     if (!m_addTrackBtn) {
         m_addTrackBtn = std::make_shared<AestraUI::NUIButton>("");
         m_addTrackBtn->setBackgroundColor(AestraUI::NUIColor::transparent());
@@ -124,8 +134,44 @@ bool TrackManagerUI::isMinimapResizeCursorActive() const {
            m_timelineMinimap->getCursorHint() == AestraUI::TimelineMinimapCursorHint::ResizeHorizontal;
 }
 
+bool TrackManagerUI::isRulerPointerActive() const {
+    // A hidden timeline receives no mouse events, so m_lastMousePos freezes at
+    // whatever position it had when the view switched — gating on visibility
+    // keeps a frozen ruler hit from suppressing the cursor in other views.
+    if (!isVisible()) {
+        return false;
+    }
+    // While scrubbing/loop/selection-dragging the grab stays even if the
+    // pointer leaves the ruler row (selection drags extend below the ruler).
+    if (m_isDraggingPlayhead || m_isDraggingLoopStart || m_isDraggingLoopEnd || m_isDraggingRulerSelection) {
+        return true;
+    }
+    const AestraUI::NUIRect bounds = getBounds();
+    // Hovering a loop handle claims the grab hand anywhere in the ruler row —
+    // handles may sit over the toolbar corner's dead zone when scrolled.
+    if ((m_hoveringLoopStart || m_hoveringLoopEnd) && m_lastMousePos.y >= bounds.y + kTimelineMinimapHeight &&
+        m_lastMousePos.y < bounds.y + kTimelineTimeBandHeight) {
+        return true;
+    }
+    // Same geometry as the events file's ruler row, but starting after the
+    // control-area column: the grab hand belongs over scrubbable ruler only.
+    auto& themeManager = AestraUI::NUIThemeManager::getInstance();
+    const auto& layout = themeManager.getLayoutDimensions();
+    const float rulerStartX = bounds.x + layout.trackControlsWidth + kTimelineGridInsetX;
+    const AestraUI::NUIRect ruler(rulerStartX,
+                                  bounds.y + kTimelineMinimapHeight,
+                                  std::max(0.0f, bounds.width - layout.trackControlsWidth - kTimelineGridInsetX),
+                                  kTimelineRulerHeight);
+    return ruler.contains(m_lastMousePos);
+}
+
 bool TrackManagerUI::isCustomCursorActive() const {
     // Check if any custom cursor should be displayed (for exclusive cursor rendering)
+    // A hidden timeline receives no events, so every hover state below is frozen
+    // — never claim the cursor from a view that isn't on screen.
+    if (!isVisible()) {
+        return false;
+    }
 
     // 1. Trim edge hover/active
     for (const auto& trackUI : m_trackUIComponents) {
@@ -149,13 +195,10 @@ bool TrackManagerUI::isCustomCursorActive() const {
         const auto& layout = themeManager.getLayoutDimensions();
         const float controlAreaWidth = layout.trackControlsWidth;
         const float gridStartX = bounds.x + controlAreaWidth + kTimelineGridInsetX;
-        const float headerHeight = kTimelineHeaderHeight;
-        const float rulerHeight = kTimelineRulerHeight;
-        const float horizontalScrollbarHeight = kTimelineHorizontalScrollbarHeight;
-        const float trackAreaTop = bounds.y + headerHeight + horizontalScrollbarHeight + rulerHeight;
+        const float trackAreaTop = bounds.y + kTimelineTimeBandHeight;
 
         AestraUI::NUIRect gridBounds(gridStartX, trackAreaTop, bounds.width - controlAreaWidth - 20.0f,
-                                     bounds.height - headerHeight - rulerHeight - horizontalScrollbarHeight);
+                                     bounds.height - kTimelineTimeBandHeight);
         if (gridBounds.contains(m_lastMousePos)) {
             return true;
         }
@@ -168,6 +211,16 @@ bool TrackManagerUI::isCustomCursorActive() const {
             m_timelineMinimap->getCursorHint() == AestraUI::TimelineMinimapCursorHint::ResizeHorizontal) {
             return true;
         }
+    }
+
+    // 4. Minimap viewport bar body (pan) → grab hand.
+    if (m_timelineMinimap && m_timelineMinimap->isVisible() && m_timelineMinimap->isViewportPanActive()) {
+        return true;
+    }
+
+    // 5. Ruler scrub/loop/selection zone → grab hand.
+    if (isRulerPointerActive()) {
+        return true;
     }
 
     return false;
@@ -197,32 +250,35 @@ void TrackManagerUI::updateToolbarBounds() {
     const auto& layout = themeManager.getLayoutDimensions();
     AestraUI::NUIRect bounds = getBounds();
 
-    constexpr float headerHeight = 40.0f;                // Unified playlist header strip (Standardized)
+    // The toolbar lives in the ruler row's left corner — the cell where the
+    // track-controls column meets the time band. It is sized by its contents
+    // (no reserved region): if the button count ever outgrows the corner, the
+    // overflow answer is a flyout, never a second row or a taller band.
+    const float rulerY = bounds.y + kTimelineMinimapHeight;
     const float innerPad = themeManager.getSpacing("s"); // 8px from edge
     const float buttonSpacing = 6.0f;                    // Standardized gap for Aestra UI philosophy
+    const float cornerWidth = layout.trackControlsWidth - innerPad;
 
     // Secondary toolbar controls are intentionally smaller than primary transport controls.
     const float buttonSize = 22.0f;
     const float iconSize = buttonSize;
 
-    // Vertical centering for 24px button in 40px header (8px top/bottom padding)
+    // Vertical centering for 22px button in the 28px ruler row.
     float currentX = bounds.x + innerPad;
-    float currentY = bounds.y + (headerHeight - buttonSize) * 0.5f;
+    float iconY = rulerY + (kTimelineRulerHeight - buttonSize) * 0.5f;
 
     // 2. Add Track (leftmost)
-    m_addTrackBounds = AestraUI::NUIRect(currentX, currentY, iconSize, iconSize);
+    m_addTrackBounds = AestraUI::NUIRect(currentX, iconY, iconSize, iconSize);
     float iconX = currentX + iconSize + buttonSpacing;
-    float iconY = currentY;
 
     // 3. Tools Module
     float toolbarX = iconX;
-    float toolbarY = iconY;
 
     const int numTools = 4; // Select, Split, MultiSelect, Paint
     float toolbarWidth = (iconSize * numTools) + (buttonSpacing * (numTools - 1));
     float toolbarHeight = iconSize;
 
-    m_toolbarBounds = AestraUI::NUIRect(toolbarX, toolbarY, toolbarWidth, toolbarHeight);
+    m_toolbarBounds = AestraUI::NUIRect(toolbarX, iconY, toolbarWidth, toolbarHeight);
 
     m_selectToolBounds = AestraUI::NUIRect(iconX, iconY, iconSize, iconSize);
     iconX += iconSize + buttonSpacing;
@@ -240,6 +296,13 @@ void TrackManagerUI::updateToolbarBounds() {
 
     // 5. Menu (rightmost)
     m_menuIconBounds = AestraUI::NUIRect(iconX, iconY, iconSize, iconSize);
+
+    // Content-sized corner container: the union of every button, so hover and
+    // hit testing describe what is actually drawn, not a reserved plate.
+    const float contentWidth = (iconX + iconSize) - currentX;
+    m_toolbarCornerBounds = AestraUI::NUIRect(
+        currentX, rulerY, std::min(contentWidth, cornerWidth), kTimelineRulerHeight);
+
     if (m_addTrackBtn) {
         m_addTrackBtn->setBounds(m_addTrackBounds);
     }
@@ -557,13 +620,19 @@ bool TrackManagerUI::handleToolbarClick(const AestraUI::NUIPoint& position) {
                     }
                 }
 
-                PlaylistLaneID laneId = playlist.getLaneId(trackIndex);
-                if (laneId.isValid()) {
-                    const PlaylistLane* lane = playlist.getLane(laneId);
-                    std::string trackName = lane ? lane->name : ("Track " + std::to_string(trackIndex + 1));
-                    // Pass track index instead of lane ID internal value
-                    m_onSendToAudition(static_cast<uint32_t>(trackIndex), trackName);
-                    Log::info("Sending track to Audition: " + trackName);
+                // Display-row index, not playlist index: rows are track-grouped
+                // (FD-14 §10), so the lane must come from the row widget itself.
+                if (trackIndex < static_cast<int>(m_trackUIComponents.size())) {
+                    PlaylistLaneID laneId = m_trackUIComponents[trackIndex]->getLaneId();
+                    if (laneId.isValid()) {
+                        const PlaylistLane* lane = playlist.getLane(laneId);
+                        std::string trackName = lane ? lane->name : ("Track " + std::to_string(trackIndex + 1));
+                        // Display rows are not mixer channels after lane grouping;
+                        // resolve like the per-track audition button does.
+                        const uint32_t channelIndex = resolveLaneToChannelIndex(lane, static_cast<uint32_t>(trackIndex));
+                        m_onSendToAudition(channelIndex, trackName);
+                        Log::info("Sending track to Audition: " + trackName);
+                    }
                 }
             }
         });
@@ -630,30 +699,32 @@ void TrackManagerUI::renderToolCursor(AestraUI::NUIRenderer& renderer, const Aes
     }
 
     if (isHoveringTrimEdge) {
-        // Render horizontal resize cursor (⬌)
+        // Render horizontal resize cursor — the canonical registry glyph,
+        // tinted for the neutral/trimming states.
         auto& theme = AestraUI::NUIThemeManager::getInstance();
         AestraUI::NUIColor cursorColor =
             isTrimming ? theme.getColor("accentCyan") : theme.getColor("textPrimary").withAlpha(0.78f);
 
-        // Draw left-right arrows (simple ⬌ shape)
-        float cx = position.x;
-        float cy = position.y;
-        float arrowSize = 8.0f;
-
-        // Left arrow
-        renderer.drawLine({cx - arrowSize * 2, cy}, {cx - arrowSize, cy}, 2.0f, cursorColor);
-        renderer.drawLine({cx - arrowSize * 2, cy}, {cx - arrowSize * 1.5f, cy - arrowSize * 0.5f}, 2.0f, cursorColor);
-        renderer.drawLine({cx - arrowSize * 2, cy}, {cx - arrowSize * 1.5f, cy + arrowSize * 0.5f}, 2.0f, cursorColor);
-
-        // Right arrow
-        renderer.drawLine({cx + arrowSize, cy}, {cx + arrowSize * 2, cy}, 2.0f, cursorColor);
-        renderer.drawLine({cx + arrowSize * 2, cy}, {cx + arrowSize * 1.5f, cy - arrowSize * 0.5f}, 2.0f, cursorColor);
-        renderer.drawLine({cx + arrowSize * 2, cy}, {cx + arrowSize * 1.5f, cy + arrowSize * 0.5f}, 2.0f, cursorColor);
-
-        // Center bar
-        renderer.drawLine({cx - arrowSize, cy}, {cx + arrowSize, cy}, 2.0f, cursorColor);
+        if (m_trimCursorIcon) {
+            m_trimCursorIcon->setColor(cursorColor);
+            AestraUI::NUIRect iconRect(position.x - 9, position.y - 9, 18, 18);
+            m_trimCursorIcon->setBounds(iconRect);
+            m_trimCursorIcon->onRender(renderer);
+        }
 
         return; // Skip other tool cursors when resize cursor is active
+    }
+
+    // Ruler scrub/loop zone and minimap viewport-pan → grab hand (the draggable
+    // navigation surfaces). Trim (above), split/paint tools and minimap-edge
+    // resize all take precedence over this.
+    if (isRulerPointerActive() || (m_timelineMinimap && m_timelineMinimap->isVisible() &&
+                                   m_timelineMinimap->isViewportPanActive())) {
+        if (m_grabCursorIcon) {
+            m_grabCursorIcon->setBounds(AestraUI::NUIRect(position.x - 9, position.y - 9, 18, 18));
+            m_grabCursorIcon->onRender(renderer);
+        }
+        return;
     }
 
     // Only render if tool requires custom cursor
@@ -668,13 +739,10 @@ void TrackManagerUI::renderToolCursor(AestraUI::NUIRenderer& renderer, const Aes
     const auto& layout = themeManager.getLayoutDimensions();
     float controlAreaWidth = layout.trackControlsWidth;
     float gridStartX = bounds.x + controlAreaWidth + kTimelineGridInsetX;
-    float headerHeight = kTimelineHeaderHeight;
-    float rulerHeight = kTimelineRulerHeight;
-    float horizontalScrollbarHeight = kTimelineHorizontalScrollbarHeight;
-    float trackAreaTop = bounds.y + headerHeight + horizontalScrollbarHeight + rulerHeight;
+    float trackAreaTop = bounds.y + kTimelineTimeBandHeight;
 
     AestraUI::NUIRect gridBounds(gridStartX, trackAreaTop, bounds.width - controlAreaWidth - 20.0f,
-                                 bounds.height - headerHeight - rulerHeight - horizontalScrollbarHeight);
+                                 bounds.height - kTimelineTimeBandHeight);
 
     // If mouse is outside grid, don't render tool cursor (Main.cpp renders default arrow)
     if (!gridBounds.contains(position)) {
@@ -783,13 +851,10 @@ void TrackManagerUI::renderMinimapResizeCursor(AestraUI::NUIRenderer& renderer, 
         const auto& layout = themeManager.getLayoutDimensions();
         const float controlAreaWidth = layout.trackControlsWidth;
         const float gridStartX = bounds.x + controlAreaWidth + kTimelineGridInsetX;
-        const float headerHeight = kTimelineHeaderHeight;
-        const float rulerHeight = kTimelineRulerHeight;
-        const float horizontalScrollbarHeight = kTimelineHorizontalScrollbarHeight;
-        const float trackAreaTop = bounds.y + headerHeight + horizontalScrollbarHeight + rulerHeight;
+        const float trackAreaTop = bounds.y + kTimelineTimeBandHeight;
 
         AestraUI::NUIRect gridBounds(gridStartX, trackAreaTop, bounds.width - controlAreaWidth - 20.0f,
-                                     bounds.height - headerHeight - rulerHeight - horizontalScrollbarHeight);
+                                     bounds.height - kTimelineTimeBandHeight);
         if (gridBounds.contains(position)) {
             return; // Tool cursor takes priority in grid area
         }
@@ -814,48 +879,22 @@ void TrackManagerUI::renderMinimapResizeCursor(AestraUI::NUIRenderer& renderer, 
         return;
     }
 
-    // Render custom resize cursor (system cursor always hidden by Main.cpp)
-
-    auto& themeManager = AestraUI::NUIThemeManager::getInstance();
-    const AestraUI::NUIColor active = themeManager.getColor("borderActive").withAlpha(0.95f);
-    const AestraUI::NUIColor shadow(0.0f, 0.0f, 0.0f, 0.70f);
-
-    const float size = 18.0f;
-    const float half = size * 0.5f;
-    const float a = 5.0f; // Slightly larger arrow head for crispness
-
-    const float x = std::floor(position.x) + 0.5f; // Align to pixel grid
-    const float y = std::floor(position.y) + 0.5f;
-
-    // Crisp White
-    const AestraUI::NUIColor white(1.0f, 1.0f, 1.0f, 1.0f);
-    // Dark shadow for contrast
-    const AestraUI::NUIColor arrowShadow(0.0f, 0.0f, 0.0f, 0.8f);
-
-    // Shadow (outline)
-    constexpr float kShadowWidth = 4.0f;
-    renderer.drawLine(AestraUI::NUIPoint(x - half, y), AestraUI::NUIPoint(x + half, y), kShadowWidth, arrowShadow);
-    renderer.drawLine(AestraUI::NUIPoint(x - half, y), AestraUI::NUIPoint(x - half + a, y - a), kShadowWidth,
-                      arrowShadow);
-    renderer.drawLine(AestraUI::NUIPoint(x - half, y), AestraUI::NUIPoint(x - half + a, y + a), kShadowWidth,
-                      arrowShadow);
-    renderer.drawLine(AestraUI::NUIPoint(x + half, y), AestraUI::NUIPoint(x + half - a, y - a), kShadowWidth,
-                      arrowShadow);
-    renderer.drawLine(AestraUI::NUIPoint(x + half, y), AestraUI::NUIPoint(x + half - a, y + a), kShadowWidth,
-                      arrowShadow);
-
-    // Foreground (White)
-    constexpr float kLineWidth = 2.0f;
-    renderer.drawLine(AestraUI::NUIPoint(x - half, y), AestraUI::NUIPoint(x + half, y), kLineWidth, white);
-    renderer.drawLine(AestraUI::NUIPoint(x - half, y), AestraUI::NUIPoint(x - half + a, y - a), kLineWidth, white);
-    renderer.drawLine(AestraUI::NUIPoint(x - half, y), AestraUI::NUIPoint(x - half + a, y + a), kLineWidth, white);
-    renderer.drawLine(AestraUI::NUIPoint(x + half, y), AestraUI::NUIPoint(x + half - a, y - a), kLineWidth, white);
-    renderer.drawLine(AestraUI::NUIPoint(x + half, y), AestraUI::NUIPoint(x + half - a, y + a), kLineWidth, white);
+    // Render custom resize cursor — the canonical ResizeEW registry glyph
+    // (system cursor always hidden by Main.cpp). Same asset the custom-cursor
+    // overlay uses for horizontal resize everywhere.
+    if (m_resizeCursorIcon) {
+        m_resizeCursorIcon->setBounds(AestraUI::NUIRect(position.x - 9, position.y - 9, 18, 18));
+        m_resizeCursorIcon->onRender(renderer);
+    }
 }
 
 void TrackManagerUI::performSplitAtPosition(int laneIndex, double timeSeconds) {
     auto& playlist = m_trackManager->getPlaylistModel();
-    PlaylistLaneID laneId = playlist.getLaneId(laneIndex);
+    // Display-row index, not playlist index: rows are track-grouped
+    // (FD-14 §10), so the lane must come from the row widget itself.
+    if (laneIndex < 0 || laneIndex >= static_cast<int>(m_trackUIComponents.size()))
+        return;
+    PlaylistLaneID laneId = m_trackUIComponents[laneIndex]->getLaneId();
     if (!laneId.isValid())
         return;
 

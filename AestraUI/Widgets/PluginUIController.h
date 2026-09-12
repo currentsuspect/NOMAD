@@ -1,10 +1,11 @@
 // © 2025 Aestra Studios — All Rights Reserved. Licensed for personal & educational use only.
 #pragma once
 
+#include "GenericPluginEditor.h"
+#include "Helpers/MixerPluginListPolicy.h"
 #include "NUIComponent.h"
 #include "NUITypes.h"
 #include "PluginBrowserPanel.h"
-#include "GenericPluginEditor.h"
 
 // Forward declaration
 class NUIPlatformBridge;
@@ -19,12 +20,19 @@ class NUIPlatformBridge;
 #include <memory>
 #include "Events/Connection.h"
 #include <algorithm>
+#include <cstdint>
 #include <string>
 #include <vector>
 
 #ifdef AESTRAUI_ENABLE_PREMIUM_EDITORS
 #include "RumblePluginEditor.h"
 #endif
+
+namespace Aestra {
+namespace Audio {
+class TrackManager;
+}
+} // namespace Aestra
 
 namespace AestraUI {
 class UIMixerPluginDropdown;
@@ -74,7 +82,18 @@ public:
      * @param layer Popup-layer component that owns transient menus and editors.
      */
     void setPopupLayer(NUIComponent* layer);
-    
+
+    /**
+     * @brief Provide the current mixer plugin catalog for on-demand popups.
+     *
+     * The quick-add menus created per click for the inspector rack's
+     * "+ Add Insert" slot are throwaway UIMixerPluginDropdown instances —
+     * unlike the mixer strip's persistent dropdown they receive no catalog
+     * republish, so without this provider they open empty. The app layer
+     * owns the scanned-plugin → MixerPluginEntry mapping.
+     */
+    void setMixerCatalogProvider(std::function<std::vector<Aestra::Components::MixerPluginEntry>()> provider);
+
     // ==============================
     // Browser Binding
     // ==============================
@@ -110,11 +129,14 @@ public:
     // ==============================
     
     /**
-     * @brief Bind an EffectChainRack to an audio EffectChain
+     * @brief Bind an EffectChainRack to a mixer channel's effect chain
      * @param rack Rack widget to populate.
-     * @param chain Audio effect chain mirrored by the rack.
+     * @param trackManager Track manager owning the channel (id 0 = master).
+     * @param channelId Stable mixer channel identity — the chain is resolved
+     *        fresh at refresh/callback time so a deleted channel can never
+     *        leave the rack pointing at freed memory.
      */
-    void bindEffectRack(EffectChainRack* rack, Aestra::Audio::EffectChain* chain);
+    void bindEffectRack(EffectChainRack* rack, Aestra::Audio::TrackManager* trackManager, uint32_t channelId);
     
     /**
      * @brief Unbind effect rack
@@ -223,12 +245,21 @@ private:
     // Bound widgets
     PluginBrowserPanel* m_browser = nullptr;
     
-    // Rack bindings (rack -> chain)
+    // Rack bindings (rack -> stable channel identity). The chain is resolved
+    // fresh at use time (resolveBoundChain), never cached: a channel can die
+    // with its chain at any moment, and a raw chain pointer in the binding is
+    // what made refreshRackDisplay crash in getPlugin() — three SEGVs on
+    // 2026-08-16, two more after the first fix (22:04, 22:19).
     struct RackBinding {
         EffectChainRack* rack;
-        Aestra::Audio::EffectChain* chain;
+        Aestra::Audio::TrackManager* trackManager;
+        uint32_t channelId;
     };
     std::vector<RackBinding> m_rackBindings;
+
+    /** Resolve the live chain for a bound rack, or nullptr when the channel
+     * (or its chain) no longer exists. Channel id 0 = master channel. */
+    Aestra::Audio::EffectChain* resolveBoundChain(EffectChainRack* rack);
     
     // effectChainChanged is a scoped subscription signal for effect-chain mutations.
     std::function<void(int)> m_onScanComplete;
@@ -237,6 +268,9 @@ private:
     NUIComponent* m_popupLayer = nullptr;
     std::shared_ptr<UIMixerPluginDropdown> m_activeMenu;
     std::vector<std::shared_ptr<NUIComponent>> m_activeEditors;
+
+    // Catalog source for on-demand popup menus (see setMixerCatalogProvider)
+    std::function<std::vector<Aestra::Components::MixerPluginEntry>()> m_mixerCatalogProvider;
 };
 
 /**

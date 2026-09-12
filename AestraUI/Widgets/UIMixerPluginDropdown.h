@@ -1,6 +1,7 @@
 // © 2025 Aestra Studios — All Rights Reserved. Licensed for personal & educational use only.
 #pragma once
 
+#include "Helpers/MixerPluginListPolicy.h"
 #include "NUIComponent.h"
 #include "NUITextInput.h"
 #include "NUITypes.h"
@@ -27,18 +28,30 @@ public:
     bool onKeyEvent(const NUIKeyEvent& event) override;
 
     // Position the dropdown anchored to the trigger rect.
-    // If flipIfOverflow is true and the dropdown would extend past panelBottomY,
-    // it opens upward instead of downward.
-    void showAt(const NUIRect& triggerRect, float panelBottomY);
+    // If it would extend past panelBottomY it opens upward; panelTopY bounds
+    // that upward flip so the box is clamped inside the host panel instead of
+    // landing above it (panels clip their children).
+    void showAt(const NUIRect& triggerRect, float panelBottomY, float panelTopY = 0.0f);
     void hide();
     bool isOpen() const { return m_open; }
 
     // Callback: plugin ID, display name
     std::function<void(const std::string& pluginId, const std::string& pluginName)> onPluginSelected;
-    // Callback: user clicked "Browse all plugins"
-    std::function<void()> onBrowseAllRequested;
+    // Callback: user clicked "Browse all plugins" — current search query is
+    // passed so the host can pre-seed the full browser with the same terms
+    // and the user lands on the right results, not a blank search.
+    std::function<void(const std::string& searchQuery)> onBrowseAllRequested;
+    // Callback: the host should re-publish the current plugin catalog
+    // (used when the dropdown opens with an empty catalog because the
+    // initial setup-time refresh ran before the async scan completed).
+    std::function<void()> onRequestRefresh;
     // Callback: dropdown was dismissed
     std::function<void()> onDismissed;
+
+    /// Replace the dropdown's catalog (app layer injects from the plugin
+    /// scanner: internal registry + VST3/CLAP). Grouping, mixer-insert
+    /// filtering and ordering are the policy's job (MixerPluginListPolicy.h).
+    void setPluginEntries(std::vector<Aestra::Components::MixerPluginEntry> entries);
 
 private:
     struct PluginItem {
@@ -85,15 +98,24 @@ private:
     std::shared_ptr<NUITextInput> m_searchInput;
 
     void cacheThemeColors();
-    void buildPluginList();
     void filter();
     void dismiss();
+
+    // Display source for render / hit-test / click: normally m_filtered,
+    // which setPluginEntries()/filter()/showAt() keep valid. If m_filtered
+    // is ever stale-empty while the catalog has rows, the fallback view is
+    // recomputed into scratch so the dropdown can't render blank — without
+    // copying the catalog on the per-frame paths.
+    const std::vector<Category>& displayCategories() const;
 
     // Flat row access for hit testing / rendering
     struct FlatRow { bool isCategory; int catIndex; int itemIndex; float y; float h; };
     std::vector<FlatRow> flatten(const std::vector<Category>& cats) const;
     int hitTestRow(const NUIPoint& p) const;
     bool hitTestFooter(const NUIPoint& p) const;
+
+    // Scratch for displayCategories()' rare fallback path (const method).
+    mutable std::vector<Category> m_displayFallback;
 };
 
 } // namespace AestraUI

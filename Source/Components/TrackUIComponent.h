@@ -16,6 +16,7 @@
 #include "NUIDragDrop.h"
 #include <memory>
 #include <map>
+#include <unordered_map>
 
 namespace AestraUI {
 class NUIPlatformBridge;
@@ -58,6 +59,10 @@ public:
     // Primary/Secondary lane status - primary draws controls, secondary only draws clip
     void setIsPrimaryForLane(bool isPrimary) { m_isPrimaryForLane = isPrimary; }
     bool isPrimaryForLane() const { return m_isPrimaryForLane; }
+    void setIsNestedLane(bool nested) { m_isNestedLane = nested; }
+    bool isNestedLane() const { return m_isNestedLane; }
+    void setTrackCollapsed(bool collapsed) { m_trackCollapsed = collapsed; }
+    void setOnExpandToggled(std::function<void()> callback) { m_onExpandToggled = std::move(callback); }
     
     // Callback for when solo is toggled (so parent can update all track UIs)
     void setOnSoloToggled(std::function<void(TrackUIComponent*)> callback) { m_onSoloToggledCallback = callback; }
@@ -108,6 +113,26 @@ public:
         }
     }
     ClipInstanceID getSelectedClipId() const { return m_selectedClipId; }
+    /** @brief Shift+click additive pick (#848): fired instead of the replace callback. */
+    void setOnClipSelectionAdd(std::function<void(TrackUIComponent*, ClipInstanceID)> callback) {
+        m_onClipSelectionAddCallback = std::move(callback);
+    }
+    /**
+     * @brief Non-owning view of the parent's multi-clip selection (#848).
+     *
+     * When set, every clip in the selection renders highlighted (marquee/box
+     * select); when null, only the single anchor id does.
+     */
+    void setSelectedClips(const TimelineClipSelection* selected) {
+        if (m_selectedClips != selected) {
+            m_selectedClips = selected;
+            setDirty(true);
+        }
+    }
+    /** @brief True when the clip should render as selected (multi-set or anchor). */
+    bool isClipHighlighted(const ClipInstanceID& clipId) const {
+        return (m_selectedClips && m_selectedClips->contains(clipId)) || clipId == m_selectedClipId;
+    }
     /** @brief Supply the parent-computed Playlist solo aggregate for this render pass. */
     void setAnyPlaylistLaneSoloed(bool anySoloed) { m_anyPlaylistLaneSoloed = anySoloed; }
     
@@ -127,6 +152,7 @@ public:
     void setTimelineScrollOffset(float offset) { m_timelineScrollOffset = offset; }
     void setMaxTimelineExtent(double extent) { m_maxTimelineExtent = extent; }
     void setSnapSetting(AestraUI::SnapGrid snap) { m_snapSetting = snap; }
+    void setSnapEnabled(bool enabled) { m_snapEnabled = enabled; }
     
     // Loop state for visual rendering
     void setLoopEnabled(bool enabled) { m_loopEnabled = enabled; }
@@ -172,7 +198,12 @@ private:
     TrackManager* m_trackManager; // For coordinating solo exclusivity
     bool m_selected = false; // Track selection state
     ClipInstanceID m_selectedClipId; // Persistent clip selection supplied by TrackManagerUI
+    const TimelineClipSelection* m_selectedClips{nullptr}; // Multi-select view (#848)
+    ClipInstanceID m_hoveredClipId; // Clip under the pointer (hamburger affordance)
     bool m_isPrimaryForLane = true; // Primary draws control area, secondary only draws clip
+    bool m_isNestedLane = false; // Owned non-primary lane row (FD-14 §10 nesting)
+    bool m_trackCollapsed = false; // Owning track's collapse state (chevron glyph)
+    std::function<void()> m_onExpandToggled;
     bool m_anyPlaylistLaneSoloed = false;
     bool m_isLoading = false;
     float m_loadProgress = 0.0f;
@@ -186,6 +217,7 @@ private:
     std::function<bool()> m_isSplitToolActiveCallback;
     std::function<void(TrackUIComponent*, double)> m_onSplitRequestedCallback;
     std::function<void(TrackUIComponent*, ClipInstanceID)> m_onClipSelectedCallback;
+    std::function<void(TrackUIComponent*, ClipInstanceID)> m_onClipSelectionAddCallback;
     std::function<void(PatternID)> m_onPatternClipOpenRequested;
     std::function<void(ClipInstanceID)> m_onAudioClipOpenRequested;
     std::function<void(PatternID)> m_onPatternClipDragStarted;
@@ -203,6 +235,9 @@ private:
     
     // Snap Setting
     AestraUI::SnapGrid m_snapSetting = AestraUI::SnapGrid::Bar;
+    // Mirrors TrackManagerUI's master snap toggle. Trim/resize must honor the
+    // same switch move/drag does, or clips "have a mind of their own".
+    bool m_snapEnabled = true;
     
     // Loop state for visual rendering
     bool m_loopEnabled = false;
@@ -241,7 +276,6 @@ private:
  
     // Automation Interaction State (v3.1)
     bool m_isDraggingPoint = false;
-    bool m_isDraggingVolumeFader = false;
     int m_draggedPointIndex = -1;
     int m_draggedCurveIndex = -1;
     // Point position at drag start; a release that never moved the point
@@ -261,22 +295,16 @@ private:
 
     // UI Components
     std::shared_ptr<AestraUI::NUILabel> m_nameLabel;
-    std::shared_ptr<AestraUI::NUISlider> m_volumeFader;
+    std::shared_ptr<AestraUI::NUILabel> m_laneCountLabel;
+    std::shared_ptr<AestraUI::NUIIcon> m_laneCountIcon;
     std::shared_ptr<AestraUI::NUIButton> m_muteButton;
     std::shared_ptr<AestraUI::NUIButton> m_soloButton;
     std::shared_ptr<AestraUI::NUIButton> m_recordButton;
+    std::shared_ptr<AestraUI::NUIButton> m_expandButton;
     std::shared_ptr<AestraUI::NUIContextMenu> m_recordModeMenu;
     std::shared_ptr<AestraUI::NUIContextMenu> m_clipRoutingMenu;
 
-    // Volume Knob (replaces route button)
-    float m_volumeKnobValue = 1.0f;
-    bool m_isDraggingVolumeKnob = false;
-    bool m_volumeKnobHovered = false;
-    AestraUI::NUIPoint m_volumeKnobDragStartPos;
-    float m_volumeKnobDragStartValue = 0.0f;
-    AestraUI::NUIRect m_volumeKnobBounds;
-
-    // Cursor capture state for volume knob (hidden cursor + lock-on)
+    // Cursor capture state for drag interactions (hidden cursor + lock-on).
     AestraUI::NUIPlatformBridge* m_platformBridge = nullptr;
     AestraUI::NUIPoint m_volumeWarpOrigin;
     float m_volumeLastDragY = 0.0f;
@@ -289,6 +317,8 @@ private:
     void onRecordToggled();
     void showRecordModeMenu(const AestraUI::NUIPoint& position);
     void updateRecordTooltip();
+    std::string recordButtonTooltipText() const;
+    MixerChannel* resolveMonitorChannel() const;
 
     void drawWaveform(AestraUI::NUIRenderer& renderer, const AestraUI::NUIRect& bounds,
                      float offsetRatio = 0.0f, float visibleRatio = 1.0f);
@@ -303,11 +333,8 @@ private:
     // Zoom-aware waveform drawing helpers
     void drawChannelWaveform(AestraUI::NUIRenderer& renderer, float x, float y, float w, float h,
                              const std::vector<Aestra::Audio::WaveformPeak>& peaks,
-                             const AestraUI::NUIColor& tint);
-    void drawCombinedWaveform(AestraUI::NUIRenderer& renderer, const AestraUI::NUIRect& bounds,
-                              const std::vector<Aestra::Audio::WaveformPeak>& peaksL,
-                              const std::vector<Aestra::Audio::WaveformPeak>& peaksR, size_t numChannels,
-                              const AestraUI::NUIColor& tint);
+                             const AestraUI::NUIColor& tint,
+                             const std::vector<Aestra::Audio::WaveformPeak>* peaksR = nullptr);
 
     // Deep-zoom helper: render finer than the peak cache's base mip level using the
     // same fractional source-frame bins as the cached path.
@@ -331,17 +358,34 @@ private:
     // Reusable peak buffers to avoid per-frame allocations
     std::vector<Aestra::Audio::WaveformPeak> m_waveformPeaksL;
     std::vector<Aestra::Audio::WaveformPeak> m_waveformPeaksR;
-    std::vector<Aestra::Audio::WaveformPeak> m_waveformPeaksMerged;
     std::vector<AestraUI::NUIPoint> m_waveformTopPts;
     std::vector<AestraUI::NUIPoint> m_waveformBottomPts;
+    std::vector<float> m_waveformRmsVals;
+
+    // Per-source memo of the last waveform query. Repaints that don't change a
+    // clip's (revision, source range, pixel width, path) skip the cache lock +
+    // per-pixel merge entirely — hover/selection/playhead frames reuse columns.
+    // Keyed by live source pointer; hits re-validate against the LIVE source's
+    // revision/frame count, so stale entries are never dereferenced.
+    struct WaveQueryMemo {
+        bool valid = false;
+        uint64_t revision = 0;
+        uint64_t totalFrames = 0;
+        size_t numChannels = 0;
+        double start = 0.0;
+        double end = 0.0;
+        int width = 0;
+        int pathId = -1;
+        uint64_t lastSeenFrame = 0;
+        std::vector<Aestra::Audio::WaveformPeak> l;
+        std::vector<Aestra::Audio::WaveformPeak> r;
+    };
+    std::unordered_map<const void*, WaveQueryMemo> m_waveQueryMemo;
+    uint64_t m_paintFrame = 0;
     
     PlaylistLaneID m_laneId;
     std::shared_ptr<MixerChannel> m_channel;
 
-    
-    // Playlist grid rendering
-    void drawPlaylistGrid(AestraUI::NUIRenderer& renderer, const AestraUI::NUIRect& bounds);
-    
     void showClipRoutingMenu(const ClipInstanceID& clipId, const AestraUI::NUIPoint& position);
     // Helper to draw a single clip (waveform + container) at calculated position
     void drawClipAtPosition(AestraUI::NUIRenderer& renderer, const ClipInstance& clip,

@@ -120,7 +120,6 @@ void NUIPlatformBridge::setupEventBridges() {
         if (rootInputBlocked) {
             return;
         }
-
         // Forward to root component for hover effects
         if (m_rootComponent) {
             NUIMouseEvent event;
@@ -220,6 +219,20 @@ void NUIPlatformBridge::setupEventBridges() {
         }
     });
 
+    // Window enter/leave: forwarded to the app layer (AestraWindowManager) so
+    // it can release component cursor styles and stranded drag captures when
+    // the pointer exits the window.
+    m_window->setMouseEnterCallback([this]() {
+        if (m_mouseEnterCallback) {
+            m_mouseEnterCallback();
+        }
+    });
+    m_window->setMouseLeaveCallback([this]() {
+        if (m_mouseLeaveCallback) {
+            m_mouseLeaveCallback();
+        }
+    });
+
     // Mouse wheel
     m_window->setMouseWheelCallback([this](float delta) {
         if (!isWindowInteractive()) {
@@ -267,10 +280,11 @@ void NUIPlatformBridge::setupEventBridges() {
     // Key
     m_window->setKeyCallback([this](Aestra::KeyCode key, bool pressed, const Aestra::KeyModifiers& mods) {
         if (key == Aestra::KeyCode::CapsLock && pressed) {
-            m_capsLockLatched = !m_capsLockLatched;
-        }
-        if (mods.capsLock) {
-            m_capsLockLatched = true;
+            // Sync from the platform's live state instead of blind-toggling:
+            // a one-way "re-stick when any event reports capsLock" ratchet could
+            // leave the latch stuck true after a toggle whose key event reports
+            // pre-toggle modifier state, routing every wheel to horizontal scroll.
+            m_capsLockLatched = m_window && m_window->getCurrentModifiers().capsLock;
         }
         if (m_keyCallback) {
             m_keyCallback(convertKeyCode(key), pressed);
@@ -527,6 +541,14 @@ bool NUIPlatformBridge::makeContextCurrent() {
 
 void NUIPlatformBridge::setMouseMoveCallback(std::function<void(int, int)> callback) {
     m_mouseMoveCallback = callback;
+}
+
+void NUIPlatformBridge::setMouseEnterCallback(std::function<void()> callback) {
+    m_mouseEnterCallback = std::move(callback);
+}
+
+void NUIPlatformBridge::setMouseLeaveCallback(std::function<void()> callback) {
+    m_mouseLeaveCallback = std::move(callback);
 }
 
 void NUIPlatformBridge::setMouseButtonCallback(std::function<void(int, bool)> callback) {

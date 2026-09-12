@@ -129,6 +129,33 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Integration/ProjectRoundTripTest.cpp")
     set_tests_properties(ProjectRoundTripTest AutosaveRoundTripTest PROPERTIES LABELS "integration;serialization;contract:durability")
 endif()
 
+# Fit-to-bars persistence: the fit writes the serializer-canonical
+# durationSeconds (preferred over beats), so the fitted pitch+rate state and
+# the #746 invariant must survive save -> load.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Integration/ClipFitPersistenceTest.cpp")
+    add_executable(ClipFitPersistenceTest
+        Integration/ClipFitPersistenceTest.cpp
+        ${CMAKE_SOURCE_DIR}/Source/Core/ProjectSerializer.cpp
+    )
+    target_link_libraries(ClipFitPersistenceTest PRIVATE AestraAudio)
+    target_include_directories(ClipFitPersistenceTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Core
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/DSP
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Playback
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/IO
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Drivers
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Plugin
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Commands
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Headless
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+        ${CMAKE_SOURCE_DIR}/Source
+    )
+    add_test(NAME ClipFitPersistenceTest COMMAND ClipFitPersistenceTest)
+    set_tests_properties(ClipFitPersistenceTest PROPERTIES LABELS "integration;serialization;contract:durability")
+endif()
+
 # Workspace-state roundtrip test (phase-3): the optional viewFocus/pianoRollOpen/
 # sequencerOpen UIState fields roundtrip, legacy files keep default, malformed
 # focus names are dropped. Serialization is AGENTS.md §12 high-risk; this runs
@@ -411,6 +438,32 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Integration/ProjectLoadRegressionTest.cpp
     set_tests_properties(ProjectLoadRegressionTest PROPERTIES LABELS "integration;regression;routing;contract:durability")
 endif()
 
+# T-7 relink/recovery: SourceManager path-rebind contract + missing-asset
+# load/save round-trip (the dialog's engine half, headless).
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/SourceManagerRelinkTest.cpp")
+    add_executable(SourceManagerRelinkTest
+        AestraAudio/SourceManagerRelinkTest.cpp
+        ${CMAKE_SOURCE_DIR}/Source/Core/ProjectSerializer.cpp
+    )
+    target_link_libraries(SourceManagerRelinkTest PRIVATE AestraAudio)
+    target_include_directories(SourceManagerRelinkTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Core
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/DSP
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Playback
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/IO
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Drivers
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Plugin
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Commands
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Headless
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+        ${CMAKE_SOURCE_DIR}/Source
+    )
+    add_test(NAME SourceManagerRelinkTest COMMAND SourceManagerRelinkTest)
+    set_tests_properties(SourceManagerRelinkTest PROPERTIES LABELS "audio;recovery;contract:durability")
+endif()
+
 # Project History Cap (issue #274 — .history directory disk-usage bound)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Integration/ProjectHistoryCapTest.cpp")
     add_executable(ProjectHistoryCapTest
@@ -581,6 +634,16 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Integration/ResamplerBenchmark.cpp")
     # (#pragma / hasAVX() checks). Forcing -mavx2 breaks on CPUs without AVX2 support.
 endif()
 
+# Waveform Query Benchmark
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Integration/WaveformQueryBenchmark.cpp")
+    add_executable(WaveformQueryBenchmark Integration/WaveformQueryBenchmark.cpp)
+    target_link_libraries(WaveformQueryBenchmark PRIVATE AestraAudio)
+    target_include_directories(WaveformQueryBenchmark PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+    )
+endif()
+
 # Resampler War Test: deterministic SRC quality gate with optional references.
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
@@ -633,6 +696,19 @@ if(AESTRA_ENABLE_RUNTIME_TESTS)
     set_tests_properties(AestraAudioSoakTest PROPERTIES LABELS "audio;runtime;soak;long;contract:realtime")
 else()
     message(STATUS "AestraAudioSoakTest built but not registered (set AESTRA_ENABLE_RUNTIME_TESTS=ON to enable)")
+endif()
+
+# Long-session resource growth harness (#830): pattern/CommandHistory churn
+# while playing, with a fitted RSS-slope verdict. Runtime-gated like the soaks,
+# and registered only where RSS telemetry is collectible (Linux/Windows).
+add_executable(LongSessionResourceGrowthTest AestraAudio/LongSessionResourceGrowthTest.cpp)
+target_link_libraries(LongSessionResourceGrowthTest PRIVATE AestraAudio)
+if(AESTRA_ENABLE_RUNTIME_TESTS AND (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR WIN32))
+    add_test(NAME LongSessionResourceGrowthTest COMMAND LongSessionResourceGrowthTest)
+    set_tests_properties(LongSessionResourceGrowthTest
+        PROPERTIES LABELS "audio;runtime;soak;long;contract:audio")
+else()
+    message(STATUS "LongSessionResourceGrowthTest built but not registered (needs AESTRA_ENABLE_RUNTIME_TESTS=ON and RSS telemetry: Linux/Windows)")
 endif()
 
 # K-005: Driver-level Soak Test (runtime/device-dependent, exercises real audio path)
@@ -732,6 +808,19 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/RoutingRenderSemanticsTest.cp
     set_tests_properties(RoutingRenderSemanticsTest PROPERTIES LABELS "audio;routing;contract:audio")
 endif()
 
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/PatternContentEditDuringPlaybackTest.cpp")
+    add_executable(PatternContentEditDuringPlaybackTest AestraAudio/PatternContentEditDuringPlaybackTest.cpp)
+    target_link_libraries(PatternContentEditDuringPlaybackTest PRIVATE AestraAudio)
+    target_include_directories(PatternContentEditDuringPlaybackTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Plugin
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+    )
+    add_test(NAME PatternContentEditDuringPlaybackTest COMMAND PatternContentEditDuringPlaybackTest)
+    set_tests_properties(PatternContentEditDuringPlaybackTest
+        PROPERTIES LABELS "audio;playback;regression;contract:audio")
+endif()
+
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/SamplerLoopModeTest.cpp")
     add_executable(SamplerLoopModeTest AestraAudio/SamplerLoopModeTest.cpp)
     target_link_libraries(SamplerLoopModeTest PRIVATE AestraAudio)
@@ -756,6 +845,34 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/PatternPlaybackTempoChangeTes
     )
     add_test(NAME PatternPlaybackTempoChangeTest COMMAND PatternPlaybackTempoChangeTest)
     set_tests_properties(PatternPlaybackTempoChangeTest PROPERTIES LABELS "audio;transport;pattern;regression;contract:audio")
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/PatternSliceSchedulingTest.cpp")
+    add_executable(PatternSliceSchedulingTest AestraAudio/PatternSliceSchedulingTest.cpp)
+    target_link_libraries(PatternSliceSchedulingTest PRIVATE AestraAudio)
+    target_include_directories(PatternSliceSchedulingTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Playback
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Plugin
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+    )
+    add_test(NAME PatternSliceSchedulingTest COMMAND PatternSliceSchedulingTest)
+    set_tests_properties(PatternSliceSchedulingTest PROPERTIES LABELS "audio;pattern;regression;contract:audio")
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/MuteSoloCommandRebuildTest.cpp")
+    add_executable(MuteSoloCommandRebuildTest AestraAudio/MuteSoloCommandRebuildTest.cpp)
+    target_link_libraries(MuteSoloCommandRebuildTest PRIVATE AestraAudio)
+    target_include_directories(MuteSoloCommandRebuildTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Core
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Commands
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+    )
+    add_test(NAME MuteSoloCommandRebuildTest COMMAND MuteSoloCommandRebuildTest)
+    set_tests_properties(MuteSoloCommandRebuildTest PROPERTIES LABELS "audio;mixer;regression;contract:audio")
 endif()
 
 # Sinc Interpolator Benchmark
@@ -897,15 +1014,34 @@ add_test(NAME PluginRemoveTakesEffectWithoutClipMoveTest COMMAND AestraPluginGra
 set_tests_properties(PluginInsertTakesEffectWithoutClipMoveTest PluginRemoveTakesEffectWithoutClipMoveTest
     PROPERTIES LABELS "audio;plugin;regression;contract:audio")
 
-# MixerChannel scratch buffer regression tests
-add_executable(AestraMixerChannelScratchBufferTest AestraAudio/MixerChannelScratchBufferTest.cpp)
-target_link_libraries(AestraMixerChannelScratchBufferTest PRIVATE AestraAudio)
-target_include_directories(AestraMixerChannelScratchBufferTest PRIVATE
+# AestraMixerChannelScratchBufferTest was removed with MixerChannel::processAudio
+# in the v0.7.1 dead-code pass. It was the only caller of that path, so it was
+# testing code production never ran -- coverage of a route the audio never took.
+# The live route (EffectChain -> getEffectChainSnapshot -> AudioGraphBuilder ->
+# renderGraph) is covered by EffectChainSnapshotTest,
+# EffectChainInstanceIdentityTest, MasterEffectChainTest and
+# PluginGraphInvalidationTest, which is why removing it opens no real gap.
+
+# Transient shaper material tests (P-1, TS-3)
+add_executable(AestraTransientTest AestraAudio/AestraTransientTest.cpp)
+target_link_libraries(AestraTransientTest PRIVATE AestraAudio)
+target_include_directories(AestraTransientTest PRIVATE
     ${CMAKE_SOURCE_DIR}/AestraAudio/include
     ${CMAKE_SOURCE_DIR}/AestraCore/include
 )
-add_test(NAME AestraMixerChannelScratchBufferTest COMMAND AestraMixerChannelScratchBufferTest)
-set_tests_properties(AestraMixerChannelScratchBufferTest PROPERTIES LABELS "audio;plugin;regression;contract:audio")
+add_test(NAME AestraTransientTest COMMAND AestraTransientTest)
+set_tests_properties(AestraTransientTest PROPERTIES LABELS "audio;plugin;contract:audio")
+
+# #845 regression: recording in a session with existing clips + patterns
+add_executable(RecordingSessionContentTest AestraAudio/RecordingSessionContentTest.cpp)
+target_link_libraries(RecordingSessionContentTest PRIVATE AestraAudio)
+target_include_directories(RecordingSessionContentTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include
+    ${CMAKE_SOURCE_DIR}/AestraCore/include
+)
+add_test(NAME RecordingSessionContentTest COMMAND RecordingSessionContentTest)
+set_tests_properties(RecordingSessionContentTest PROPERTIES LABELS "audio;recording;regression;contract:audio")
+
 
 # AudioEngineDiagnostics Test
 add_executable(AestraAudioEngineDiagnosticsTest AestraAudio/AudioEngineDiagnosticsTest.cpp)
@@ -1265,8 +1401,32 @@ else()
 endif()
 
 # Recording Path Test (headless, no audio hardware required)
+# FD-14 PR-1: Track model + lane ownership + load-time migration.
+add_executable(TrackOwnershipTest
+    AestraAudio/TrackOwnershipTest.cpp
+    ${CMAKE_SOURCE_DIR}/Source/Core/ProjectSerializer.cpp
+)
+target_link_libraries(TrackOwnershipTest PRIVATE AestraAudio)
+target_include_directories(TrackOwnershipTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Core
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/DSP
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Playback
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/IO
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Drivers
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Plugin
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Commands
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Headless
+    ${CMAKE_SOURCE_DIR}/AestraCore/include
+    ${CMAKE_SOURCE_DIR}/Source
+)
+add_test(NAME TrackOwnershipTest COMMAND TrackOwnershipTest)
+set_tests_properties(TrackOwnershipTest PROPERTIES LABELS "audio;tracks;migration;contract:audio")
+
 add_executable(RecordingPathTest
     AestraAudio/RecordingPathTest.cpp
+
     ${CMAKE_SOURCE_DIR}/Source/Core/ProjectSerializer.cpp
 )
 target_link_libraries(RecordingPathTest PRIVATE AestraAudio)
@@ -1285,6 +1445,114 @@ target_include_directories(RecordingPathTest PRIVATE
     ${CMAKE_SOURCE_DIR}/Source
 )
 add_test(NAME RecordingPathTest COMMAND RecordingPathTest)
+set_tests_properties(RecordingPathTest PROPERTIES LABELS "audio;recording;regression;contract:audio")
+
+# Count-in → recording contract (the count-in/recording sweep): Record → Count-in
+# → Recording starts, with capture aligned to the post-count-in beat.
+add_executable(CountInRecordingTest
+    AestraAudio/CountInRecordingTest.cpp
+    ${CMAKE_SOURCE_DIR}/Source/Core/ProjectSerializer.cpp
+)
+target_link_libraries(CountInRecordingTest PRIVATE AestraAudio)
+target_include_directories(CountInRecordingTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Core
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+    ${CMAKE_SOURCE_DIR}/AestraCore/include
+    ${CMAKE_SOURCE_DIR}/Source
+    ${CMAKE_SOURCE_DIR}/Tests
+)
+add_test(NAME CountInRecordingTest COMMAND CountInRecordingTest)
+set_tests_properties(CountInRecordingTest PROPERTIES LABELS "audio;recording;count-in;regression;contract:audio")
+
+# Reference-aware recording file cleanup (the recording-lifecycle sweep): kept
+# takes survive, discarded takes are removed only at session boundaries.
+add_executable(RecordingCleanupTest
+    AestraAudio/RecordingCleanupTest.cpp
+    ${CMAKE_SOURCE_DIR}/Source/Core/ProjectSerializer.cpp
+)
+target_link_libraries(RecordingCleanupTest PRIVATE AestraAudio)
+target_include_directories(RecordingCleanupTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Core
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+    ${CMAKE_SOURCE_DIR}/AestraCore/include
+    ${CMAKE_SOURCE_DIR}/Source
+    ${CMAKE_SOURCE_DIR}/Tests
+)
+add_test(NAME RecordingCleanupTest COMMAND RecordingCleanupTest)
+set_tests_properties(RecordingCleanupTest PROPERTIES LABELS "audio;recording;cleanup;regression;contract:audio")
+
+# Mixer knob state fidelity (Extra Session 2026-08-21): trim/pan/width must
+# survive save/reopen exactly.
+add_executable(MixerSerializationTest
+    AestraAudio/MixerSerializationTest.cpp
+    ${CMAKE_SOURCE_DIR}/Source/Core/ProjectSerializer.cpp
+)
+target_link_libraries(MixerSerializationTest PRIVATE AestraAudio)
+target_include_directories(MixerSerializationTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Core
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+    ${CMAKE_SOURCE_DIR}/AestraCore/include
+    ${CMAKE_SOURCE_DIR}/Source
+    ${CMAKE_SOURCE_DIR}/Tests
+)
+add_test(NAME MixerSerializationTest COMMAND MixerSerializationTest)
+set_tests_properties(MixerSerializationTest PROPERTIES LABELS "audio;mixer;serialization;regression;contract:audio")
+
+# Phase 2 baseline of the Track/Lane/Channel migration (vault: ownership
+# the current channel-based reality that the migration intentionally changes.
+add_executable(RecordingBaselineTest
+    AestraAudio/RecordingBaselineTest.cpp
+    ${CMAKE_SOURCE_DIR}/Source/Core/ProjectSerializer.cpp
+)
+target_link_libraries(RecordingBaselineTest PRIVATE AestraAudio)
+target_include_directories(RecordingBaselineTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Core
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/DSP
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Playback
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/IO
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Drivers
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Plugin
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Commands
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Headless
+    ${CMAKE_SOURCE_DIR}/AestraCore/include
+    ${CMAKE_SOURCE_DIR}/Source
+)
+add_test(NAME RecordingBaselineTest COMMAND RecordingBaselineTest)
+set_tests_properties(RecordingBaselineTest PROPERTIES LABELS "audio;recording;baseline;contract:audio")
+
+# FD-14 phase-5: lane deletion is undoable and identity-stable (DeleteLaneCommand).
+add_executable(DeleteLaneCommandTest
+    AestraAudio/DeleteLaneCommandTest.cpp
+)
+target_link_libraries(DeleteLaneCommandTest PRIVATE AestraAudio)
+target_include_directories(DeleteLaneCommandTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Core
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Commands
+)
+add_test(NAME DeleteLaneCommandTest COMMAND DeleteLaneCommandTest)
+set_tests_properties(DeleteLaneCommandTest PROPERTIES LABELS "audio;lanes;command;contract:audio")
+
+# Clip Movement Contract (§23, freeze 2026-08-18): cross-track moves keep clip
+# identity; automation bags never follow clips.
+add_executable(ClipMovementContractTest
+    AestraAudio/ClipMovementContractTest.cpp
+)
+target_link_libraries(ClipMovementContractTest PRIVATE AestraAudio)
+target_include_directories(ClipMovementContractTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Core
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Commands
+)
+add_test(NAME ClipMovementContractTest COMMAND ClipMovementContractTest)
+set_tests_properties(ClipMovementContractTest PROPERTIES LABELS "audio;lanes;movement;contract:audio")
 set_tests_properties(RecordingPathTest PROPERTIES LABELS "audio;recording;headless;contract:application")
 
 
@@ -1346,6 +1614,20 @@ target_include_directories(MetronomeRestartTest PRIVATE
 add_test(NAME MetronomeRestartTest COMMAND MetronomeRestartTest)
 set_tests_properties(MetronomeRestartTest PROPERTIES LABELS "audio;metronome;transport;regression;contract:audio" TIMEOUT 120)
 
+# Count-in lifecycle through the audio command queue (count-in/recording sweep):
+# the engine renders the configured count-in beats and clears when done — the
+# signal the app polls to start recording.
+add_executable(CountInEngineTest AestraAudio/CountInEngineTest.cpp)
+target_link_libraries(CountInEngineTest PRIVATE AestraAudio)
+target_include_directories(CountInEngineTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Core
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Playback
+    ${CMAKE_SOURCE_DIR}/AestraCore/include
+)
+add_test(NAME CountInEngineTest COMMAND CountInEngineTest)
+set_tests_properties(CountInEngineTest PROPERTIES LABELS "audio;metronome;count-in;record;regression;contract:audio" TIMEOUT 120)
+
 # Realtime/Export Parity — realtime processBlock output vs offline
 # bounceRangeToWav output for the same session, plus the preview-ducking
 # export-contamination probe. Doc: Aestra-Internals: aestra-docs/audio-integrity-infrastructure.md.
@@ -1388,16 +1670,16 @@ target_include_directories(RTAllocationTrapTest PRIVATE
 add_test(NAME RTAllocationTrapTest COMMAND RTAllocationTrapTest)
 set_tests_properties(RTAllocationTrapTest PROPERTIES LABELS "audio;rt-safety;integrity;s-tier;contract:realtime" TIMEOUT 180)
 
-# RT Guard Consolidation Test — proves the app-layer constraint macros in
-# Source/AudioThreadConstraints.h recognize a thread marked only by the canonical
-# ScopedRealtimeAudioThread (RealtimeThreadGuard.h). Regression guard for R1.
-# Header-only: RealtimeThreadGuard.h + AudioThreadConstraints.h define everything
-# inline, so no link deps (avoids dragging in the plugin registry link chain).
+# RT Guard Consolidation Test — pins the one-flag/one-reporting-call contract in
+# RealtimeThreadGuard.h: ScopedRealtimeAudioThread is the only RT marker (depth
+# counted, so nested guards behave), and reportRealtimeMisuse is the only
+# violation report. Regression guard for R1 (#553) and T-2 (#257); fails if a
+# parallel flag or counter is reintroduced.
 add_executable(RTGuardConsolidationTest AestraAudio/RTGuardConsolidationTest.cpp)
+target_link_libraries(RTGuardConsolidationTest PRIVATE AestraAudio)
 target_include_directories(RTGuardConsolidationTest PRIVATE
     ${CMAKE_SOURCE_DIR}/AestraAudio/include
     ${CMAKE_SOURCE_DIR}/AestraCore/include
-    ${CMAKE_SOURCE_DIR}/Source
 )
 add_test(NAME RTGuardConsolidationTest COMMAND RTGuardConsolidationTest)
 set_tests_properties(RTGuardConsolidationTest PROPERTIES LABELS "audio;rt-safety;integrity;contract:realtime" TIMEOUT 120)
@@ -1691,6 +1973,15 @@ target_include_directories(SafeClampFloatTest PRIVATE
 add_test(NAME SafeClampFloatTest COMMAND SafeClampFloatTest)
 set_tests_properties(SafeClampFloatTest PROPERTIES LABELS "ui;timeline;regression;contract:application")
 
+# Mixer plugin dropdown catalog contract: metadata-driven mixer-insert
+# filtering and grouping (header-only policy, no widget link).
+add_executable(MixerPluginListPolicyTest AestraUI/MixerPluginListPolicyTest.cpp)
+target_include_directories(MixerPluginListPolicyTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraUI
+)
+add_test(NAME MixerPluginListPolicyTest COMMAND MixerPluginListPolicyTest)
+set_tests_properties(MixerPluginListPolicyTest PROPERTIES LABELS "ui;mixer;regression;contract:application")
+
 add_executable(TimelineGeometryTest AestraUI/TimelineGeometryTest.cpp)
 target_include_directories(TimelineGeometryTest PRIVATE
     ${CMAKE_SOURCE_DIR}/Source/Components
@@ -1706,6 +1997,16 @@ target_include_directories(TimelineInteractionPolicyTest PRIVATE
 )
 add_test(NAME TimelineInteractionPolicyTest COMMAND TimelineInteractionPolicyTest)
 set_tests_properties(TimelineInteractionPolicyTest PROPERTIES LABELS "ui;timeline;selection;regression;contract:application")
+
+# Marquee drag contract (#847): ownership until matching-button release,
+# pure endpoint updates (no per-move invalidation surface). Header-only and
+# widget-free by design — see TimelineMarquee.h.
+add_executable(TimelineMarqueeTest AestraUI/TimelineMarqueeTest.cpp)
+target_include_directories(TimelineMarqueeTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/Source/Components
+)
+add_test(NAME TimelineMarqueeTest COMMAND TimelineMarqueeTest)
+set_tests_properties(TimelineMarqueeTest PROPERTIES LABELS "ui;timeline;selection;regression;contract:application")
 
 # Clip contrast contract: waveform ink must stay brighter than the clip body it
 # is drawn on, for every lane identity and both selection states.
@@ -1839,6 +2140,23 @@ else()
     message(STATUS "PianoRollStrokeInteractionTest skipped (AestraUI targets unavailable in this build mode)")
 endif()
 
+# Regression for #829: external lane edits (velocity/pan) must commit through
+# onNotesChanged_ so PatternManager and the refresh chain see them immediately.
+if(TARGET AestraUI_Core AND TARGET AestraUI_Platform)
+    add_executable(PianoRollExternalEditCommitTest AestraUI/PianoRollExternalEditCommitTest.cpp)
+    target_link_libraries(PianoRollExternalEditCommitTest PRIVATE AestraUI_Core AestraUI_Platform)
+    target_include_directories(PianoRollExternalEditCommitTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraUI
+        ${CMAKE_SOURCE_DIR}/AestraUI/Common
+        ${CMAKE_SOURCE_DIR}/AestraUI/Widgets
+    )
+    add_test(NAME PianoRollExternalEditCommitTest COMMAND PianoRollExternalEditCommitTest)
+    set_tests_properties(PianoRollExternalEditCommitTest
+        PROPERTIES LABELS "ui;interaction;pianoroll;regression;contract:application")
+else()
+    message(STATUS "PianoRollExternalEditCommitTest skipped (AestraUI targets unavailable in this build mode)")
+endif()
+
 # Editor-close deferred-destruction regression (#475): removeChild() during
 # event dispatch must defer and free safely (no iterator invalidation / UAF).
 if(TARGET AestraUI_Core)
@@ -1871,6 +2189,32 @@ else()
     message(STATUS "PanelWindowClickSwallowTest skipped (AestraUI_Core target unavailable in this build mode)")
 endif()
 
+# FD-16 seam test: persisted lane curves must reach ChannelViewModel through
+# MixerViewModel::syncFromEngine — the path the routing-map badge reads.
+if(TARGET AestraUI_Core AND TARGET AestraUI_Platform)
+    add_executable(MixerViewModelAutomationPresenceTest
+        AestraAudio/MixerViewModelAutomationPresenceTest.cpp
+        ${CMAKE_SOURCE_DIR}/Source/Components/MixerViewModel.cpp
+    )
+    target_link_libraries(MixerViewModelAutomationPresenceTest PRIVATE
+        AestraUI_Core AestraUI_Platform AestraAudio
+    )
+    target_include_directories(MixerViewModelAutomationPresenceTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/Source
+        ${CMAKE_SOURCE_DIR}/Source/Components
+        ${CMAKE_SOURCE_DIR}/AestraUI
+        ${CMAKE_SOURCE_DIR}/AestraUI/Core
+        ${CMAKE_SOURCE_DIR}/AestraUI/Widgets
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Core
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+    )
+    add_test(NAME MixerViewModelAutomationPresenceTest
+             COMMAND MixerViewModelAutomationPresenceTest)
+    set_tests_properties(MixerViewModelAutomationPresenceTest PROPERTIES
+        LABELS "audio;automation;mixer;contract:audio")
+endif()
+
 # Panel resize/layout regression (triage 2026-08-14): audio clip editor
 # waveform/card overlap + slider widths, Arsenal row label bounds.
 if(TARGET AestraUI_Core AND TARGET AestraUI_Platform)
@@ -1899,6 +2243,45 @@ if(TARGET AestraUI_Core AND TARGET AestraUI_Platform)
     set_tests_properties(PanelResizeLayoutTest PROPERTIES LABELS "ui;layout;regression;contract:application")
 else()
     message(STATUS "PanelResizeLayoutTest skipped (AestraUI_Core target unavailable in this build mode)")
+endif()
+
+# Selection-based step editing regression: click-to-select grammar, Ctrl+B
+# span duplication, Delete/Backspace removal (2026-08-17).
+if(TARGET AestraUI_Core AND TARGET AestraAudio)
+    add_executable(UnitRowStepSelectionTest AestraUI/UnitRowStepSelectionTest.cpp)
+    target_link_libraries(UnitRowStepSelectionTest PRIVATE AestraUI_Core AestraAudio)
+    target_include_directories(UnitRowStepSelectionTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraUI
+        ${CMAKE_SOURCE_DIR}/AestraUI/Core
+        ${CMAKE_SOURCE_DIR}/AestraUI/Widgets
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+    )
+    add_test(NAME UnitRowStepSelectionTest COMMAND UnitRowStepSelectionTest)
+    set_tests_properties(UnitRowStepSelectionTest PROPERTIES LABELS "ui;interaction;regression;contract:application")
+else()
+    message(STATUS "UnitRowStepSelectionTest skipped (AestraUI_Core target unavailable in this build mode)")
+endif()
+
+# The inspector rack must follow the LAST-bound chain: bindEffectRack() used
+# to append bindings and refreshRackDisplay() read the first match, so a
+# selection switch left the rack bound to a chain that died with its channel
+# (three SEGVs in one day — getPlugin() from refreshRackDisplay on a frame).
+if(TARGET AestraUI_Core)
+    add_executable(PluginRackBindingLifecycleTest
+        AestraUI/PluginRackBindingLifecycleTest.cpp
+    )
+    target_link_libraries(PluginRackBindingLifecycleTest PRIVATE AestraUI_Core AestraUI_Platform AestraAudio)
+    target_include_directories(PluginRackBindingLifecycleTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraUI
+        ${CMAKE_SOURCE_DIR}/AestraUI/Widgets
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Plugin
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+    )
+    add_test(NAME PluginRackBindingLifecycleTest COMMAND PluginRackBindingLifecycleTest)
+    set_tests_properties(PluginRackBindingLifecycleTest PROPERTIES LABELS "ui;plugin;regression;contract:application")
 endif()
 
 # Floating panels must only raise themselves on presses inside their bounds:
@@ -2185,6 +2568,33 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/TransportPausePreservesPositi
     set_tests_properties(TransportPausePreservesPositionTest PROPERTIES LABELS "audio;engine;transport;rt-safety;contract:audio")
 endif()
 
+# Transport stop resets to 0 authoritatively (T-8 single-stop playhead)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/TransportStopResetTest.cpp")
+    add_executable(TransportStopResetTest AestraAudio/TransportStopResetTest.cpp)
+    target_link_libraries(TransportStopResetTest PRIVATE AestraAudio)
+    target_include_directories(TransportStopResetTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+    )
+    add_test(NAME TransportStopResetTest COMMAND TransportStopResetTest)
+    set_tests_properties(TransportStopResetTest PROPERTIES LABELS "audio;engine;transport;rt-safety;contract:audio")
+endif()
+
+# Arsenal pause/resume test (pattern-mode pause preserves the playhead)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/ArsenalPauseResumeTest.cpp")
+    add_executable(ArsenalPauseResumeTest AestraAudio/ArsenalPauseResumeTest.cpp)
+    target_link_libraries(ArsenalPauseResumeTest PRIVATE AestraAudio)
+    target_include_directories(ArsenalPauseResumeTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Playback
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Plugin
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+    )
+    add_test(NAME ArsenalPauseResumeTest COMMAND ArsenalPauseResumeTest)
+    set_tests_properties(ArsenalPauseResumeTest PROPERTIES LABELS "audio;pattern;transport;regression;contract:audio")
+endif()
+
 # Pattern Transport Position Test (piano-roll playhead cue preservation)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/PatternTransportPositionTest.cpp")
     add_executable(PatternTransportPositionTest AestraAudio/PatternTransportPositionTest.cpp)
@@ -2385,4 +2795,50 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/PatternInstanceSlotReuseTest.
     add_test(NAME PatternInstanceSlotReuseTest COMMAND PatternInstanceSlotReuseTest)
     set_tests_properties(PatternInstanceSlotReuseTest PROPERTIES LABELS "audio;pattern;scheduler;regression;contract:audio")
     message(STATUS "PatternInstanceSlotReuseTest added - pattern scheduler slot reuse + clearing")
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/PatternSplitRegionPruneTest.cpp")
+    add_executable(PatternSplitRegionPruneTest AestraAudio/PatternSplitRegionPruneTest.cpp)
+    target_link_libraries(PatternSplitRegionPruneTest PRIVATE AestraAudio)
+    target_include_directories(PatternSplitRegionPruneTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Playback
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Plugin
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+    )
+    add_test(NAME PatternSplitRegionPruneTest COMMAND PatternSplitRegionPruneTest)
+    set_tests_properties(PatternSplitRegionPruneTest PROPERTIES LABELS "audio;pattern;regression;contract:audio")
+endif()
+
+# T-4/T-5 (v0.7.1 trust sprint): the pattern scheduler set is a play-time
+# snapshot — rescheduling must pick up splits, deletes, and lane mute/solo.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/TimelinePatternRescheduleTest.cpp")
+    add_executable(TimelinePatternRescheduleTest AestraAudio/TimelinePatternRescheduleTest.cpp)
+    target_link_libraries(TimelinePatternRescheduleTest PRIVATE AestraAudio)
+    target_include_directories(TimelinePatternRescheduleTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Playback
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Plugin
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+    )
+    add_test(NAME TimelinePatternRescheduleTest COMMAND TimelinePatternRescheduleTest)
+    set_tests_properties(TimelinePatternRescheduleTest PROPERTIES LABELS "audio;pattern;regression;contract:audio")
+endif()
+
+# T-6 (v0.7.1 trust sprint): record-path latency compensation + engine-frame
+# capture placement.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/RecordingLatencyCompensationTest.cpp")
+    add_executable(RecordingLatencyCompensationTest AestraAudio/RecordingLatencyCompensationTest.cpp)
+    target_link_libraries(RecordingLatencyCompensationTest PRIVATE AestraAudio)
+    target_include_directories(RecordingLatencyCompensationTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Models
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Playback
+        ${CMAKE_SOURCE_DIR}/AestraAudio/include/Plugin
+        ${CMAKE_SOURCE_DIR}/AestraCore/include
+    )
+    add_test(NAME RecordingLatencyCompensationTest COMMAND RecordingLatencyCompensationTest)
+    set_tests_properties(RecordingLatencyCompensationTest PROPERTIES LABELS "audio;recording;regression;contract:audio")
 endif()

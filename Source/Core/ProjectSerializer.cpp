@@ -78,6 +78,7 @@ namespace {
         DroppedClip,
         SendRoute,
         ClipTiming,
+        LegacyDemoAutomation,
         Count
     };
 
@@ -884,6 +885,7 @@ ProjectSerializer::SerializeResult ProjectSerializer::serialize(const std::share
         mjs.set("monitorInput", JSON(channel->isMonitoringEnabled()));
         mjs.set("inputChannelIndex", JSON(static_cast<double>(channel->getInputChannelIndex())));
         mjs.set("width", JSON(static_cast<double>(channel->getWidth())));
+        mjs.set("trim", JSON(static_cast<double>(channel->getTrimDb())));
         mjs.set("trackColorIndex", JSON(static_cast<double>(channel->getTrackColorIndex())));
 
         JSON routingJson = JSON::object();
@@ -926,7 +928,6 @@ ProjectSerializer::SerializeResult ProjectSerializer::serialize(const std::share
 
     // 3. Save Lanes and Clips
     JSON lanesJson = JSON::array();
-    size_t laneIndex = 0;
     for (const auto& laneId : playlist.getLaneIDs()) {
         if (const auto* lane = playlist.getLane(laneId)) {
             JSON ljs = JSON::object();
@@ -938,7 +939,14 @@ ProjectSerializer::SerializeResult ProjectSerializer::serialize(const std::share
             ljs.set("pan", JSON(lane->pan));
             ljs.set("mute", JSON(lane->muted));
             ljs.set("solo", JSON(lane->solo));
-            if (const auto* channel = trackManager->getChannel(laneIndex)) {
+            // FD-14 §contract: lane channel state resolves through explicit
+            // ownership — the lane's Track, then the track's channel id.
+            // Never by lane position: lane order is creation/append order and
+            // can diverge from channel order (take lanes, track-first setups).
+            const uint32_t resolvedChannelId = trackManager->resolveLaneChannelId(laneId);
+            const auto* channel = resolvedChannelId != 0 ? trackManager->getChannelById(resolvedChannelId)
+                                                         : nullptr;
+            if (channel) {
                 // MixerChannel state not covered by PlaylistLane
                 ljs.set("mixerChannelId", JSON(static_cast<double>(channel->getChannelId())));
                 ljs.set("soloSafe", JSON(channel->isSoloSafe()));
@@ -1013,10 +1021,20 @@ ProjectSerializer::SerializeResult ProjectSerializer::serialize(const std::share
                 const auto* clipPattern = patternManager.getPattern(clip.patternId);
                 const bool isAudioClip = clipPattern && clipPattern->isAudio();
                 if (isAudioClip) {
+                    // Canonical seconds is the field the trim path keeps
+                    // authoritative (#744), but beats are co-written so a
+                    // loader can always round-trip the timeline span verbatim
+                    // (the canonical alone cannot: pre-invariant files stored
+                    // a stale span/v value for rate-edited clips).
+                    // Constructed clips may carry durationSeconds == 0 while
+                    // their span is nonzero; the fallback keeps the #746
+                    // invariant by folding the effective varispeed in.
                     const double durationSeconds = clip.durationSeconds > 0.0
                                                        ? clip.durationSeconds
-                                                       : clip.durationBeats * 60.0 / std::max(tempo, 1.0);
+                                                       : clip.durationBeats * 60.0 / std::max(tempo, 1.0) /
+                                                             static_cast<double>(clip.edits.effectiveVarispeed());
                     cjs.set("durationSeconds", JSON(durationSeconds));
+                    cjs.set("duration", JSON(clip.durationBeats));
                     cjs.set("sourceOffsetSeconds", JSON(clip.sourceOffsetSeconds));
                 } else {
                     cjs.set("duration", JSON(clip.durationBeats));
@@ -1044,11 +1062,35 @@ ProjectSerializer::SerializeResult ProjectSerializer::serialize(const std::share
                 clipsJson.push(cjs);
             }
             ljs.set("clips", clipsJson);
+            ljs.set("trackId", JSON(static_cast<double>(lane->trackId)));
             lanesJson.push(ljs);
         }
-        ++laneIndex;
     }
     root.set("lanes", lanesJson);
+    // 3b. Save Tracks (FD-14 ownership layer). The tracks array carries the
+    // stable ownership: trackId, routing channel, arm state, and owned lane
+    // ids in order. Lanes carry their trackId for cross-reference.
+    {
+        JSON tracksJson = JSON::array();
+        for (const auto* track : trackManager->getTracks()) {
+            if (!track) {
+                continue;
+            }
+            JSON tjs = JSON::object();
+            tjs.set("trackId", JSON(static_cast<double>(track->trackId)));
+            tjs.set("name", JSON(track->name));
+            tjs.set("channelId", JSON(static_cast<double>(track->channelId)));
+            tjs.set("armed", JSON(track->armed));
+            tjs.set("activeLaneId", JSON(track->activeLaneId.toString()));
+            JSON laneIdsJson = JSON::array();
+            for (const auto& laneId : track->laneIds) {
+                laneIdsJson.push(JSON(laneId.toString()));
+            }
+            tjs.set("laneIds", laneIdsJson);
+            tracksJson.push(tjs);
+        }
+        root.set("tracks", tracksJson);
+    }
 
     // 4. Save Arsenal Units
     root.set("arsenal", trackManager->getUnitManager().saveToJSON());
@@ -1449,8 +1491,11 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
     // ========================================================================
     // PHASE 3: Validate structure and check assets (non-destructive)
     // ========================================================================
-    
-    // Validate and collect missing audio assets
+
+    // Validate and collect missing audio assets. Dedup happens AFTER the
+    // sources-load phase (which pushes the same paths again when the file is
+    // still gone at decode time) — deduplicating here only sorted the first
+    // wave, and every consumer downstream saw one missing file listed twice.
     if (root.has("sources")) {
         const JSON& sj = root["sources"];
         for (size_t i = 0; i < sj.size(); ++i) {
@@ -1465,18 +1510,6 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
                     "[ProjectLoad] Additional missing or unreadable audio asset warnings suppressed.");
             }
         }
-    }
-    
-    // Deduplicate missing assets
-    {
-        std::sort(result.missingAssets.begin(), result.missingAssets.end());
-        result.missingAssets.erase(
-            std::unique(result.missingAssets.begin(), result.missingAssets.end()),
-            result.missingAssets.end());
-    }
-    if (!result.missingAssets.empty()) {
-        Log::warning("[ProjectLoad] " + std::to_string(result.missingAssets.size()) + 
-                     " audio file(s) not found - clips will appear without waveforms");
     }
 
 // ========================================================================
@@ -1582,6 +1615,7 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
         sourceManager.clear();
         patternManager.clear();
         trackManager->clearAllChannels();
+        trackManager->clearAllTracks();
         playlist.setPatternManager(&patternManager);
         playlist.setBPM(result.tempo);
     
@@ -1640,17 +1674,31 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
                     } else {
                         warningLimiter.warning(
                             ProjectLoadWarningCategory::MissingAssetDecode,
-                            "[ProjectLoad] Failed to decode: " + filePath + " — creating silent mono fallback",
+                            "[ProjectLoad] Failed to decode: " + filePath + " — leaving source unloaded (retryable)",
                             "[ProjectLoad] Additional audio decode failure warnings suppressed.");
                         result.missingAssets.push_back(storedPath);
-                        auto fallback = std::make_shared<AudioBufferData>();
-                        fallback->numChannels = 1;
-                        fallback->sampleRate = 44100;
-                        fallback->numFrames = 0;
-                        source->setBuffer(fallback);
+                        // Deliberately NO fallback buffer: setBuffer with an
+                        // empty one would hand the render snapshot a non-null
+                        // but 0-frame buffer (PlaylistModel only null-checks the
+                        // shared pointer), while the source still reports
+                        // !isReady(). Leaving it genuinely unready keeps the
+                        // draw path's early-out authoritative and lets a later
+                        // decode attempt retry — the load guard above skips
+                        // ready sources only.
                     }
                 }
             }
+        }
+
+        // One authoritative dedup now that every collector has run, then a
+        // single summary with the true count.
+        std::sort(result.missingAssets.begin(), result.missingAssets.end());
+        result.missingAssets.erase(
+            std::unique(result.missingAssets.begin(), result.missingAssets.end()),
+            result.missingAssets.end());
+        if (!result.missingAssets.empty()) {
+            Log::warning("[ProjectLoad] " + std::to_string(result.missingAssets.size()) +
+                         " audio file(s) not found - clips will appear without waveforms");
         }
     
         // 5. Load Arsenal Units (must load before patterns - patterns reference unitId in MIDI note data)
@@ -1846,6 +1894,8 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
                 channel->setInputChannelIndex(
                     static_cast<int>(finiteNumberOr(channels[i], "inputChannelIndex", -1.0, -2.0, 1024.0)));
                 channel->setWidth(static_cast<float>(finiteNumberOr(channels[i], "width", 1.0, 0.0, 4.0)));
+                channel->setTrimDb(
+                    static_cast<float>(finiteNumberOr(channels[i], "trim", 0.0, -24.0, 24.0)));
                 channel->setTrackColorIndex(
                     static_cast<int>(finiteNumberOr(channels[i], "trackColorIndex", -1.0, -1.0, 1024.0)));
 
@@ -1938,6 +1988,14 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
         // Clip ids restored from the file must stay unique — a hand-edited or
         // corrupted file with duplicates would silently break id lookups.
         std::unordered_set<AestraUUID> seenClipIds;
+        // FD-14: capture each legacy lane's OWN stored channel id (an explicit
+        // per-lane file field) so the track migration never infers ownership
+        // from array position.
+        std::unordered_map<std::string, uint32_t> legacyLaneChannelIds;
+        // FD-14 #6/#8: legacy lane JSON carries the channel's armed flag per
+        // lane (an explicit per-lane file field); the track migration uses it
+        // to preserve recording-arm intent onto the created tracks.
+        std::unordered_map<std::string, bool> legacyLaneArmed;
         if (root.has("lanes")) {
             const JSON& lj = root["lanes"];
         #if defined(AESTRA_ENABLE_PROJECT_LOAD_LOGS)
@@ -1967,6 +2025,9 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
                     continue;
                 }
                 MixerChannel* channel = nullptr;
+                if (lj[i].has("armed") && lj[i]["armed"].isBool()) {
+                    legacyLaneArmed[laneId.toString()] = lj[i]["armed"].asBool();
+                }
                 if (!hasIndependentMixerChannels) {
                     uint32_t storedMixerChannelId = 0;
                     if (lj[i].has("mixerChannelId") && lj[i]["mixerChannelId"].isNumber()) {
@@ -1974,6 +2035,9 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
                         if (std::isfinite(rawId) && rawId > 0.0 && rawId < static_cast<double>(UINT32_MAX)) {
                             storedMixerChannelId = static_cast<uint32_t>(rawId);
                         }
+                    }
+                    if (storedMixerChannelId != 0) {
+                        legacyLaneChannelIds[laneId.toString()] = storedMixerChannelId;
                     }
                     channel = trackManager->addChannelWithId(laneName, storedMixerChannelId);
                     if (!channel) {
@@ -2187,7 +2251,64 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
                             lane->automationCurves.push_back(curve);
                         }
                     }
-    
+
+                    // Migration: the pre-2026-08-14 demo automation curve
+                    // (addDemoTracks-era) — channel 1 Volume, default 0.8,
+                    // exactly the four points 0.5/1.0/0.2/0.8 at beats
+                    // 0/4/8/12 — is dropped on load so projects saved before
+                    // the demo-automation removal self-heal instead of
+                    // silently automating channel 1 on every playback.
+                    // Exact-shape match only, at serialization-scale tolerance
+                    // (float32 storage noise ~1e-7; a real point like 0.2005
+                    // differs by 5e-4 and must survive). EVERY matching curve
+                    // is removed, wherever it sits in the lane's list.
+                    if (!lane->automationCurves.empty()) {
+                        constexpr double kDemoBeats[4] = {0.0, 4.0, 8.0, 12.0};
+                        constexpr double kDemoValues[4] = {0.5, 1.0, 0.2, 0.8};
+                        constexpr double kDemoTolerance = 1e-6;
+                        const auto isLegacyDemoCurve = [](const AutomationCurve& curve) {
+                            return curve.getAutomationTarget() == Aestra::Audio::AutomationTarget::Volume &&
+                                   curve.mixerChannelId == 1 &&
+                                   std::abs(curve.getDefaultValue() - 0.8f) < 1e-6f &&
+                                   curve.getPoints().size() == 4;
+                        };
+                        size_t droppedCount = 0;
+                        lane->automationCurves.erase(
+                            std::remove_if(lane->automationCurves.begin(), lane->automationCurves.end(),
+                                           [&](const AutomationCurve& curve) {
+                                               if (!isLegacyDemoCurve(curve)) {
+                                                   return false;
+                                               }
+                                               const auto& pts = curve.getPoints();
+                                               for (size_t i = 0; i < 4; ++i) {
+                                                   if (std::abs(pts[i].beat - kDemoBeats[i]) > kDemoTolerance ||
+                                                       std::abs(static_cast<double>(pts[i].value) - kDemoValues[i]) >
+                                                           kDemoTolerance) {
+                                                       return false;
+                                                   }
+                                               }
+                                               ++droppedCount;
+                                               return true;
+                                           }),
+                            lane->automationCurves.end());
+                        if (droppedCount > 0) {
+                            warningLimiter.warning(
+                                ProjectLoadWarningCategory::LegacyDemoAutomation,
+                                "[ProjectLoad] Dropped " + std::to_string(droppedCount) +
+                                    " legacy demo automation curve(s) on channel 1 (pre-0.7.0 demo data).",
+                                "[ProjectLoad] Additional legacy demo automation drops suppressed.");
+                            if (!result.report) {
+                                result.report = std::make_unique<ProjectLoadReport>();
+                            }
+                            result.report->issues.push_back(
+                                {LoadIssueSeverity::Warning, "legacy_demo_automation",
+                                 "Removed the legacy demo automation curve(s) on channel 1 (pre-0.7.0 demo "
+                                 "data); the project has been migrated.",
+                                 0, {}, laneName});
+                            result.migrationOutcome =
+                                combineMigrationOutcome(result.migrationOutcome, MigrationOutcome::Transformed);
+                        }
+                    }
                     if (lj[i].has("clips")) {
                         const JSON& cj = lj[i]["clips"];
     #if defined(AESTRA_ENABLE_PROJECT_LOAD_LOGS)
@@ -2240,6 +2361,10 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
                                 clip.startBeat = finiteNumberOr(cj[c], "start", 0.0, 0.0, 1000000.0);
                                 const auto* loadedPattern = patternManager.getPattern(clip.patternId);
                                 const bool isAudioClip = loadedPattern && loadedPattern->isAudio();
+                                const bool hasExplicitDuration =
+                                    cj[c].has("duration") && cj[c]["duration"].isNumber() &&
+                                    std::isfinite(cj[c]["duration"].asNumber());
+                                const double fileDurationBeats = finiteNumberOr(cj[c], "duration", 0.0, 0.0, 1000000.0);
                                 if (isAudioClip) {
                                     clip.durationSeconds =
                                         finiteNumberOr(cj[c], "durationSeconds", 0.0, 0.0, 1000000.0);
@@ -2281,7 +2406,6 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
                                         clip.sourceOffsetSeconds =
                                             legacySourceOffsetBeats * 60.0 / std::max(result.tempo, 1.0);
                                     }
-                                    clip.durationBeats = playlist.secondsToBeats(clip.durationSeconds);
                                     clip.sourceOffset = playlist.secondsToBeats(clip.sourceOffsetSeconds);
                                 } else {
                                     clip.durationBeats = finiteNumberOr(cj[c], "duration", 0.0, 0.0, 1000000.0);
@@ -2312,6 +2436,21 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
                                     clip.edits.fadeInBeats = finiteNumberOr(ej, "fadeIn", 0.0, 0.0, 1000000.0);
                                     clip.edits.fadeOutBeats = finiteNumberOr(ej, "fadeOut", 0.0, 0.0, 1000000.0);
                                     clip.edits.sourceStart = finiteNumberOr(ej, "sourceStart", 0.0, 0.0, 1.0e15);
+                                }
+                                if (isAudioClip) {
+                                    // Beats from the file are the timeline truth
+                                    // whenever the field is PRESENT — including an
+                                    // explicit 0 (a zero-length span is legal state,
+                                    // and replacing it with a derived positive span
+                                    // would shift the timeline on every save cycle).
+                                    // Absent or non-numeric beats mean a pre-
+                                    // co-write era file: keep the historical flat
+                                    // derivation so a rate-edited clip saved with a
+                                    // stale canonical does NOT reload at a shifted
+                                    // span.
+                                    clip.durationBeats = hasExplicitDuration
+                                                             ? fileDurationBeats
+                                                             : playlist.secondsToBeats(clip.durationSeconds);
                                 }
                                 playlist.addClip(laneId, clip);
                             } else {
@@ -2419,6 +2558,80 @@ ProjectSerializer::LoadResult ProjectSerializer::load(const std::string& path,
                                           : 20.0f * std::log10(linearVol);
                     continuous->setFaderDb(slot, faderDb);
                     continuous->setPan(slot, channel->getPan());
+                    continuous->setTrimDb(slot, channel->getTrimDb());
+                }
+            }
+        }
+
+        // PHASE 7c: Restore Track ownership (FD-14). The "tracks" section
+        // restores exact stable ids; legacy files (no section) migrate
+        // deterministically — one Track per lane in lane order, channel =
+        // the lane's OWN stored channel id (an explicit per-lane file field,
+        // never a positional inference), master when none exists.
+        {
+            const auto laneIds = trackManager->getPlaylistModel().getLaneIDs();
+
+            if (root.has("tracks") && root["tracks"].isArray()) {
+                const JSON& tj = root["tracks"];
+                for (size_t t = 0; t < tj.size(); ++t) {
+                    if (!tj[t].isObject()) {
+                        continue;
+                    }
+                    Track track;
+                    track.trackId = static_cast<uint64_t>(
+                        finiteNumberOr(tj[t], "trackId", 0.0, 1.0, static_cast<double>(UINT64_MAX)));
+                    if (track.trackId == 0) {
+                        continue;
+                    }
+                    track.name = boundedStringOr(tj[t], "name", "", PROJECT_MAX_STRING_BYTES);
+                    track.channelId = static_cast<uint32_t>(finiteNumberOr(
+                        tj[t], "channelId", 0.0, 0.0, static_cast<double>(UINT32_MAX)));
+                    track.armed = (tj[t].has("armed") && tj[t]["armed"].isBool()) ? tj[t]["armed"].asBool()
+                                                                                  : false;
+                    if (tj[t].has("activeLaneId") && tj[t]["activeLaneId"].isString()) {
+                        AestraUUID parsedActive;
+                        if (AestraUUID::tryParse(tj[t]["activeLaneId"].asString(), parsedActive)) {
+                            track.activeLaneId = PlaylistLaneID(parsedActive);
+                        }
+                    }
+                    if (tj[t].has("laneIds") && tj[t]["laneIds"].isArray()) {
+                        const JSON& ids = tj[t]["laneIds"];
+                        for (size_t l = 0; l < ids.size(); ++l) {
+                            if (ids[l].isString()) {
+                                AestraUUID parsedLane;
+                                if (AestraUUID::tryParse(ids[l].asString(), parsedLane)) {
+                                    track.laneIds.push_back(PlaylistLaneID(parsedLane));
+                                }
+                            }
+                        }
+                    }
+                    if (!trackManager->restoreTrack(track)) {
+                        warningLimiter.warning(
+                            ProjectLoadWarningCategory::EffectChain,
+                            "[ProjectLoad] Failed to restore track '" + track.name + "' — skipped.",
+                            "[ProjectLoad] Additional track restore failures suppressed.");
+                    }
+                }
+            }
+
+            // Migration: lanes without ownership get one deterministic Track
+            // each, using the lane's OWN stored channel when one exists. The
+            // legacy per-lane armed flag migrates onto the created track so
+            // pre-FD-14 recording arm is preserved, never silently dropped.
+            for (const auto& laneId : laneIds) {
+                auto* lane = trackManager->getPlaylistModel().getLane(laneId);
+                if (!lane || lane->trackId != 0) {
+                    continue;
+                }
+                uint32_t storedChannelId = MASTER_MIXER_CHANNEL_ID;
+                const auto legacyIt = legacyLaneChannelIds.find(laneId.toString());
+                if (legacyIt != legacyLaneChannelIds.end()) {
+                    storedChannelId = legacyIt->second;
+                }
+                const uint64_t createdTrackId = trackManager->createTrack(laneId, lane->name, storedChannelId);
+                const auto armedIt = legacyLaneArmed.find(laneId.toString());
+                if (createdTrackId != 0 && armedIt != legacyLaneArmed.end() && armedIt->second) {
+                    trackManager->setTrackArmed(createdTrackId, true);
                 }
             }
         }

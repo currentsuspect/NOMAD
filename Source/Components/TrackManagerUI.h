@@ -21,6 +21,7 @@
 #include "TimelineMinimapModel.h"
 #include "TimelineSummaryCache.h"
 #include "TimelineInteractionPolicy.h"
+#include "TimelineMarquee.h"
 #include "TrackManagerUIMath.h"
 #include "WaveformCache.h"
 
@@ -126,6 +127,9 @@ public:
     void setOnCursorVisibilityChanged(std::function<void(bool)> callback) { m_onCursorVisibilityChanged = callback; }
     bool isMinimapResizeCursorActive() const;
     bool isCustomCursorActive() const; // Returns true if any tool/resize cursor is active
+    /** @brief True while the timeline ruler row is the interaction (playhead
+     *  scrub, loop markers, ruler selection) — grab-hand cursor territory. */
+    bool isRulerPointerActive() const;
 
     // View Toggle Callbacks (v3.1)
     void setOnToggleMixer(std::function<void()> cb) { m_onToggleMixer = cb; }
@@ -154,6 +158,13 @@ public:
     void setOnSendToAudition(std::function<void(uint32_t trackId, const std::string& trackName)> cb) {
         m_onSendToAudition = cb;
     }
+
+    // Destructive-action confirmation, routed to the app's ConfirmationDialog.
+    // When unset, destructive actions proceed without confirmation.
+    using ConfirmDialogRequest =
+        std::function<void(const std::string& title, const std::string& message, const std::string& confirmLabel,
+                           std::function<void(bool confirmed)> onResult)>;
+    void setOnConfirmDialogRequest(ConfirmDialogRequest cb) { m_onConfirmDialogRequest = std::move(cb); }
     void setOnSendSelectionToAudition(std::function<void(double startBeat, double endBeat)> cb) {
         m_onSendSelectionToAudition = cb;
     }
@@ -173,9 +184,19 @@ public:
 
     // Context Menu Helpers (v4.0)
     void openTrackContextMenu(const ::AestraUI::NUIPoint& position, std::function<void()> onSendToAudition);
+    void deleteLane(PlaylistLaneID laneId);
 
     // Snap-to-Grid control
-    void setSnapEnabled(bool enabled) { m_snapEnabled = enabled; }
+    // Choke point: propagates to every row so trim/resize honors the same
+    // master switch as move/drag.
+    void setSnapEnabled(bool enabled) {
+        if (m_snapEnabled == enabled) return;
+        m_snapEnabled = enabled;
+        for (auto& track : m_trackUIComponents) {
+            if (track) track->setSnapEnabled(enabled);
+        }
+        invalidateCache();
+    }
     bool isSnapEnabled() const { return m_snapEnabled; }
     void setSnapDivision(int division) { m_snapDivision = division; } // 1=bar, 4=beat, 16=16th
     int getSnapDivision() const { return m_snapDivision; }
@@ -280,6 +301,14 @@ public:
         layoutTracks();
     }
 
+    // FD-14 §10/§11: per-track lane collapse state (session-local, not
+    // serialized). Collapsed tracks render only their primary lane row.
+    bool isTrackCollapsed(uint64_t trackId) const { return m_collapsedTrackIds.count(trackId) > 0; }
+    void toggleTrackCollapsed(uint64_t trackId);
+    void expandTrack(uint64_t trackId) { m_collapsedTrackIds.erase(trackId); }
+    /** Expand the lane's owning track, rebuild rows, and scroll it into view. */
+    void revealLane(PlaylistLaneID laneId);
+
 protected:
     void onRender(::AestraUI::NUIRenderer& renderer) override;
     void onUpdate(double deltaTime) override;
@@ -303,10 +332,13 @@ private:
     ::AestraUI::NUIPlatformBridge* m_window = nullptr;
 
     // UI Layout
-    int m_trackHeight{46};
-    int m_trackSpacing{3};
+    int m_trackHeight{42};
+    // Contiguous rows (2026-08 plane redesign): the grid plane is continuous,
+    // so rows carry no seam — a quiet separator line marks each boundary.
+    int m_trackSpacing{0};
     float m_scrollOffset{0.0f};
     float m_targetScrollOffset{0.0f};
+    std::unordered_set<uint64_t> m_collapsedTrackIds;
     PlaylistMode m_playlistMode{PlaylistMode::Clips};
     bool m_patternMode = false; // True when Pattern (Arsenal) playback is active
 
@@ -345,6 +377,9 @@ private:
     std::shared_ptr<::AestraUI::NUIIcon> m_multiSelectToolIcon;
     std::shared_ptr<::AestraUI::NUIIcon> m_paintToolIcon;  // Paint/stamp tool icon
     std::shared_ptr<::AestraUI::NUIIcon> m_moveCursorIcon; // Move (4-way arrow) cursor for Paint tool hovering clips
+    std::shared_ptr<::AestraUI::NUIIcon> m_trimCursorIcon; // Canonical horizontal stretch cursor (registry SVG)
+    std::shared_ptr<::AestraUI::NUIIcon> m_resizeCursorIcon; // Canonical ResizeEW registry glyph (minimap resize)
+    std::shared_ptr<::AestraUI::NUIIcon> m_grabCursorIcon; // Canonical hand glyph (ruler/minimap-pan grab)
 
     std::shared_ptr<::AestraUI::NUIContextMenu> m_activeContextMenu; // Keep track for cleanup
 
@@ -362,6 +397,9 @@ private:
     ::AestraUI::NUIRect m_paintToolBounds;
     ::AestraUI::NUIRect m_followPlayheadBounds; // Toggle button bounds
     ::AestraUI::NUIRect m_toolbarBounds;
+    // Content-sized union of every corner button (add-track through menu) in
+    // the ruler row's left cell — the hit-testable extent of the toolbar.
+    ::AestraUI::NUIRect m_toolbarCornerBounds;
 
     bool m_menuHovered = false;
     bool m_selectToolHovered = false;
@@ -420,10 +458,11 @@ private:
     double m_loopDragStartBeat = 0.0; // Original beat position when drag started
 
     // === SELECTION BOX (left- or right-drag with the Multi-Select tool) ===
-    bool m_isDrawingSelectionBox = false;
-    ::AestraUI::NUIMouseButton m_selectionBoxButton = ::AestraUI::NUIMouseButton::None;
-    ::AestraUI::NUIPoint m_selectionBoxStart;
-    ::AestraUI::NUIPoint m_selectionBoxEnd;
+    // Widget-independent drag state machine (TimelineMarquee.h, #847): it owns
+    // the sequencing rules (ownership until matching-button release, pure
+    // endpoint updates); this widget keeps only the screen mapping and the
+    // selection application on finalize.
+    ::Aestra::Components::TimelineMarqueeDrag m_marquee;
 
     // === SMOOTH ZOOM ANIMATION ===
     float m_targetPixelsPerBeat = 50.0f; // Target zoom level for animation (match initial m_pixelsPerBeat)
@@ -490,6 +529,7 @@ private:
     ClipboardData m_clipboard;
 
     ClipInstanceID m_selectedClipId; // Track single selected clip for manipulation
+    TimelineClipSelection m_clipSelection; // Multi-clip selection set (#848 marquee)
 
     // === DELETE ANIMATION (Ripple effect) ===
     struct DeleteAnimation {
@@ -517,6 +557,7 @@ private:
     std::function<void(double, double)>
         m_onLoopRegionUpdate; // Called when loop region needs update (Project auto-update)
     std::function<void(uint32_t, const std::string&)> m_onSendToAudition; // Called for "Send to Audition"
+    ConfirmDialogRequest m_onConfirmDialogRequest;
     std::function<void(double, double)> m_onSendSelectionToAudition;      // Called for "Send Selection to Audition"
     std::function<void()> m_onClipLibraryChanged;
     bool m_dragPatternPreviewActive = false;
@@ -530,6 +571,15 @@ private:
     void onAddTrackClicked();
     void syncTrackSelectionView();
     void selectClip(ClipInstanceID clipId);
+    /** @brief Apply an intent to a batch of clips and push the set to rows (#848). */
+    void selectClips(const std::vector<ClipInstanceID>& clipIds, TrackSelectionIntent intent);
+    const TimelineClipSelection& clipSelection() const { return m_clipSelection; }
+    /** @brief Ctrl+A: select every clip in the playlist (falls back to tracks when empty). */
+    void selectAllClips();
+    /** @brief Drop the multi-clip set and its row highlight. */
+    void clearClipSelection();
+    /** @brief Shift+click additive pick (#848): toggle-free add with anchor update. */
+    void addToClipSelection(ClipInstanceID clipId);
     void updateSelectionLoopRegion(double startBeat, double endBeat);
     void updateTrackPositions();
     void updateScrollbar();
@@ -587,6 +637,11 @@ private:
     double snapBeatToGrid(double beat) const;        // Snap beat to nearest grid line
     double snapBeatToGridForward(double beat) const; // Snap beat to next grid line (paste-to-right)
 
+    // Resolve a lane to its first pattern's mixer channel position, falling
+    // back to fallbackIndex when the lane is missing or unresolved. Shared by
+    // the per-track audition button and the toolbar's "Send Track to Audition".
+    uint32_t resolveLaneToChannelIndex(const Audio::PlaylistLane* lane, uint32_t fallbackIndex) const;
+
     // Tool icons initialization and rendering
     void createToolIcons();
     void updateToolbarBounds();
@@ -601,6 +656,9 @@ private:
     bool handleSelectionBoxMouse(const ::AestraUI::NUIMouseEvent& event, const ::AestraUI::NUIPoint& localPos);
     bool handleTimelineWheel(const ::AestraUI::NUIMouseEvent& event, const ::AestraUI::NUIPoint& localPos,
                              bool isInRuler, bool isInTrackArea);
+    bool hitLoopHandle(const ::AestraUI::NUIPoint& localPos, float gridStartX, bool& hitStart) const;
+    void updateLoopHandleHover(const ::AestraUI::NUIPoint& localPos, float gridStartX);
+    bool tryBeginLoopHandleDrag(const ::AestraUI::NUIMouseEvent& event, const ::AestraUI::NUIPoint& localPos);
     bool handleRulerPress(const ::AestraUI::NUIMouseEvent& event, const ::AestraUI::NUIPoint& localPos,
                           bool isInRuler);
     bool handleRulerSelectionDrag(const ::AestraUI::NUIMouseEvent& event, const ::AestraUI::NUIPoint& localPos);
@@ -609,10 +667,10 @@ private:
     bool handleLoopMarkerDrag(const ::AestraUI::NUIMouseEvent& event, const ::AestraUI::NUIPoint& localPos);
     bool handlePlayheadDrag(const ::AestraUI::NUIMouseEvent& event, const ::AestraUI::NUIPoint& localPos);
     bool handleSplitToolClick(const ::AestraUI::NUIMouseEvent& event, const ::AestraUI::NUIPoint& localPos);
-    // Rows render m_trackHeight tall on an m_trackHeight+m_trackSpacing stride,
-    // leaving an m_trackSpacing-px seam between them that lands inside no track's
-    // bounds. Map an otherwise-unhandled left press in that seam back to its row
-    // and select it, so clicks between rows are not silently swallowed.
+    // Rows are contiguous (m_trackSpacing == 0), but the seam handler stays:
+    // sub-pixel row boundaries can still land a press inside no track's exact
+    // bounds. Map an otherwise-unhandled left press in that sliver back to its
+    // row and select it, so clicks between rows are not silently swallowed.
     bool handleTrackSeamSelect(const ::AestraUI::NUIMouseEvent& event, const ::AestraUI::NUIPoint& localPos);
     void renderMinimapResizeCursor(::AestraUI::NUIRenderer& renderer, const ::AestraUI::NUIPoint& position);
 

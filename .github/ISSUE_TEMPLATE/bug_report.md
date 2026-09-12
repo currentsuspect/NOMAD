@@ -37,6 +37,25 @@ What should happen?
 What actually happens?
 
 ## Logs/Output
+
+<!--
+Aestra writes two log files, and they are not copies of each other:
+
+  runtime_log.txt    the first moments of startup — build id, working directory
+  aestra_debug.log   everything after that — audio device, project load, the run
+
+They land in whatever directory Aestra was *launched from*, not a fixed folder.
+From a terminal, that directory; from a desktop icon, usually your home folder.
+If several turn up, the `Working Directory:` line at the top of runtime_log.txt
+says which launch each pair came from.
+
+Both append and are never rotated, so an old file holds many runs — the lines
+around the time it went wrong are the ones that matter.
+
+If Aestra crashed or froze, please use the Crash Report template instead: it
+asks for the autosave and build details that a crash needs and this one does not.
+-->
+
 ```
 Paste relevant logs, error messages, or console output here
 ```

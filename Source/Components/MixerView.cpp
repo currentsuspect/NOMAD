@@ -18,7 +18,7 @@ namespace Audio {
 // ChannelStrip Implementation
 //=============================================================================
 
-ChannelStrip::ChannelStrip(std::shared_ptr<Track> track, TrackManager* trackManager)
+ChannelStrip::ChannelStrip(std::shared_ptr<MixerChannel> track, TrackManager* trackManager)
     : m_track(track)
     , m_trackManager(trackManager)
 {
@@ -32,7 +32,7 @@ ChannelStrip::ChannelStrip(std::shared_ptr<Track> track, TrackManager* trackMana
             // Don't set volume manually — let the command do it
             if (std::abs(newVol - oldVol) > 0.0001f) {
                 m_trackManager->getCommandHistory().pushAndExecute(
-                    std::make_shared<SetVolumeCommand>(*m_track, newVol));
+                    std::make_shared<SetVolumeCommand>(*m_trackManager, *m_track, newVol));
                 Aestra::Log::info("[MixerView] Vol cmd: " + std::to_string(oldVol) + " -> " + std::to_string(newVol));
             }
         }
@@ -48,7 +48,7 @@ ChannelStrip::ChannelStrip(std::shared_ptr<Track> track, TrackManager* trackMana
             float oldPan = m_track->getPan();
             if (std::abs(newPan - oldPan) > 0.0001f) {
                 m_trackManager->getCommandHistory().pushAndExecute(
-                    std::make_shared<SetPanCommand>(*m_track, newPan));
+                    std::make_shared<SetPanCommand>(*m_trackManager, *m_track, newPan));
             }
         }
     });
@@ -59,7 +59,7 @@ ChannelStrip::ChannelStrip(std::shared_ptr<Track> track, TrackManager* trackMana
     m_muteButton->setOnToggle([this](bool toggled) {
         if (m_track && m_trackManager) {
             m_trackManager->getCommandHistory().pushAndExecute(
-                std::make_shared<SetMuteCommand>(*m_track, toggled));
+                std::make_shared<SetMuteCommand>(*m_trackManager, *m_track, toggled));
         }
     });
     // Initialize state
@@ -71,7 +71,7 @@ ChannelStrip::ChannelStrip(std::shared_ptr<Track> track, TrackManager* trackMana
     m_soloButton->setOnToggle([this](bool toggled) {
         if (m_track && m_trackManager) {
             m_trackManager->getCommandHistory().pushAndExecute(
-                std::make_shared<SetSoloCommand>(*m_track, toggled));
+                std::make_shared<SetSoloCommand>(*m_trackManager, *m_track, toggled));
         }
     });
     // Initialize state
@@ -84,6 +84,9 @@ ChannelStrip::ChannelStrip(std::shared_ptr<Track> track, TrackManager* trackMana
 void ChannelStrip::setPlatformBridge(AestraUI::NUIPlatformBridge* bridge)
 {
     m_platformBridge = bridge;
+    if (m_volumeFader) {
+        m_volumeFader->setPlatformBridge(bridge);
+    }
     if (m_panKnob) {
         m_panKnob->setPlatformBridge(bridge);
     }

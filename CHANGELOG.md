@@ -210,6 +210,75 @@ The public repository is currently on a `0.x` pre-beta line. The release target 
 - The routing/automation/master/UI triage branch went through four review rounds (human + CodeRabbit) with 20 findings addressed before merge.
 - License-signing worker dependencies cleaned (undici CVEs).
 
+## v0.7.1-alpha — Trust Sprint (2026-09-07)
+
+Reliability is the feature. This milestone carried exactly one new capability by
+design (FD-13); everything else removes a reason a first session ends badly.
+
+### The seam that was reported nine times
+
+The week before this sprint produced nine founder-reported bugs, all in one
+family: the UI told you one thing and the engine did another.
+
+- **Pattern edits now reach playback.** Unmuting a channel, and slicing a
+  pattern, both left the scheduler evaluating the old structure until an
+  unrelated edit forced a refresh — so the timeline showed one arrangement and
+  you heard another. Split, delete, mute, solo, undo and drop all reschedule
+  now. (#879)
+- **Stop lands at zero.** A single stop left the playhead visibly off the start.
+  (#868)
+- **Recording lines up under latency.** Takes are placed with device latency
+  compensated and the capture stamped from the engine frame, so a track recorded
+  through a high-latency plugin chain sits where you played it. (#881)
+
+### Losing work is harder
+
+- **Missing audio is recoverable.** A project whose audio files have moved now
+  opens with a relink dialog instead of failing quietly. (#876)
+- **Recovery no longer doubles your tracks.** Loading cleared the track table
+  first, so a recovered project came back with every track twice.
+
+### The one feature
+
+- **Fit audio clip to N bars.** Varispeed tempo-fit, pitch follows tempo, riding
+  the existing ratio pipe — no new DSP and no format change. (#747)
+
+### Producer-facing
+
+- **Aestra Transient**, an internal envelope shaper: attack/decay gain scaling,
+  zero latency, no PDC. A drum-workflow tool, not a centrepiece. (#869, #873)
+- **Mixer plugin menus** are populated from a metadata catalog rather than a
+  hand-maintained list, and now open where you clicked. (#872, #875)
+
+### Trust infrastructure
+
+- **The audio thread is checked at compile time.** `AESTRA_RT_NONBLOCKING`
+  (Clang's function-effects analysis) makes allocation, locks, throws and
+  unresolvable calls on an annotated real-time path a build error rather than a
+  code-review note. Enforced in CI. Coverage starts at `TruePeakMeter` and grows
+  per annotation; extending it to the callback itself is tracked separately.
+- **One RT reporting API.** `Source/AudioThreadConstraints.h` and its parallel
+  counter machinery are gone; `reportRealtimeMisuse` is the only reporting call.
+  A detection surface that some call sites consult and others do not reports
+  "clean" for thread state it never observed. (#882)
+- **Engine ownership is documented and enforced.** No singleton accessor
+  survives; production runs one app-owned engine.
+
+### Fixed
+
+- The startup log said `Aestra v1.0.0` — a hand-written string, wrong since
+  0.5 — and the build id carried no version at all. Both now come from the build,
+  so a log identifies the build it came from.
+- Removed an unreachable `MixerChannel` processing path that allocated scratch
+  buffers per channel for a function nothing called.
+
+### Known gaps
+
+- The intermittent resize failure (P0) has no reliable reproduction and remains
+  open rather than silently closed.
+- Automation *authoring* is still parked for v0.8.0 (FD-13); the backend
+  machinery exists, the interaction does not.
+
 ## [Unreleased]
 
 ### Fixed

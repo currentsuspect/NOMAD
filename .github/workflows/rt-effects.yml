@@ -1,0 +1,116 @@
+'on':
+  pull_request:
+    paths:
+      - 'AestraAudio/**'
+      - 'Source/**'
+      - 'scripts/ci/check-rt-effects.sh'
+      - 'scripts/ci/check-rt-effects.test.sh'
+      - '.github/workflows/rt-effects.yml'
+      - 'CMakeLists.txt'
+  push:
+    branches: [develop, main]
+    paths:
+      - 'AestraAudio/**'
+      - 'Source/**'
+      - 'scripts/ci/check-rt-effects.sh'
+      - '.github/workflows/rt-effects.yml'
+      - 'CMakeLists.txt'
+  workflow_dispatch:
+
+# © 2026 Aestra Studios — All Rights Reserved. Licensed for personal & educational use only.
+#
+# B-005, compile-time half — the audio thread must not allocate, lock or block,
+# and this lane makes a violation a build failure instead of a code review note.
+#
+# WHY A SEPARATE LANE
+#
+# The main CI matrix builds with the platform's default compiler. This check needs
+# Clang 20 or newer specifically, because [[clang::nonblocking]] and its
+# -Wfunction-effects call-graph analysis exist nowhere else. Bolting a second
+# toolchain onto the main matrix to serve one check would slow every build; a
+# path-filtered lane costs nothing on pull requests that do not touch audio.
+#
+# It is also a syntax-only pass — no codegen, no linking — so it is cheap enough
+# to run on every audio PR rather than nightly, which is where a gate has to run
+# if it is going to change what people merge.
+#
+# WHAT MAKES A PASS MEAN SOMETHING
+#
+# The script probes the compiler with a deliberately violating translation unit
+# before checking anything real, and refuses to report success if that probe is
+# not diagnosed. Without it, a runner image with an older Clang would parse
+# [[clang::nonblocking]] as an unknown attribute, check nothing, and go green —
+# the exact failure mode this whole mechanism is supposed to close.
+
+name: RT Effects (B-005)
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rt-effects-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The job name becomes the status check name. Renaming it detaches any branch
+  # protection rule pointing at it, and every PR then goes green on a gate that
+  # is no longer running. Do not rename without updating branch protection in the
+  # same change.
+  rt-effects:
+    name: RT effect check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          submodules: false
+
+      - name: Install build dependencies
+        # Same set the headless CI lane configures against. Configuring is the
+        # only thing this lane needs them for — nothing here links — but CMake
+        # still resolves every find_package before it will generate.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libasound2-dev \
+            libx11-dev libsodium-dev libsecret-1-dev
+
+      - name: Install Clang with function-effects analysis
+        run: |
+          set -euo pipefail
+          # Prefer whatever the runner image already ships; only reach for the
+          # LLVM apt repository if nothing local is new enough. The version
+          # ladder is descending so a newer image silently gets the newer
+          # compiler instead of pinning us to a stale one.
+          for v in 23 22 21 20; do
+            if command -v "clang++-${v}" >/dev/null 2>&1; then
+              echo "CXX=clang++-${v}" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          done
+          sudo apt-get update
+          if sudo apt-get install -y clang-20; then
+            echo "CXX=clang++-20" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "::error::No Clang 20+ available. -Wfunction-effects cannot run,"
+          echo "::error::and this lane must not pass without it."
+          exit 1
+
+      - name: Unit-test the gate itself
+        # Before trusting the gate's verdict on the repo, confirm the gate still
+        # rejects allocation, locks and unresolvable calls, and still refuses to
+        # pass on an empty annotation set. A gate whose own tests are skipped is
+        # an assertion, not a check.
+        run: bash scripts/ci/check-rt-effects.test.sh
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-rt \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER="${CXX}" \
+            -DCMAKE_C_COMPILER="${CXX/clang++/clang}" \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DAESTRA_HEADLESS_ONLY=ON \
+            -DAESTRA_RT_EFFECT_CHECK=ON
+
+      - name: Check annotated audio-thread paths
+        run: bash scripts/ci/check-rt-effects.sh build-rt

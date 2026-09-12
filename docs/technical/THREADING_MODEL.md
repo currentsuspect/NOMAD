@@ -169,22 +169,79 @@ uint64_t pos = m_globalSamplePos.load(std::memory_order_relaxed);
 
 Use `AppLifecycle::instance().getState()` to query current state.
 
-## Debug Checks (B-005)
+## RT Thread Checks (B-005)
 
-In debug builds, use these macros to catch threading violations:
+There is exactly one real-time state flag and one violation-reporting call, both
+in `RealtimeThreadGuard.h`. Do not add a parallel flag or counter: a detection
+surface that only some call sites consult reports "clean" for thread state it
+never observed.
 
 ```cpp
-// Before any allocation
-Aestra_ASSERT_NOT_AUDIO_THREAD();
+// At the start of the audio callback (and in AudioEngine::processBlock).
+// Depth counted, so the two nest correctly.
+Aestra::Audio::ScopedRealtimeAudioThread guard;
 
-// At start of audio callback
-AudioThreadGuard guard;  // Sets thread-local flag
-
-// Check thread context
-if (Aestra::Audio::isAudioThread()) {
+// Query thread context.
+if (Aestra::Audio::isRealtimeAudioThread()) {
     // We're on the audio thread
 }
+
+// Guard a non-real-time API. The return value is the refusal signal:
+// true means "this was called from the audio thread" — bail out.
+void MixerChannel::setMute(bool muted) {
+    if (Aestra::Audio::reportRealtimeMisuse("MixerChannel::setMute")) return;
+    // ...
+}
 ```
+
+Reports dispatch to the handler installed with `setRealtimeMisuseHandler()`;
+`AudioEngine` installs one at startup. In debug builds with no handler
+installed, a report asserts.
+
+### The compile-time half
+
+Everything above is detection: it tells you a violation happened, after it
+happened, on a machine that ran the code. B-005 also asks for the violation to
+be rejected before it exists.
+
+Mark a function that runs on the audio thread with `AESTRA_RT_NONBLOCKING`,
+declared in `RealtimeThreadGuard.h`:
+
+```cpp
+// In the header — the declaration is what callers in other translation units
+// see, so annotating only the definition checks the body and tells them nothing.
+void processStereo(const float* interleaved,
+                   uint32_t numFrames) noexcept AESTRA_RT_NONBLOCKING;
+```
+
+Under Clang 20+ this expands to `[[clang::nonblocking]]`, and
+`-Wfunction-effects` walks the call graph out of it: allocation, deallocation,
+locks, throws, atomic waits, thread-local access, indirect calls it cannot
+resolve, and any call it cannot prove non-blocking all become errors. Under any
+other compiler the macro expands to nothing, so annotations are free to apply
+everywhere and are simply unenforced there.
+
+Two properties worth knowing before adopting it:
+
+- **The obligation propagates.** Annotating an entry point pulls in everything it
+  reaches, transitively. That is the value, and it is also why a large entry
+  point is a project rather than an edit.
+- **It is opt-in per function.** An unannotated function is never inspected, so
+  the check cannot break code nobody has annotated. Coverage is exactly the set
+  of functions carrying the macro — no more, and no less than that set.
+
+Run it locally:
+
+```bash
+cmake -S . -B build-clang -DCMAKE_CXX_COMPILER=clang++ \
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DAESTRA_RT_EFFECT_CHECK=ON
+./scripts/ci/check-rt-effects.sh build-clang
+```
+
+CI runs the same script in the `RT effect check` lane. The script refuses to
+report success unless it has first confirmed the compiler diagnoses a deliberate
+violation — an older Clang parses the attribute as unknown and checks nothing,
+which would otherwise look identical to a clean tree.
 
 ## Best Practices
 
@@ -205,4 +262,4 @@ if (Aestra::Audio::isAudioThread()) {
 - `AppBootstrap.h` - Initialization modules (B-001)
 - `AppLifecycle.h` - Lifecycle states (B-002)
 - `ServiceLocator.h` - Service registry (B-003)
-- `AudioThreadConstraints.h` - Thread safety checks (B-005)
+- `RealtimeThreadGuard.h` - RT thread state and misuse reporting (B-004, B-005)

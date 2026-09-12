@@ -17,6 +17,8 @@
 #include "Commands/SetStepsCommand.h"
 #include "Commands/TransposePatternCommand.h"
 #include "Commands/CreateLaneCommand.h"
+#include "Commands/CreateTrackWithLaneCommand.h"
+#include "Commands/DeleteLaneCommand.h"
 #include "Commands/ImportAudioClipCommand.h"
 #include "IO/MiniAudioDecoder.h"
 #include "Commands/RemoveClipCommand.h"
@@ -240,7 +242,7 @@ void CommandRegistry::initialize() {
         if (!trackOpt.has_value() || *trackOpt < 0) return nullptr;
         MixerChannel* ch = tm->getChannel(static_cast<size_t>(*trackOpt));
         if (!ch) return CommandRegistry::fail("no such track: " + std::string(*trackRaw));
-        return std::make_unique<SetMuteCommand>(*ch, state);
+        return std::make_unique<SetMuteCommand>(*tm, *ch, state);
     });
 
     reg.registerCommand("solo_track", [](const auto& flags, const CommandContext& ctx) -> std::unique_ptr<ICommand> {
@@ -256,7 +258,7 @@ void CommandRegistry::initialize() {
         if (*trackOpt < 0) return nullptr;
         MixerChannel* ch = tm->getChannel(static_cast<size_t>(*trackOpt));
         if (!ch) return CommandRegistry::fail("no such track: " + std::string(*trackRaw));
-        return std::make_unique<SetSoloCommand>(*ch, state);
+        return std::make_unique<SetSoloCommand>(*tm, *ch, state);
     });
 
     reg.registerCommand("set_volume", [](const auto& flags, const CommandContext& ctx) -> std::unique_ptr<ICommand> {
@@ -273,7 +275,7 @@ void CommandRegistry::initialize() {
         if (*trackOpt < 0) return nullptr;
         MixerChannel* ch = tm->getChannel(static_cast<size_t>(*trackOpt));
         if (!ch) return CommandRegistry::fail("no such track: " + std::string(*trackRaw));
-        return std::make_unique<SetVolumeCommand>(*ch, *valueOpt);
+        return std::make_unique<SetVolumeCommand>(*tm, *ch, *valueOpt);
     });
 
     reg.registerCommand("set_pan", [](const auto& flags, const CommandContext& ctx) -> std::unique_ptr<ICommand> {
@@ -290,7 +292,7 @@ void CommandRegistry::initialize() {
         if (*trackOpt < 0) return nullptr;
         MixerChannel* ch = tm->getChannel(static_cast<size_t>(*trackOpt));
         if (!ch) return CommandRegistry::fail("no such track: " + std::string(*trackRaw));
-        return std::make_unique<SetPanCommand>(*ch, *valueOpt);
+        return std::make_unique<SetPanCommand>(*tm, *ch, *valueOpt);
     });
 
     // ===== Clip (5) =====
@@ -301,6 +303,25 @@ void CommandRegistry::initialize() {
         auto nameIt = flags.find("name");
         if (nameIt != flags.end()) name = nameIt->second;
         return std::make_unique<CreateLaneCommand>(*pm, name);
+    });
+
+    reg.registerCommand("delete_lane", [](const auto& flags, const CommandContext& ctx) -> std::unique_ptr<ICommand> {
+        TrackManager* tm = ctx.trackManager;
+        if (!tm) return nullptr;
+        auto laneIt = flags.find("lane_id");
+        if (laneIt == flags.end()) return nullptr;
+        PlaylistLaneID laneId;
+        if (!AestraUUID::tryParse(laneIt->second, laneId)) return nullptr;
+        return std::make_unique<DeleteLaneCommand>(*tm, laneId);
+    });
+
+    reg.registerCommand("create_track_lane", [](const auto& flags, const CommandContext& ctx) -> std::unique_ptr<ICommand> {
+        TrackManager* tm = ctx.trackManager;
+        if (!tm) return nullptr;
+        std::string name;
+        auto nameIt = flags.find("name");
+        if (nameIt != flags.end()) name = nameIt->second;
+        return std::make_unique<CreateTrackWithLaneCommand>(*tm, name);
     });
 
     // Imports the file for real. This used to record the path as the clip's

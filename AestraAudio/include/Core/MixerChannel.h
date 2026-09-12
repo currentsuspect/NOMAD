@@ -150,6 +150,10 @@ public:
     void setWidth(float width);
     /** @brief Get stereo width. */
     float getWidth() const { return m_width.load(); }
+    /** @brief Set the channel trim offset (dB, pre-fader gain stage). */
+    void setTrimDb(float trimDb) { m_trimDb.store(trimDb); }
+    /** @brief Get the channel trim offset in dB. */
+    float getTrimDb() const { return m_trimDb.load(); }
     /** @brief Set mute state. */
     void setMute(bool mute);
     /** @brief Check mute state. */
@@ -185,11 +189,10 @@ public:
     /** @brief Get the monitored input channel index (-2 = Auto, -1 = None, >=0 = explicit input). */
     int getInputChannelIndex() const { return m_inputChannelIndex.load(); }
 
-    /** @brief Process this channel's audio for one callback block. */
-    void processAudio(float* outputBuffer, uint32_t numFrames, double streamTime, double outputSampleRate);
-
-    /** @brief Pre-allocate scratch buffers required by processAudio(). Must be called off the audio thread. */
-    void prepareProcessingBuffers(uint32_t maxFrames);
+    // processAudio() and its prepareProcessingBuffers() companion were removed
+    // in the v0.7.1 dead-code pass. A channel does not render itself: the graph
+    // does. AudioGraphBuilder reads getEffectChainSnapshot() into the track
+    // state and AudioEngine::renderGraph processes from there.
 
     /** @brief Get the last stereo correlation value reported by the bus. */
     float getLastCorrelation() const {
@@ -250,11 +253,13 @@ public:
     /** @brief Positional lookup for a stable sendId; -1 when absent. */
     int findSendIndex(uint64_t sendId) const;
 
-    /** @brief Set the effect chain snapshot for RT-safe processing (deprecated - snapshots are now owned by EffectChain). */
-    void setEffectChainSnapshot(std::shared_ptr<const EffectChainSnapshot> snapshot) {
-        m_effectChainSnapshot.store(std::move(snapshot), std::memory_order_release);
-    }
-    /** @brief Get the current effect chain snapshot (Pass 3: returns canonical snapshot from EffectChain). */
+    // setEffectChainSnapshot() went with them. It wrote a member that only the
+    // removed processAudio() ever read, so in production the value was written
+    // by nobody and read by nobody -- while the getter below had already been
+    // migrated to the canonical snapshot. Half a migration is how a channel
+    // ends up holding two disagreeing answers to the same question.
+
+    /** @brief The channel's effect chain snapshot, owned by EffectChain. */
     std::shared_ptr<const EffectChainSnapshot> getEffectChainSnapshot() const {
         return m_effectChain.getSnapshot();
     }
@@ -273,6 +278,7 @@ private:
     std::atomic<float> m_volume{1.0f};
     std::atomic<float> m_pan{0.0f};
     std::atomic<float> m_width{1.0f};
+    std::atomic<float> m_trimDb{0.0f};
     std::atomic<bool> m_muted{false};
     std::atomic<bool> m_soloed{false};
     std::atomic<bool> m_soloSafe{false};
@@ -288,21 +294,11 @@ private:
     // Effect chain for insert effects
     EffectChain m_effectChain;
 
-    // Pass 3: Snapshot for RT-safe processing (updated by AudioGraph publication)
-    AtomicSharedPtr<const EffectChainSnapshot> m_effectChainSnapshot{nullptr};
-
-    // Dry buffer for RT-safe dry/wet mixing in snapshot processing
-    std::vector<float> m_dryChannelBuf;
-
     std::function<void(const AudioQueueCommand&)> m_commandSink;
 
     // Input monitoring callback — protected by its own mutex (not m_sendMutex)
     mutable std::mutex m_monitoringCallbackMutex;
     std::function<void()> m_inputMonitoringStateChanged;
-
-    // Pre-allocated deinterleave buffers for RT-safe effect processing
-    std::vector<float> m_leftChannelBuf;
-    std::vector<float> m_rightChannelBuf;
 
     // Routing (v3.1)
     // Primary output (defaults to Master). 0xFFFFFFFF = Master.
@@ -327,7 +323,6 @@ private:
     }
 };
 
-using Track = MixerChannel;
 
 } // namespace Audio
 } // namespace Aestra

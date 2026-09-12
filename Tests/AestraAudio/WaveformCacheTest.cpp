@@ -350,6 +350,98 @@ bool testAsymmetricWaveform() {
     return true;
 }
 
+// 12. Coarse-mip scale invariants: peak amplitude must survive aggregation and
+// high-spp retrieval — zoomed-out clip rendering queries the coarsest mip
+// (spp ~ 8600-10430 was the reported collapse regime), so a scale/interleave
+// defect there reads as vertically collapsed waveforms.
+bool testCoarseMipScalePreserved() {
+    const SampleIndex numFrames = 48000;
+    const uint32_t numChannels = 2;
+    std::vector<float> data(static_cast<size_t>(numFrames) * numChannels, 0.0f);
+    for (SampleIndex f = 0; f < numFrames; ++f) {
+        const double t = static_cast<double>(f) / 48000.0;
+        const double l = 0.8 * std::sin(2.0 * 3.14159265358979 * 220.0 * t);
+        const double r = 0.6 * std::sin(2.0 * 3.14159265358979 * 331.0 * t + 0.7);
+        data[static_cast<size_t>(f) * numChannels + 0] = static_cast<float>(l);
+        data[static_cast<size_t>(f) * numChannels + 1] = static_cast<float>(r);
+    }
+
+    // Production defaults: base 64 samples/peak, 4 levels (64/256/1024/4096)
+    WaveformCache cache;
+    cache.buildFromRaw(data.data(), numFrames, numChannels);
+    if (!cache.isReady()) return fail("coarse mip: cache should be ready");
+
+    float referenceMaxAbs = 0.0f;
+    for (size_t i = 0; i < data.size(); i += numChannels) {
+        referenceMaxAbs = std::max(referenceMaxAbs, std::fabs(data[i]));
+    }
+
+    // Coarsest-level query: spp = 48000/10 = 4800 >= samplesPerPeak of level 3
+    // (4096), so selectLevel must reach the coarsest mip bucketing
+    std::vector<WaveformPeak> coarse;
+    cache.getPeaksForRangePrecise(0, 0.0, static_cast<double>(numFrames), 10, coarse);
+    if (coarse.size() != 10) return fail("coarse mip: expected 10 peaks");
+
+    float coarseMaxAbs = 0.0f;
+    for (const auto& pk : coarse) {
+        if (pk.min > pk.max) return fail("coarse mip: min/max swapped");
+        coarseMaxAbs = std::max(coarseMaxAbs, std::max(std::fabs(pk.min), std::fabs(pk.max)));
+    }
+
+    // Aggregated min/max must track the true source extreme (within the
+    // sample-grid resolution of a 220 Hz sine at 48 kHz), never collapse.
+    if (coarseMaxAbs > referenceMaxAbs + 1.0e-3f) return fail("coarse mip exceeded source amplitude");
+    if (coarseMaxAbs < referenceMaxAbs - 1.0e-3f) return fail("coarse mip lost peak amplitude");
+
+    // Finest-level query must agree on scale (no per-level scale drift)
+    std::vector<WaveformPeak> fine;
+    cache.getPeaksForRangePrecise(0, 0.0, 5120.0, 80, fine); // spp = 64 -> level 0
+    float fineMaxAbs = 0.0f;
+    for (const auto& pk : fine) {
+        if (pk.min > pk.max) return fail("fine mip: min/max swapped");
+        fineMaxAbs = std::max(fineMaxAbs, std::max(std::fabs(pk.min), std::fabs(pk.max)));
+    }
+    if (fineMaxAbs > referenceMaxAbs + 1.0e-3f) return fail("fine mip exceeded source amplitude");
+    if (fineMaxAbs < referenceMaxAbs - 1.0e-3f) return fail("fine mip lost peak amplitude");
+
+    return true;
+}
+
+bool testStereoQueryMatchesMono() {
+    const SampleIndex numFrames = 24000;
+    const uint32_t numChannels = 2;
+    std::vector<float> data(static_cast<size_t>(numFrames) * numChannels, 0.0f);
+    for (SampleIndex f = 0; f < numFrames; ++f) {
+        const double t = static_cast<double>(f) / 48000.0;
+        // Asymmetric, channel-divergent content so min/max/rms all diverge.
+        data[static_cast<size_t>(f) * numChannels + 0] = static_cast<float>(0.7 * std::sin(2.0 * 3.14159265358979 * 190.0 * t) - 0.1);
+        data[static_cast<size_t>(f) * numChannels + 1] = static_cast<float>(0.4 * std::sin(2.0 * 3.14159265358979 * 410.0 * t + 1.1));
+    }
+
+    WaveformCache cache;
+    cache.buildFromRaw(data.data(), numFrames, numChannels);
+    if (!cache.isReady()) return fail("stereo query: cache should be ready");
+
+    for (uint32_t pixels : {1u, 7u, 64u, 300u}) {
+        std::vector<WaveformPeak> l, r, lRef, rRef;
+        // Stereo single-pass API...
+        cache.getPeaksForRangePreciseStereo(0, 1, 100.0, 12000.0, pixels, l, r);
+        // ...must equal the two single-channel queries exactly.
+        cache.getPeaksForRangePrecise(0, 100.0, 12000.0, pixels, lRef);
+        cache.getPeaksForRangePrecise(1, 100.0, 12000.0, pixels, rRef);
+
+        if (l.size() != lRef.size() || r.size() != rRef.size())
+            return fail("stereo query: size mismatch vs mono queries");
+        for (size_t i = 0; i < lRef.size(); ++i) {
+            if (l[i].min != lRef[i].min || l[i].max != lRef[i].max || l[i].rms != lRef[i].rms || l[i].count != lRef[i].count)
+                return fail("stereo query: L column diverges from mono query");
+            if (r[i].min != rRef[i].min || r[i].max != rRef[i].max || r[i].rms != rRef[i].rms || r[i].count != rRef[i].count)
+                return fail("stereo query: R column diverges from mono query");
+        }
+    }
+    return true;
+}
+
 } // namespace
 
 int main() {
@@ -368,6 +460,8 @@ int main() {
     ok &= testVeryShortFile();
     ok &= testSilentAudio();
     ok &= testAsymmetricWaveform();
+    ok &= testCoarseMipScalePreserved();
+    ok &= testStereoQueryMatchesMono();
 
     if (ok) {
         std::cout << "AestraWaveformCacheTest: PASS\n";
