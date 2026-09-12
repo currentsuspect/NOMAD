@@ -281,6 +281,24 @@ family: the UI told you one thing and the engine did another.
 
 ## [Unreleased]
 
+Nothing yet — v0.7.1-alpha was cut on 2026-09-12. v0.8.0 work lands here.
+
+## Unfiled — shipped before v0.7.0, never assigned to a release
+
+> **This section is mislabelled history, not pending work.** It sat under
+> `[Unreleased]` below the v0.7.1 heading, which read as "none of this has
+> shipped yet". It has: spot-checking three of its claims against the tree finds
+> the `lowmem` CMake preset, `Source/Settings/ExportDialog.cpp` and
+> `RumbleArsenalAudibleTest` all present. The content is real and released; only
+> its placement was wrong.
+>
+> Assigning each entry to the release that actually carried it needs git
+> archaeology per item, which is deliberately not guessed at here — a confident
+> wrong attribution in a changelog is worse than an honest unfiled one. Until
+> that reconciliation happens this heading states what is true: shipped, before
+> v0.7.0, never filed.
+
+
 ### Fixed
 - Piano Roll: dropdown menu (Scale, Snap, Root Key) now responds to clicks — was using local bounds for positioning but global bounds for hit-testing
 
