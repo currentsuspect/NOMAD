@@ -1,0 +1,9 @@
+<map id="Aestra::Audio::ArsenalPanel::renderDragPreview" name="Aestra::Audio::ArsenalPanel::renderDragPreview">
+<area shape="rect" id="Node000001" title="Drag&#45;hover ghost: dashed &quot;new unit&quot; outline while dragging a sample over empty Arsenal space." alt="" coords="5,69,207,109"/>
+<area shape="rect" id="Node000002" href="$d8/d1c/classAestraUI_1_1NUIRenderer.html#a8287a2b8a0d43d3eb03d7354121b4a95" title="Draw a line." alt="" coords="255,5,424,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="179,67,252,46,253,52,180,72"/>
+<area shape="rect" id="Node000003" href="$d8/d1c/classAestraUI_1_1NUIRenderer.html#a91ed36d4b7fbb90f1d98f0a116b6debc" title="Draw text at the given position." alt="" coords="255,69,424,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="207,87,241,87,241,92,207,92"/>
+<area shape="rect" id="Node000004" href="$d8/d1c/classAestraUI_1_1NUIRenderer.html#abe394d6a3fb11601766324bcd8793ac3" title="Measure text dimensions." alt="" coords="255,133,424,173"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="180,107,253,127,252,132,179,112"/>
+</map>

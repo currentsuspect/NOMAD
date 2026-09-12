@@ -6,7 +6,7 @@
 <area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="748,74,714,79,713,73,748,69"/>
 <area shape="rect" id="Node000003" href="$d0/d9a/classAestra_1_1Audio_1_1SetEffectBypassCommand.html#a432e4bf7538aea50531284f1eb1a5257" title="Redo the command (must be explicitly implemented) Implementers should consider: is redo() exactly exe..." alt="" coords="272,5,447,45"/>
 <area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="500,28,447,28,447,23,500,23"/>
-<area shape="rect" id="Node000005" href="$da/d71/classAestraUI_1_1PluginUIController.html#a6f6aad77c64762f12e40f6899c8e0e8b" title="Bind an EffectChainRack to an audio EffectChain." alt="" coords="5,95,209,135"/>
+<area shape="rect" id="Node000005" href="$da/d71/classAestraUI_1_1PluginUIController.html#a51dc8a35899e9a50cd85ba935c56a6be" title="Bind an EffectChainRack to a mixer channel&#39;s effect chain." alt="" coords="5,95,209,135"/>
 <area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="496,98,209,112,209,107,495,92"/>
 <area shape="rect" id="Node000006" href="$da/d71/classAestraUI_1_1PluginUIController.html#a212dbf3849e370089393c7b225bd33b2" title="Load a plugin into an effect slot." alt="" coords="257,123,461,163"/>
 <area shape="poly" id="edge5_Node000004_Node000006" title=" " alt="" coords="504,115,455,125,454,120,502,110"/>

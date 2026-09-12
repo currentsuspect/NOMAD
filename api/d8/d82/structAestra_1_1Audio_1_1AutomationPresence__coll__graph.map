@@ -1,0 +1,7 @@
+<map id="Aestra::Audio::AutomationPresence" name="Aestra::Audio::AutomationPresence">
+<area shape="rect" id="Node000001" title="Read&#45;only automation presence summary for one mixer channel (FD&#45;16)." alt="" coords="5,93,199,133"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="28,5,67,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="47,44,51,68,71,91,67,95,46,70,41,45"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="119,5,194,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="145,44,130,71,115,95,111,92,125,68,141,41"/>
+</map>

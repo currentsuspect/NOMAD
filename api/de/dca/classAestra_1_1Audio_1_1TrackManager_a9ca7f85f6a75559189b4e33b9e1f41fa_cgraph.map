@@ -1,0 +1,5 @@
+<map id="Aestra::Audio::TrackManager::patternContentEdited" name="Aestra::Audio::TrackManager::patternContentEdited">
+<area shape="rect" id="Node000001" title="Pattern notes changed while playing (Arsenal grid / Piano Roll edits)." alt="" coords="5,5,213,45"/>
+<area shape="rect" id="Node000002" href="$dd/de4/classAestra_1_1Audio_1_1PatternPlaybackEngine.html#aafad448642f0a160f19c5f9000c48cb2" title="Pattern content changed while playing (RT&#45;safe producer&#45;side flag)." alt="" coords="261,5,484,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="214,23,247,23,247,28,214,28"/>
+</map>

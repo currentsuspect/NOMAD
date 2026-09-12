@@ -1,0 +1,5 @@
+<map id="Aestra::Audio::WaveformCache::getPeaksForRangePreciseStereo" name="Aestra::Audio::WaveformCache::getPeaksForRangePreciseStereo">
+<area shape="rect" id="Node000001" title="Two&#45;channel variant of getPeaksForRangePrecise under one lock pass." alt="" coords="5,5,245,45"/>
+<area shape="rect" id="Node000002" href="$d7/dae/classAestra_1_1Audio_1_1WaveformCache.html#afe7aebf49c53ab08372e4076f0bc4629" title="Select the best mip level for a given samples&#45;per&#45;pixel." alt="" coords="293,5,517,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="245,23,280,23,280,28,245,28"/>
+</map>

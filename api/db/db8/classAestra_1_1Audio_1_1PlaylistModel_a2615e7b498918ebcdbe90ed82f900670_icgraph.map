@@ -1,5 +1,11 @@
 <map id="Aestra::Audio::PlaylistModel::getBPM" name="Aestra::Audio::PlaylistModel::getBPM">
-<area shape="rect" id="Node000001" title="Get BPM." alt="" coords="288,5,493,45"/>
-<area shape="rect" id="Node000002" href="$dd/dde/classAestra_1_1Audio_1_1CommitAudioClipEditsCommand.html#a3e074459ab4eaf54e0750ecad0c25aa8" title="Produce the replacement audio for this clip." alt="" coords="5,5,240,45"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="274,28,240,28,240,23,274,23"/>
+<area shape="rect" id="Node000001" title="Get BPM." alt="" coords="544,37,749,77"/>
+<area shape="rect" id="Node000002" href="$dd/dde/classAestra_1_1Audio_1_1CommitAudioClipEditsCommand.html#a3e074459ab4eaf54e0750ecad0c25aa8" title="Produce the replacement audio for this clip." alt="" coords="261,5,496,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="530,46,496,42,496,37,531,41"/>
+<area shape="rect" id="Node000003" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a5185449429f4b93074042925ba5032ef" title="Convert a transport position in seconds to beats at the current tempo." alt="" coords="275,69,483,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="531,74,483,80,482,74,530,69"/>
+<area shape="rect" id="Node000004" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a2a2568f5d3b314e560fb325c2b74a385" title="Begin the count&#45;in phase ahead of playback/recording." alt="" coords="5,37,213,77"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="261,78,213,72,214,67,261,73"/>
+<area shape="rect" id="Node000005" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#adf1bd197816588ad7270e1d7d2dfedbd" title="Set playhead position." alt="" coords="5,101,213,141"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="261,106,214,112,213,106,261,101"/>
 </map>

@@ -1,0 +1,5 @@
+<map id="Aestra::Audio::TrackManager::moveLaneWithinTrack" name="Aestra::Audio::TrackManager::moveLaneWithinTrack">
+<area shape="rect" id="Node000001" title="Move an owned lane to a position within its track&#39;s lane order (undo position fidelity for DeleteLane..." alt="" coords="5,5,213,45"/>
+<area shape="rect" id="Node000002" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a941415924d8b3eb992821ced6465cf6d" title="Find a Track by stable ID." alt="" coords="261,5,469,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="213,23,248,23,248,28,213,28"/>
+</map>

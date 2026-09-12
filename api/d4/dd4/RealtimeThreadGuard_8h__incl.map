@@ -1,0 +1,7 @@
+<map id="AestraAudio/include/RealtimeThreadGuard.h" name="AestraAudio/include/RealtimeThreadGuard.h">
+<area shape="rect" id="Node000001" title="The single source of truth for real&#45;time thread state and misuse reporting (B&#45;004 threading model,..." alt="" coords="5,5,187,45"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="17,93,84,119"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="87,47,67,83,62,80,83,44"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="108,93,177,119"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="110,44,131,80,126,83,105,47"/>
+</map>

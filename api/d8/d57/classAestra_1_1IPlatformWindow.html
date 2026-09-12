@@ -204,6 +204,12 @@ virtual void&#160;</td><td class="memItemRight" valign="bottom"><b>setCursorVisi
 <tr class="memitem:ac8b3a9006428cd4e99cc915bcd8ac8b3" id="r_ac8b3a9006428cd4e99cc915bcd8ac8b3"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d8/d57/classAestra_1_1IPlatformWindow.html#ac8b3a9006428cd4e99cc915bcd8ac8b3">setMouseMoveCallback</a> (std::function&lt; void(int x, int y)&gt; callback)=0</td></tr>
 <tr class="memdesc:ac8b3a9006428cd4e99cc915bcd8ac8b3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the mouse-move callback.  <br /></td></tr>
 <tr class="separator:ac8b3a9006428cd4e99cc915bcd8ac8b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a88546d944cd9bf0d23523c5ca431d0fb" id="r_a88546d944cd9bf0d23523c5ca431d0fb"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d8/d57/classAestra_1_1IPlatformWindow.html#a88546d944cd9bf0d23523c5ca431d0fb">setMouseEnterCallback</a> (std::function&lt; void()&gt; callback)</td></tr>
+<tr class="memdesc:a88546d944cd9bf0d23523c5ca431d0fb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the callback fired when the mouse enters the window.  <br /></td></tr>
+<tr class="separator:a88546d944cd9bf0d23523c5ca431d0fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6cbb936f8618271d87819ea0560f6010" id="r_a6cbb936f8618271d87819ea0560f6010"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d8/d57/classAestra_1_1IPlatformWindow.html#a6cbb936f8618271d87819ea0560f6010">setMouseLeaveCallback</a> (std::function&lt; void()&gt; callback)</td></tr>
+<tr class="memdesc:a6cbb936f8618271d87819ea0560f6010"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the callback fired when the mouse leaves the window.  <br /></td></tr>
+<tr class="separator:a6cbb936f8618271d87819ea0560f6010"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a020e1021062e75f7bec7cf274ea3cc88" id="r_a020e1021062e75f7bec7cf274ea3cc88"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d8/d57/classAestra_1_1IPlatformWindow.html#a020e1021062e75f7bec7cf274ea3cc88">setMouseButtonCallback</a> (std::function&lt; void(MouseButton button, bool pressed, int x, int y)&gt; callback)=0</td></tr>
 <tr class="memdesc:a020e1021062e75f7bec7cf274ea3cc88"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the mouse-button callback.  <br /></td></tr>
 <tr class="separator:a020e1021062e75f7bec7cf274ea3cc88"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1419,6 +1425,72 @@ virtual void&#160;</td><td class="memItemRight" valign="bottom"><b>setCursorVisi
 <p>Reimplemented in <a class="el" href="../../d2/d75/classAestra_1_1PlatformWindowLinux.html#ae2de9ede3c273af83c3f2a971091ece2">Aestra::PlatformWindowLinux</a>, and <a class="el" href="../../d4/d07/classAestra_1_1PlatformWindowWin32.html#a57ff3d28f07499d23ed652ee6c29ebc7">Aestra::PlatformWindowWin32</a>.</p>
 
 <p class="definition">Definition at line <a class="el" href="../../da/d7c/AestraPlatform_8h_source.html#l00261">261</a> of file <a class="el" href="../../da/d7c/AestraPlatform_8h_source.html">AestraPlatform.h</a>.</p>
+
+</div>
+</div>
+<a id="a88546d944cd9bf0d23523c5ca431d0fb" name="a88546d944cd9bf0d23523c5ca431d0fb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a88546d944cd9bf0d23523c5ca431d0fb">&#9670;&#160;</a></span>setMouseEnterCallback()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void Aestra::IPlatformWindow::setMouseEnterCallback </td>
+          <td>(</td>
+          <td class="paramtype">std::function&lt; void()&gt;&#160;</td>
+          <td class="paramname"><em>callback</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Set the callback fired when the mouse enters the window. </p>
+<p>Default no-op. </p>
+
+<p>Reimplemented in <a class="el" href="../../d2/d75/classAestra_1_1PlatformWindowLinux.html#a096bef13ec39b50d9fa234c03efcd1ca">Aestra::PlatformWindowLinux</a>, and <a class="el" href="../../d4/d07/classAestra_1_1PlatformWindowWin32.html#adbf6e6eb942d9a82d5f706dd9247909a">Aestra::PlatformWindowWin32</a>.</p>
+
+<p class="definition">Definition at line <a class="el" href="../../da/d7c/AestraPlatform_8h_source.html#l00285">285</a> of file <a class="el" href="../../da/d7c/AestraPlatform_8h_source.html">AestraPlatform.h</a>.</p>
+
+</div>
+</div>
+<a id="a6cbb936f8618271d87819ea0560f6010" name="a6cbb936f8618271d87819ea0560f6010"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6cbb936f8618271d87819ea0560f6010">&#9670;&#160;</a></span>setMouseLeaveCallback()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void Aestra::IPlatformWindow::setMouseLeaveCallback </td>
+          <td>(</td>
+          <td class="paramtype">std::function&lt; void()&gt;&#160;</td>
+          <td class="paramname"><em>callback</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Set the callback fired when the mouse leaves the window. </p>
+<p>Default no-op. </p>
+
+<p>Reimplemented in <a class="el" href="../../d2/d75/classAestra_1_1PlatformWindowLinux.html#a5186770dcbc131bd63825351618bc712">Aestra::PlatformWindowLinux</a>, and <a class="el" href="../../d4/d07/classAestra_1_1PlatformWindowWin32.html#a7ffb2a5f26b6d76d74f21e488691bc33">Aestra::PlatformWindowWin32</a>.</p>
+
+<p class="definition">Definition at line <a class="el" href="../../da/d7c/AestraPlatform_8h_source.html#l00287">287</a> of file <a class="el" href="../../da/d7c/AestraPlatform_8h_source.html">AestraPlatform.h</a>.</p>
 
 </div>
 </div>

@@ -1,5 +1,7 @@
 <map id="AestraContent::showToast" name="AestraContent::showToast">
-<area shape="rect" id="Node000001" title="Show a transient status pill (bottom&#45;center overlay)." alt="" coords="261,13,452,38"/>
-<area shape="rect" id="Node000002" href="$db/d60/classAestraContent.html#ab90c78e0fe24a2ff739817b3c4a4440d" title="Create the Arsenal and sample&#45;editor overlays." alt="" coords="5,5,213,45"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="247,28,213,28,213,23,247,23"/>
+<area shape="rect" id="Node000001" title="Show a transient status pill (bottom&#45;center overlay)." alt="" coords="295,42,485,67"/>
+<area shape="rect" id="Node000002" href="$db/d60/classAestraContent.html#ab90c78e0fe24a2ff739817b3c4a4440d" title="Create the Arsenal and sample&#45;editor overlays." alt="" coords="22,5,230,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="281,45,230,40,231,34,281,40"/>
+<area shape="rect" id="Node000003" href="$db/d60/classAestraContent.html#aa2d67aab8ab85aa5c68d72369b31278f" title="Create the transport bar and wire it to the audio engine." alt="" coords="5,70,247,95"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="281,69,246,73,245,67,281,64"/>
 </map>

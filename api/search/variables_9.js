@@ -7,5 +7,6 @@ var searchData=
   ['kpcm24lsb_4',['kPcm24Lsb',['../d0/d8a/AudioExportQuantization_8h.html#aec13df6986cd4f10e89a031f5848bc65',1,'Aestra::Audio::ExportQuantization']]],
   ['kpcm24scale_5',['kPcm24Scale',['../d0/d8a/AudioExportQuantization_8h.html#a6e30354c1b2dd230ca42b810c424d7f9',1,'Aestra::Audio::ExportQuantization']]],
   ['ksegmentcount_6',['kSegmentCount',['../d3/d28/WorkspaceFocus_8h.html#acf971ab5aff3e9604fcbd859b09b7432',1,'WorkspaceFocusModel']]],
-  ['kunset_7',['kUnset',['../d3/d4d/structAestra_1_1AudioSettings.html#aa3e817a8c30d44b71082fe90088528d1',1,'Aestra::AudioSettings']]]
+  ['kunknowntransportframe_7',['kUnknownTransportFrame',['../de/dca/classAestra_1_1Audio_1_1TrackManager.html#a04ccb2575f2b4a43b9e55286a38ab04c',1,'Aestra::Audio::TrackManager']]],
+  ['kunset_8',['kUnset',['../d3/d4d/structAestra_1_1AudioSettings.html#aa3e817a8c30d44b71082fe90088528d1',1,'Aestra::AudioSettings']]]
 ];

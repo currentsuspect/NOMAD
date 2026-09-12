@@ -11,9 +11,10 @@ var searchData=
   ['filter_8',['Filter',['../de/dd2/classAestra_1_1Audio_1_1DSP_1_1Filter.html',1,'Aestra::Audio::DSP']]],
   ['filtercoeffs_9',['FilterCoeffs',['../d9/deb/structAestra_1_1Audio_1_1Plugins_1_1FilterCoeffs.html',1,'Aestra::Audio::Plugins']]],
   ['firstfreemixerchannelresult_10',['FirstFreeMixerChannelResult',['../df/d72/structAestra_1_1Audio_1_1detail_1_1FirstFreeMixerChannelResult.html',1,'Aestra::Audio::detail']]],
-  ['flagschema_11',['FlagSchema',['../d3/d6e/structAestra_1_1Audio_1_1FlagSchema.html',1,'Aestra::Audio']]],
-  ['fontmetrics_12',['FontMetrics',['../d1/d6f/structAestraUI_1_1NUIRenderer_1_1FontMetrics.html',1,'AestraUI::NUIRenderer']]],
-  ['forwardbutton_13',['ForwardButton',['../df/d7b/classAestraUI_1_1ForwardButton.html',1,'AestraUI']]],
-  ['framesample_14',['FrameSample',['../de/d2c/structAestraUI_1_1NUIFrameProfiler_1_1FrameSample.html',1,'AestraUI::NUIFrameProfiler']]],
-  ['framestats_15',['FrameStats',['../d2/d08/structAestra_1_1FrameStats.html',1,'Aestra']]]
+  ['fittobarsresult_11',['FitToBarsResult',['../df/d21/structAestra_1_1Audio_1_1FitToBarsResult.html',1,'Aestra::Audio']]],
+  ['flagschema_12',['FlagSchema',['../d3/d6e/structAestra_1_1Audio_1_1FlagSchema.html',1,'Aestra::Audio']]],
+  ['fontmetrics_13',['FontMetrics',['../d1/d6f/structAestraUI_1_1NUIRenderer_1_1FontMetrics.html',1,'AestraUI::NUIRenderer']]],
+  ['forwardbutton_14',['ForwardButton',['../df/d7b/classAestraUI_1_1ForwardButton.html',1,'AestraUI']]],
+  ['framesample_15',['FrameSample',['../de/d2c/structAestraUI_1_1NUIFrameProfiler_1_1FrameSample.html',1,'AestraUI::NUIFrameProfiler']]],
+  ['framestats_16',['FrameStats',['../d2/d08/structAestra_1_1FrameStats.html',1,'Aestra']]]
 ];

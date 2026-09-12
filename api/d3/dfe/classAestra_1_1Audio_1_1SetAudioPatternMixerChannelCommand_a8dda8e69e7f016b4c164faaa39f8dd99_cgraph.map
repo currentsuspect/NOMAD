@@ -6,7 +6,7 @@
 <area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="243,60,284,60,284,65,243,65"/>
 <area shape="rect" id="Node000004" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a4d54a269442ca4263c5bed22e8d0ef64" title="Route an audio source pattern independently from Playlist placement." alt="" coords="291,107,513,147"/>
 <area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="212,80,302,101,301,106,211,85"/>
-<area shape="rect" id="Node000005" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a53fe3e0e1b269690efd09c6a74f467c0" title="Find a mixer channel by stable ID." alt="" coords="567,43,775,83"/>
+<area shape="rect" id="Node000005" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a53fe3e0e1b269690efd09c6a74f467c0" title="Get a track by zero&#45;based index." alt="" coords="567,43,775,83"/>
 <area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="486,104,573,83,574,89,488,109"/>
 <area shape="rect" id="Node000006" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a46d9c986c264576c28e32e061b81d877" title="Request a non&#45;real&#45;time rebuild of the live playback graph." alt="" coords="567,107,775,147"/>
 <area shape="poly" id="edge5_Node000004_Node000006" title=" " alt="" coords="513,124,553,124,553,129,513,129"/>

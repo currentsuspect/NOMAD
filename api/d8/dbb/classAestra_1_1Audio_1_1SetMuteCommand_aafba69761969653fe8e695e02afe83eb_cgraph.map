@@ -1,7 +1,9 @@
 <map id="Aestra::Audio::SetMuteCommand::execute" name="Aestra::Audio::SetMuteCommand::execute">
-<area shape="rect" id="Node000001" title="Execute the command (first time)" alt="" coords="5,37,244,77"/>
-<area shape="rect" id="Node000002" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#acb75dcd1a21a274a474a6bb1af21a77e" title="Check mute state." alt="" coords="292,5,499,45"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="244,41,278,37,279,42,245,46"/>
-<area shape="rect" id="Node000003" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#aa9c7c20a71885a144b3c8f97340357cb" title="Set mute state." alt="" coords="292,69,499,109"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="245,69,279,73,278,78,244,74"/>
+<area shape="rect" id="Node000001" title="Execute the command (first time)" alt="" coords="5,69,244,109"/>
+<area shape="rect" id="Node000002" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#acb75dcd1a21a274a474a6bb1af21a77e" title="Check mute state." alt="" coords="293,5,499,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="210,67,297,46,298,51,211,72"/>
+<area shape="rect" id="Node000003" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a46d9c986c264576c28e32e061b81d877" title="Request a non&#45;real&#45;time rebuild of the live playback graph." alt="" coords="292,69,500,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="244,87,278,87,278,92,244,92"/>
+<area shape="rect" id="Node000004" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#aa9c7c20a71885a144b3c8f97340357cb" title="Set mute state." alt="" coords="293,133,499,173"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="211,107,298,128,297,133,210,112"/>
 </map>

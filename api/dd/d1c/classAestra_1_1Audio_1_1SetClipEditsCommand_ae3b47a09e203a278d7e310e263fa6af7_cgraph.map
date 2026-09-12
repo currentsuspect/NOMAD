@@ -4,4 +4,6 @@
 <area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="200,42,234,38,235,43,201,47"/>
 <area shape="rect" id="Node000003" href="$db/db8/classAestra_1_1Audio_1_1PlaylistModel.html#a17983ade5aa7a81a8f2d11fba2db2ad6" title="Replace the editable playback properties for one clip instance." alt="" coords="248,69,453,109"/>
 <area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="201,67,235,72,234,77,200,73"/>
+<area shape="rect" id="Node000004" href="$d7/d56/structAestra_1_1Audio_1_1ClipEdits.html#a11adbc682b20b39cdbbdba80ac21e840" title="Combined varispeed factor (Speed x 2^(Pitch/12)), clamped to the render envelope." alt="" coords="501,69,676,109"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="454,87,488,87,488,92,454,92"/>
 </map>

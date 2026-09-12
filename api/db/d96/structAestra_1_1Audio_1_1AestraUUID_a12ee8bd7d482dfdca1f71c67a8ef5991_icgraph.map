@@ -1,5 +1,8 @@
 <map id="Aestra::Audio::AestraUUID::tryParse" name="Aestra::Audio::AestraUUID::tryParse">
-<area shape="rect" id="Node000001" title="Parse the toString() representation (32 lowercase/uppercase hex chars)." alt="" coords="251,5,444,45"/>
-<area shape="rect" id="Node000002" href="$dd/da9/structAestra_1_1Audio_1_1ClipInstanceID.html#abfd9fa9e1025d01f02ede2fff9c28acb" title="Parse the toString() representation." alt="" coords="5,5,203,45"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="237,28,203,28,203,23,237,23"/>
+<area shape="rect" id="Node000001" title="Parse the toString() representation (32 lowercase/uppercase hex chars)." alt="" coords="292,49,485,89"/>
+<area shape="rect" id="Node000002" href="$dd/da9/structAestra_1_1Audio_1_1ClipInstanceID.html#abfd9fa9e1025d01f02ede2fff9c28acb" title="Parse the toString() representation." alt="" coords="26,5,223,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="278,54,223,44,224,39,279,48"/>
+<area shape="rect" id="Node000003" href="$db/dbe/classAestra_1_1Audio_1_1CommandRegistry.html#a98f09f72ec0a8d2493880dc6f7b4d081" title="Register every Muse command factory once." alt="" coords="5,93,244,133"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="279,90,245,96,244,91,278,85"/>
+<area shape="poly" id="edge3_Node000003_Node000003" title=" " alt="" coords="170,82,154,75,125,72,99,74,84,79,78,85,81,92,76,94,73,84,81,74,98,69,125,67,155,69,172,77"/>
 </map>

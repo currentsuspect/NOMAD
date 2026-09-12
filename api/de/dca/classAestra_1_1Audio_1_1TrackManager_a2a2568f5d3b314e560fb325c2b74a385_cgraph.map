@@ -1,0 +1,13 @@
+<map id="Aestra::Audio::TrackManager::beginCountIn" name="Aestra::Audio::TrackManager::beginCountIn">
+<area shape="rect" id="Node000001" title="Begin the count&#45;in phase ahead of playback/recording." alt="" coords="5,101,213,141"/>
+<area shape="rect" id="Node000002" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a4533314346d26097b4478be2dc7fdd52" title="Pin a deferred&#45;capture beat unconditionally, including beat 0." alt="" coords="261,5,495,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="153,99,260,55,285,47,287,52,262,60,155,104"/>
+<area shape="rect" id="Node000003" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a46ad8eef054e707bf3fdc12f8e806659" title="Clamp a candidate deferred&#45;capture beat into the effective loop region." alt="" coords="274,69,482,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="213,106,260,101,260,106,214,112"/>
+<area shape="rect" id="Node000004" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a5185449429f4b93074042925ba5032ef" title="Convert a transport position in seconds to beats at the current tempo." alt="" coords="274,133,482,173"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="214,131,260,137,260,142,213,136"/>
+<area shape="rect" id="Node000006" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#ae1e2b0b52bb6e965d2bc2b52a39a138d" title="Store the play start position used by stop/rewind." alt="" coords="274,197,482,237"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="155,139,262,183,287,191,285,196,260,188,153,144"/>
+<area shape="rect" id="Node000005" href="$db/db8/classAestra_1_1Audio_1_1PlaylistModel.html#a2615e7b498918ebcdbe90ed82f900670" title="Get BPM." alt="" coords="543,133,748,173"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="482,151,529,151,529,156,482,156"/>
+</map>

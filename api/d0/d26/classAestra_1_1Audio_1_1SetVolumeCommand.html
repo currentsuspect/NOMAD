@@ -102,8 +102,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a3e176f02f05f61ffaa4af8e9e4c3d64e" id="r_a3e176f02f05f61ffaa4af8e9e4c3d64e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d0/d26/classAestra_1_1Audio_1_1SetVolumeCommand.html#a3e176f02f05f61ffaa4af8e9e4c3d64e">SetVolumeCommand</a> (<a class="el" href="../../d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html">MixerChannel</a> &amp;channel, float newVolume)</td></tr>
-<tr class="separator:a3e176f02f05f61ffaa4af8e9e4c3d64e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1ce1396394bd1a2fd1df7727649b5885" id="r_a1ce1396394bd1a2fd1df7727649b5885"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d0/d26/classAestra_1_1Audio_1_1SetVolumeCommand.html#a1ce1396394bd1a2fd1df7727649b5885">SetVolumeCommand</a> (<a class="el" href="../../de/dca/classAestra_1_1Audio_1_1TrackManager.html">TrackManager</a> &amp;trackManager, <a class="el" href="../../d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html">MixerChannel</a> &amp;channel, float newVolume)</td></tr>
+<tr class="separator:a1ce1396394bd1a2fd1df7727649b5885"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a169c9a689b650383cef130c238835356" id="r_a169c9a689b650383cef130c238835356"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d0/d26/classAestra_1_1Audio_1_1SetVolumeCommand.html#a169c9a689b650383cef130c238835356">execute</a> () override</td></tr>
 <tr class="memdesc:a169c9a689b650383cef130c238835356"><td class="mdescLeft">&#160;</td><td class="mdescRight">Execute the command (first time)  <br /></td></tr>
 <tr class="separator:a169c9a689b650383cef130c238835356"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -135,11 +135,12 @@ Public Member Functions</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Command to change a channel's volume. </p>
+<p>Requests an audio graph rebuild on every mutation (execute/undo/redo): the strip gain reads TrackRenderState.volume, which is baked into the immutable graph snapshot at build time — a volume change that only updates the channel atomic leaves the snapshot stale and the fader cosmetic until an unrelated operation rebuilds the graph (the T-4 mute-bug class). </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00017">17</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00023">23</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a3e176f02f05f61ffaa4af8e9e4c3d64e" name="a3e176f02f05f61ffaa4af8e9e4c3d64e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3e176f02f05f61ffaa4af8e9e4c3d64e">&#9670;&#160;</a></span>SetVolumeCommand()</h2>
+<a id="a1ce1396394bd1a2fd1df7727649b5885" name="a1ce1396394bd1a2fd1df7727649b5885"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1ce1396394bd1a2fd1df7727649b5885">&#9670;&#160;</a></span>SetVolumeCommand()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -150,6 +151,12 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="memname">Aestra::Audio::SetVolumeCommand::SetVolumeCommand </td>
           <td>(</td>
+          <td class="paramtype"><a class="el" href="../../de/dca/classAestra_1_1Audio_1_1TrackManager.html">TrackManager</a> &amp;&#160;</td>
+          <td class="paramname"><em>trackManager</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype"><a class="el" href="../../d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html">MixerChannel</a> &amp;&#160;</td>
           <td class="paramname"><em>channel</em>, </td>
         </tr>
@@ -172,7 +179,7 @@ Public Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00019">19</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00025">25</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
 
 </div>
 </div>
@@ -204,7 +211,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a22e8a4fe943a30ec50ff3d83d3bff9ee">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00051">51</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00060">60</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
 
 </div>
 </div>
@@ -235,15 +242,15 @@ Public Member Functions</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a659dccd246e1e0dd194b9c65186bd79a">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00022">22</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00028">28</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
 
-<p class="reference">References <a class="el" href="../../d9/d8f/MixerChannel_8h_source.html#l00144">Aestra::Audio::MixerChannel::getVolume()</a>, and <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00036">Aestra::Audio::MixerChannel::setVolume()</a>.</p>
+<p class="reference">References <a class="el" href="../../d9/d8f/MixerChannel_8h_source.html#l00144">Aestra::Audio::MixerChannel::getVolume()</a>, <a class="el" href="../../d4/dfc/TrackManager_8h_source.html#l01649">Aestra::Audio::TrackManager::requestAudioGraphRebuild()</a>, and <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00041">Aestra::Audio::MixerChannel::setVolume()</a>.</p>
 <div id="dynsection-2" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-2-trigger" src="../../closed.png" alt="+"/> Here is the call graph for this function:</div>
 <div id="dynsection-2-summary" class="dynsummary" style="display:block;">
 </div>
 <div id="dynsection-2-content" class="dyncontent" style="display:none;">
-<div class="center"><iframe scrolling="no" frameborder="0" src="../../d0/d26/classAestra_1_1Audio_1_1SetVolumeCommand_a169c9a689b650383cef130c238835356_cgraph.svg" width="452" height="115"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+<div class="center"><iframe scrolling="no" frameborder="0" src="../../d0/d26/classAestra_1_1Audio_1_1SetVolumeCommand_a169c9a689b650383cef130c238835356_cgraph.svg" width="454" height="179"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
 </div>
 
 </div>
@@ -275,7 +282,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#ae3e1f451745928e912757c133d949589">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00049">49</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00058">58</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
 
 </div>
 </div>
@@ -306,7 +313,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a75361941c8c0630fb345a45d2e36eb1d">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00050">50</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00059">59</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
 
 </div>
 </div>
@@ -337,15 +344,15 @@ Public Member Functions</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a4fd53fa4b883ba1b1b6535d49fb9e381">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00041">41</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00049">49</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
 
-<p class="reference">References <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00036">Aestra::Audio::MixerChannel::setVolume()</a>.</p>
+<p class="reference">References <a class="el" href="../../d4/dfc/TrackManager_8h_source.html#l01649">Aestra::Audio::TrackManager::requestAudioGraphRebuild()</a>, and <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00041">Aestra::Audio::MixerChannel::setVolume()</a>.</p>
 <div id="dynsection-3" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-3-trigger" src="../../closed.png" alt="+"/> Here is the call graph for this function:</div>
 <div id="dynsection-3-summary" class="dynsummary" style="display:block;">
 </div>
 <div id="dynsection-3-content" class="dyncontent" style="display:none;">
-<div class="center"><iframe scrolling="no" frameborder="0" src="../../d0/d26/classAestra_1_1Audio_1_1SetVolumeCommand_a3bd6d8d091fca2defdfb074171ac9307_cgraph.svg" width="452" height="51"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+<div class="center"><iframe scrolling="no" frameborder="0" src="../../d0/d26/classAestra_1_1Audio_1_1SetVolumeCommand_a3bd6d8d091fca2defdfb074171ac9307_cgraph.svg" width="454" height="115"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
 </div>
 
 </div>
@@ -377,15 +384,15 @@ Public Member Functions</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a7328063595af865922e82ba6feaaf5c3">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00032">32</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html#l00039">39</a> of file <a class="el" href="../../d5/d67/SetVolumeCommand_8h_source.html">SetVolumeCommand.h</a>.</p>
 
-<p class="reference">References <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00036">Aestra::Audio::MixerChannel::setVolume()</a>.</p>
+<p class="reference">References <a class="el" href="../../d4/dfc/TrackManager_8h_source.html#l01649">Aestra::Audio::TrackManager::requestAudioGraphRebuild()</a>, and <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00041">Aestra::Audio::MixerChannel::setVolume()</a>.</p>
 <div id="dynsection-4" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-4-trigger" src="../../closed.png" alt="+"/> Here is the call graph for this function:</div>
 <div id="dynsection-4-summary" class="dynsummary" style="display:block;">
 </div>
 <div id="dynsection-4-content" class="dyncontent" style="display:none;">
-<div class="center"><iframe scrolling="no" frameborder="0" src="../../d0/d26/classAestra_1_1Audio_1_1SetVolumeCommand_a64f75f8d770705ca85bfc53dfcf64712_cgraph.svg" width="452" height="51"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+<div class="center"><iframe scrolling="no" frameborder="0" src="../../d0/d26/classAestra_1_1Audio_1_1SetVolumeCommand_a64f75f8d770705ca85bfc53dfcf64712_cgraph.svg" width="454" height="115"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
 </div>
 
 </div>

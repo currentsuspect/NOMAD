@@ -1,0 +1,5 @@
+<map id="Aestra::Audio::TrackManager::setTransportLoopRegion" name="Aestra::Audio::TrackManager::setTransportLoopRegion">
+<area shape="rect" id="Node000001" title="Mirror of the engine TIMELINE loop region (beats), for transport decisions that must stay reachable i..." alt="" coords="5,5,213,45"/>
+<area shape="rect" id="Node000002" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a3f29d6ac9ec1fd351964bd9b0ff4958d" title="Effective loop = pattern override when active, else timeline region." alt="" coords="261,5,469,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="213,23,248,23,248,28,213,28"/>
+</map>

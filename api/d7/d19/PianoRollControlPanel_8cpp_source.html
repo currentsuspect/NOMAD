@@ -258,8 +258,8 @@ $(document).ready(function() { init_codefold(1); });
 <div class="line"><a id="l00174" name="l00174"></a><span class="lineno">  174</span>    <span class="keyword">auto</span> b = getBounds();</div>
 <div class="line"><a id="l00175" name="l00175"></a><span class="lineno">  175</span>    <span class="keyword">auto</span>&amp; themeManager = NUIThemeManager::getInstance();</div>
 <div class="line"><a id="l00176" name="l00176"></a><span class="lineno">  176</span>    </div>
-<div class="line"><a id="l00177" name="l00177"></a><span class="lineno">  177</span>    <span class="keyword">const</span> <span class="keyword">auto</span> panelBg = themeManager.getColor(<span class="stringliteral">&quot;backgroundSecondary&quot;</span>).darkened(0.025f);</div>
-<div class="line"><a id="l00178" name="l00178"></a><span class="lineno">  178</span>    <span class="keyword">const</span> <span class="keyword">auto</span> border = themeManager.getColor(<span class="stringliteral">&quot;border&quot;</span>).withAlpha(0.52f);</div>
+<div class="line"><a id="l00177" name="l00177"></a><span class="lineno">  177</span>    <span class="keyword">const</span> <span class="keyword">auto</span> panelBg = themeManager.getColor(<span class="stringliteral">&quot;backgroundPrimary&quot;</span>);</div>
+<div class="line"><a id="l00178" name="l00178"></a><span class="lineno">  178</span>    <span class="keyword">const</span> <span class="keyword">auto</span> border = themeManager.getColor(<span class="stringliteral">&quot;border&quot;</span>).withAlpha(0.28f);</div>
 <div class="line"><a id="l00179" name="l00179"></a><span class="lineno">  179</span>    renderer.fillRect(b, panelBg);</div>
 <div class="line"><a id="l00180" name="l00180"></a><span class="lineno">  180</span>    renderer.drawLine(NUIPoint(b.x, b.y), NUIPoint(b.right(), b.y), 1.0f, border);</div>
 <div class="line"><a id="l00181" name="l00181"></a><span class="lineno">  181</span>    </div>
@@ -304,31 +304,31 @@ $(document).ready(function() { init_codefold(1); });
 <div class="line"><a id="l00220" name="l00220"></a><span class="lineno">  220</span>    renderer.setClipRect(contentRect);</div>
 <div class="line"><a id="l00221" name="l00221"></a><span class="lineno">  221</span> </div>
 <div class="line"><a id="l00222" name="l00222"></a><span class="lineno">  222</span>    <span class="keyword">const</span> <span class="keywordtype">float</span> startX = contentRect.x;</div>
-<div class="line"><a id="l00223" name="l00223"></a><span class="lineno">  223</span>    renderTimelineGrid(renderer, contentRect, startX, contentRect.right(), scrollX_, pixelsPerBeat_, beatsPerBar_,</div>
-<div class="line"><a id="l00224" name="l00224"></a><span class="lineno">  224</span>                       themeManager.getCurrentTheme().textPrimary);</div>
-<div class="line"><a id="l00225" name="l00225"></a><span class="lineno">  225</span> </div>
-<div class="line"><a id="l00226" name="l00226"></a><span class="lineno">  226</span>    <span class="keyword">const</span> <span class="keywordtype">float</span> availH = std::max(1.0f, b.height - 28.0f);</div>
-<div class="line"><a id="l00227" name="l00227"></a><span class="lineno">  227</span>    <span class="keyword">const</span> <span class="keywordtype">float</span> bottomY = b.bottom() - 8.0f;</div>
-<div class="line"><a id="l00228" name="l00228"></a><span class="lineno">  228</span>    <span class="keyword">const</span> <span class="keywordtype">float</span> topY = bottomY - availH;</div>
-<div class="line"><a id="l00229" name="l00229"></a><span class="lineno">  229</span>    <span class="keyword">const</span> <span class="keyword">auto</span> guideColor = themeManager.getColor(<span class="stringliteral">&quot;border&quot;</span>).withAlpha(0.11f);</div>
-<div class="line"><a id="l00230" name="l00230"></a><span class="lineno">  230</span>    renderer.drawLine(NUIPoint(contentRect.x, topY), NUIPoint(contentRect.right(), topY), 1.0f, guideColor);</div>
-<div class="line"><a id="l00231" name="l00231"></a><span class="lineno">  231</span>    renderer.drawLine(NUIPoint(contentRect.x, topY + availH * 0.5f),</div>
-<div class="line"><a id="l00232" name="l00232"></a><span class="lineno">  232</span>                      NUIPoint(contentRect.right(), topY + availH * 0.5f),</div>
-<div class="line"><a id="l00233" name="l00233"></a><span class="lineno">  233</span>                      1.0f,</div>
-<div class="line"><a id="l00234" name="l00234"></a><span class="lineno">  234</span>                      guideColor.withAlpha(0.72f));</div>
-<div class="line"><a id="l00235" name="l00235"></a><span class="lineno">  235</span>    renderer.drawLine(NUIPoint(contentRect.x, bottomY), NUIPoint(contentRect.right(), bottomY), 1.0f, guideColor);</div>
-<div class="line"><a id="l00236" name="l00236"></a><span class="lineno">  236</span> </div>
-<div class="line"><a id="l00237" name="l00237"></a><span class="lineno">  237</span>    <span class="keyword">const</span> <span class="keywordtype">float</span> patternEndX = startX + <span class="keyword">static_cast&lt;</span><span class="keywordtype">float</span><span class="keyword">&gt;</span>(layer-&gt;getTotalDurationBeats() * pixelsPerBeat_) - scrollX_;</div>
-<div class="line"><a id="l00238" name="l00238"></a><span class="lineno">  238</span>    <span class="keywordflow">if</span> (patternEndX &lt; contentRect.right()) {</div>
-<div class="line"><a id="l00239" name="l00239"></a><span class="lineno">  239</span>        <span class="keyword">const</span> <span class="keywordtype">float</span> shadeX = std::max(contentRect.x, patternEndX);</div>
-<div class="line"><a id="l00240" name="l00240"></a><span class="lineno">  240</span>        renderer.fillRect(NUIRect(shadeX, contentRect.y, contentRect.right() - shadeX, contentRect.height),</div>
-<div class="line"><a id="l00241" name="l00241"></a><span class="lineno">  241</span>                          NUIThemeManager::getInstance().getCurrentTheme().textPrimary.withAlpha(0.14f));</div>
-<div class="line"><a id="l00242" name="l00242"></a><span class="lineno">  242</span>    }</div>
+<div class="line"><a id="l00223" name="l00223"></a><span class="lineno">  223</span>    TimelineGridStyle gridStyle;</div>
+<div class="line"><a id="l00224" name="l00224"></a><span class="lineno">  224</span>    gridStyle.barLineAlpha = 0.02f;</div>
+<div class="line"><a id="l00225" name="l00225"></a><span class="lineno">  225</span>    gridStyle.beatLineAlpha = 0.005f;</div>
+<div class="line"><a id="l00226" name="l00226"></a><span class="lineno">  226</span>    gridStyle.subdivisionLineAlpha = 0.002f;</div>
+<div class="line"><a id="l00227" name="l00227"></a><span class="lineno">  227</span>    gridStyle.zebraAlpha = 0.006f;</div>
+<div class="line"><a id="l00228" name="l00228"></a><span class="lineno">  228</span>    renderTimelineGrid(renderer, contentRect, startX, contentRect.right(), scrollX_, pixelsPerBeat_, beatsPerBar_,</div>
+<div class="line"><a id="l00229" name="l00229"></a><span class="lineno">  229</span>                       themeManager.getCurrentTheme().textPrimary, gridStyle);</div>
+<div class="line"><a id="l00230" name="l00230"></a><span class="lineno">  230</span> </div>
+<div class="line"><a id="l00231" name="l00231"></a><span class="lineno">  231</span>    <span class="keyword">const</span> <span class="keywordtype">float</span> availH = std::max(1.0f, b.height - 28.0f);</div>
+<div class="line"><a id="l00232" name="l00232"></a><span class="lineno">  232</span>    <span class="keyword">const</span> <span class="keywordtype">float</span> bottomY = b.bottom() - 8.0f;</div>
+<div class="line"><a id="l00233" name="l00233"></a><span class="lineno">  233</span>    <span class="keyword">const</span> <span class="keywordtype">float</span> topY = bottomY - availH;</div>
+<div class="line"><a id="l00234" name="l00234"></a><span class="lineno">  234</span>    <span class="keyword">const</span> <span class="keyword">auto</span> guideColor = themeManager.getColor(<span class="stringliteral">&quot;border&quot;</span>).withAlpha(0.11f);</div>
+<div class="line"><a id="l00235" name="l00235"></a><span class="lineno">  235</span>    renderer.drawLine(NUIPoint(contentRect.x, topY), NUIPoint(contentRect.right(), topY), 1.0f, guideColor);</div>
+<div class="line"><a id="l00236" name="l00236"></a><span class="lineno">  236</span>    renderer.drawLine(NUIPoint(contentRect.x, topY + availH * 0.5f),</div>
+<div class="line"><a id="l00237" name="l00237"></a><span class="lineno">  237</span>                      NUIPoint(contentRect.right(), topY + availH * 0.5f),</div>
+<div class="line"><a id="l00238" name="l00238"></a><span class="lineno">  238</span>                      1.0f,</div>
+<div class="line"><a id="l00239" name="l00239"></a><span class="lineno">  239</span>                      guideColor.withAlpha(0.72f));</div>
+<div class="line"><a id="l00240" name="l00240"></a><span class="lineno">  240</span>    renderer.drawLine(NUIPoint(contentRect.x, bottomY), NUIPoint(contentRect.right(), bottomY), 1.0f, guideColor);</div>
+<div class="line"><a id="l00241" name="l00241"></a><span class="lineno">  241</span> </div>
+<div class="line"><a id="l00242" name="l00242"></a><span class="lineno">  242</span>    <span class="keyword">const</span> <span class="keywordtype">float</span> patternEndX = startX + <span class="keyword">static_cast&lt;</span><span class="keywordtype">float</span><span class="keyword">&gt;</span>(layer-&gt;getTotalDurationBeats() * pixelsPerBeat_) - scrollX_;</div>
 <div class="line"><a id="l00243" name="l00243"></a><span class="lineno">  243</span>    <span class="keywordflow">if</span> (patternEndX &gt;= contentRect.x &amp;&amp; patternEndX &lt;= contentRect.right()) {</div>
 <div class="line"><a id="l00244" name="l00244"></a><span class="lineno">  244</span>        renderer.drawLine(NUIPoint(patternEndX, contentRect.y),</div>
 <div class="line"><a id="l00245" name="l00245"></a><span class="lineno">  245</span>                          NUIPoint(patternEndX, contentRect.bottom()),</div>
-<div class="line"><a id="l00246" name="l00246"></a><span class="lineno">  246</span>                          2.0f,</div>
-<div class="line"><a id="l00247" name="l00247"></a><span class="lineno">  247</span>                          themeManager.getColor(<span class="stringliteral">&quot;accentPrimary&quot;</span>).withAlpha(0.58f));</div>
+<div class="line"><a id="l00246" name="l00246"></a><span class="lineno">  246</span>                          1.0f,</div>
+<div class="line"><a id="l00247" name="l00247"></a><span class="lineno">  247</span>                          themeManager.getColor(<span class="stringliteral">&quot;accentPrimary&quot;</span>).withAlpha(0.34f));</div>
 <div class="line"><a id="l00248" name="l00248"></a><span class="lineno">  248</span>    }</div>
 <div class="line"><a id="l00249" name="l00249"></a><span class="lineno">  249</span>    </div>
 <div class="line"><a id="l00250" name="l00250"></a><span class="lineno">  250</span>    <span class="comment">// 2. Render the lane stems: velocity rises from the floor; pan hangs off</span></div>

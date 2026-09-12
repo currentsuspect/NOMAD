@@ -1,0 +1,5 @@
+<map id="Aestra::Audio::MixerChannel::isArmed" name="Aestra::Audio::MixerChannel::isArmed">
+<area shape="rect" id="Node000001" title="Check whether the channel is armed." alt="" coords="261,5,468,45"/>
+<area shape="rect" id="Node000002" href="$d4/d25/classAestra_1_1Audio_1_1SetMonitoringCommand.html#a16835f8f83ec07e9c62379f104e05a83" title="Execute the command (first time)" alt="" coords="5,5,213,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="248,28,213,28,213,23,248,23"/>
+</map>

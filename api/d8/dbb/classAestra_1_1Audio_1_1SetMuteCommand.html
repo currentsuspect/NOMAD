@@ -102,8 +102,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a6c2f923d3b4cb4f545809e672ea590e4" id="r_a6c2f923d3b4cb4f545809e672ea590e4"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d8/dbb/classAestra_1_1Audio_1_1SetMuteCommand.html#a6c2f923d3b4cb4f545809e672ea590e4">SetMuteCommand</a> (<a class="el" href="../../d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html">MixerChannel</a> &amp;channel, bool newMute)</td></tr>
-<tr class="separator:a6c2f923d3b4cb4f545809e672ea590e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7b4db7136e0797e63ce4f047b0d4de7b" id="r_a7b4db7136e0797e63ce4f047b0d4de7b"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d8/dbb/classAestra_1_1Audio_1_1SetMuteCommand.html#a7b4db7136e0797e63ce4f047b0d4de7b">SetMuteCommand</a> (<a class="el" href="../../de/dca/classAestra_1_1Audio_1_1TrackManager.html">TrackManager</a> &amp;trackManager, <a class="el" href="../../d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html">MixerChannel</a> &amp;channel, bool newMute)</td></tr>
+<tr class="separator:a7b4db7136e0797e63ce4f047b0d4de7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aafba69761969653fe8e695e02afe83eb" id="r_aafba69761969653fe8e695e02afe83eb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d8/dbb/classAestra_1_1Audio_1_1SetMuteCommand.html#aafba69761969653fe8e695e02afe83eb">execute</a> () override</td></tr>
 <tr class="memdesc:aafba69761969653fe8e695e02afe83eb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Execute the command (first time)  <br /></td></tr>
 <tr class="separator:aafba69761969653fe8e695e02afe83eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -135,11 +135,12 @@ Public Member Functions</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Command to toggle a channel's mute state. </p>
+<p>Requests an audio graph rebuild on every mutation (execute/undo/redo): TrackRenderState.mute is baked into the immutable graph snapshot, so a mute change that only updates the live RT state leaves the snapshot stale until some unrelated operation forces a rebuild (<a class="el" href="../../d4/dfc/TrackManager_8h_source.html">TrackManager.h</a>:1112 — "All state mutations should call this method"). </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00016">16</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00023">23</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a6c2f923d3b4cb4f545809e672ea590e4" name="a6c2f923d3b4cb4f545809e672ea590e4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6c2f923d3b4cb4f545809e672ea590e4">&#9670;&#160;</a></span>SetMuteCommand()</h2>
+<a id="a7b4db7136e0797e63ce4f047b0d4de7b" name="a7b4db7136e0797e63ce4f047b0d4de7b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7b4db7136e0797e63ce4f047b0d4de7b">&#9670;&#160;</a></span>SetMuteCommand()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -150,6 +151,12 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="memname">Aestra::Audio::SetMuteCommand::SetMuteCommand </td>
           <td>(</td>
+          <td class="paramtype"><a class="el" href="../../de/dca/classAestra_1_1Audio_1_1TrackManager.html">TrackManager</a> &amp;&#160;</td>
+          <td class="paramname"><em>trackManager</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype"><a class="el" href="../../d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html">MixerChannel</a> &amp;&#160;</td>
           <td class="paramname"><em>channel</em>, </td>
         </tr>
@@ -172,7 +179,7 @@ Public Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00018">18</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00025">25</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
 
 </div>
 </div>
@@ -204,7 +211,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a22e8a4fe943a30ec50ff3d83d3bff9ee">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00048">48</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00058">58</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
 
 </div>
 </div>
@@ -235,15 +242,15 @@ Public Member Functions</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a659dccd246e1e0dd194b9c65186bd79a">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00021">21</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00028">28</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
 
-<p class="reference">References <a class="el" href="../../d9/d8f/MixerChannel_8h_source.html#l00156">Aestra::Audio::MixerChannel::isMuted()</a>, and <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00068">Aestra::Audio::MixerChannel::setMute()</a>.</p>
+<p class="reference">References <a class="el" href="../../d9/d8f/MixerChannel_8h_source.html#l00160">Aestra::Audio::MixerChannel::isMuted()</a>, <a class="el" href="../../d4/dfc/TrackManager_8h_source.html#l01649">Aestra::Audio::TrackManager::requestAudioGraphRebuild()</a>, and <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00079">Aestra::Audio::MixerChannel::setMute()</a>.</p>
 <div id="dynsection-2" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-2-trigger" src="../../closed.png" alt="+"/> Here is the call graph for this function:</div>
 <div id="dynsection-2-summary" class="dynsummary" style="display:block;">
 </div>
 <div id="dynsection-2-content" class="dyncontent" style="display:none;">
-<div class="center"><iframe scrolling="no" frameborder="0" src="../../d8/dbb/classAestra_1_1Audio_1_1SetMuteCommand_aafba69761969653fe8e695e02afe83eb_cgraph.svg" width="504" height="115"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+<div class="center"><iframe scrolling="no" frameborder="0" src="../../d8/dbb/classAestra_1_1Audio_1_1SetMuteCommand_aafba69761969653fe8e695e02afe83eb_cgraph.svg" width="506" height="179"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
 </div>
 
 </div>
@@ -275,7 +282,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#ae3e1f451745928e912757c133d949589">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00046">46</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00056">56</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
 
 </div>
 </div>
@@ -306,7 +313,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a75361941c8c0630fb345a45d2e36eb1d">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00047">47</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00057">57</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
 
 </div>
 </div>
@@ -337,15 +344,15 @@ Public Member Functions</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a4fd53fa4b883ba1b1b6535d49fb9e381">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00038">38</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00047">47</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
 
-<p class="reference">References <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00068">Aestra::Audio::MixerChannel::setMute()</a>.</p>
+<p class="reference">References <a class="el" href="../../d4/dfc/TrackManager_8h_source.html#l01649">Aestra::Audio::TrackManager::requestAudioGraphRebuild()</a>, and <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00079">Aestra::Audio::MixerChannel::setMute()</a>.</p>
 <div id="dynsection-3" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-3-trigger" src="../../closed.png" alt="+"/> Here is the call graph for this function:</div>
 <div id="dynsection-3-summary" class="dynsummary" style="display:block;">
 </div>
 <div id="dynsection-3-content" class="dyncontent" style="display:none;">
-<div class="center"><iframe scrolling="no" frameborder="0" src="../../d8/dbb/classAestra_1_1Audio_1_1SetMuteCommand_a16c7906554a2e14c2ad0e343f5b7dc5d_cgraph.svg" width="504" height="51"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+<div class="center"><iframe scrolling="no" frameborder="0" src="../../d8/dbb/classAestra_1_1Audio_1_1SetMuteCommand_a16c7906554a2e14c2ad0e343f5b7dc5d_cgraph.svg" width="506" height="115"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
 </div>
 
 </div>
@@ -377,15 +384,15 @@ Public Member Functions</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a7328063595af865922e82ba6feaaf5c3">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00030">30</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html#l00038">38</a> of file <a class="el" href="../../d6/d66/SetMuteCommand_8h_source.html">SetMuteCommand.h</a>.</p>
 
-<p class="reference">References <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00068">Aestra::Audio::MixerChannel::setMute()</a>.</p>
+<p class="reference">References <a class="el" href="../../d4/dfc/TrackManager_8h_source.html#l01649">Aestra::Audio::TrackManager::requestAudioGraphRebuild()</a>, and <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00079">Aestra::Audio::MixerChannel::setMute()</a>.</p>
 <div id="dynsection-4" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-4-trigger" src="../../closed.png" alt="+"/> Here is the call graph for this function:</div>
 <div id="dynsection-4-summary" class="dynsummary" style="display:block;">
 </div>
 <div id="dynsection-4-content" class="dyncontent" style="display:none;">
-<div class="center"><iframe scrolling="no" frameborder="0" src="../../d8/dbb/classAestra_1_1Audio_1_1SetMuteCommand_a7a5fe44f81e07d015dd7cb4ad7de7a86_cgraph.svg" width="504" height="51"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+<div class="center"><iframe scrolling="no" frameborder="0" src="../../d8/dbb/classAestra_1_1Audio_1_1SetMuteCommand_a7a5fe44f81e07d015dd7cb4ad7de7a86_cgraph.svg" width="506" height="115"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
 </div>
 
 </div>

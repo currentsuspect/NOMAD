@@ -21,7 +21,7 @@
 <!-- Node2 -->
 <g id="Node000002" class="node">
 <title>Node2</title>
-<g id="a_Node000002"><a xlink:href="../../da/d71/classAestraUI_1_1PluginUIController.html#a6f6aad77c64762f12e40f6899c8e0e8b" target="_top" xlink:title="Bind an EffectChainRack to an audio EffectChain.">
+<g id="a_Node000002"><a xlink:href="../../da/d71/classAestraUI_1_1PluginUIController.html#a51dc8a35899e9a50cd85ba935c56a6be" target="_top" xlink:title="Bind an EffectChainRack to a mixer channel&#39;s effect chain.">
 <polygon fill="white" stroke="#666666" points="153,-51 0,-51 0,-21 153,-21 153,-51"/>
 <text text-anchor="start" x="8" y="-39" font-family="Helvetica,sans-Serif" font-size="10.00">AestraUI::PluginUIController</text>
 <text text-anchor="middle" x="76.5" y="-28" font-family="Helvetica,sans-Serif" font-size="10.00">::bindEffectRack</text>

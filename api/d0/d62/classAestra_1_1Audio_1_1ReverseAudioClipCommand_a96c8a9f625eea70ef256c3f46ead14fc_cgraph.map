@@ -12,10 +12,12 @@
 <area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="190,235,271,255,270,261,189,240"/>
 <area shape="rect" id="Node000007" href="$da/df9/classAestra_1_1Audio_1_1ClipRenderService.html#adbc6b59ea80b9b1efca3eb534d66ef27" title="Resolve the audio a clip currently plays." alt="" coords="266,325,462,365"/>
 <area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="138,236,194,273,261,311,278,318,276,323,259,316,191,278,135,240"/>
-<area shape="rect" id="Node000010" href="$da/df9/classAestra_1_1Audio_1_1ClipRenderService.html#ad6ddd40d6a2f0c65f1c5ed4e71c8cea6" title="Reverse buffer in place, keeping channel interleaving intact." alt="" coords="270,389,458,429"/>
-<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="126,236,180,304,218,342,261,375,272,381,270,386,259,380,215,346,176,308,122,239"/>
-<area shape="rect" id="Node000008" href="$d3/d1a/classAestra_1_1Audio_1_1PatternManager.html#a77910950ec791176dd209ba9c83e219a" title="Get a pattern by ID (returns nullptr if not found)" alt="" coords="516,293,736,333"/>
-<area shape="poly" id="edge7_Node000007_Node000008" title=" " alt="" coords="462,331,502,326,503,331,463,336"/>
-<area shape="rect" id="Node000009" href="$d6/d0f/classAestra_1_1Audio_1_1SourceManager.html#a9df135788c4b7117579dc103b01d9f94" title="Get a source by ID." alt="" coords="517,357,735,397"/>
-<area shape="poly" id="edge8_Node000007_Node000009" title=" " alt="" coords="463,355,503,360,503,365,462,360"/>
+<area shape="rect" id="Node000011" href="$da/df9/classAestra_1_1Audio_1_1ClipRenderService.html#ad6ddd40d6a2f0c65f1c5ed4e71c8cea6" title="Reverse buffer in place, keeping channel interleaving intact." alt="" coords="270,389,458,429"/>
+<area shape="poly" id="edge10_Node000001_Node000011" title=" " alt="" coords="126,236,180,304,218,342,261,375,272,381,270,386,259,380,215,346,176,308,122,239"/>
+<area shape="rect" id="Node000008" href="$d7/d56/structAestra_1_1Audio_1_1ClipEdits.html#a11adbc682b20b39cdbbdba80ac21e840" title="Combined varispeed factor (Speed x 2^(Pitch/12)), clamped to the render envelope." alt="" coords="539,261,713,301"/>
+<area shape="poly" id="edge7_Node000007_Node000008" title=" " alt="" coords="446,323,530,302,531,307,447,328"/>
+<area shape="rect" id="Node000009" href="$d3/d1a/classAestra_1_1Audio_1_1PatternManager.html#a77910950ec791176dd209ba9c83e219a" title="Get a pattern by ID (returns nullptr if not found)" alt="" coords="516,325,736,365"/>
+<area shape="poly" id="edge8_Node000007_Node000009" title=" " alt="" coords="462,343,502,343,502,348,462,348"/>
+<area shape="rect" id="Node000010" href="$d6/d0f/classAestra_1_1Audio_1_1SourceManager.html#a9df135788c4b7117579dc103b01d9f94" title="Get a source by ID." alt="" coords="517,389,735,429"/>
+<area shape="poly" id="edge9_Node000007_Node000010" title=" " alt="" coords="447,363,531,383,530,389,446,368"/>
 </map>

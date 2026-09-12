@@ -78,7 +78,7 @@
 <area shape="poly" id="edge19_Node000014_Node000021" title=" " alt="" coords="761,1166,775,1154,792,1131,800,1108,801,1085,799,1061,797,1036,798,1012,806,987,823,962,827,958,831,962,827,966,811,989,804,1013,802,1036,804,1060,806,1085,805,1109,797,1134,779,1158,764,1170"/>
 <area shape="rect" id="Node000022" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a099a5c98a6cc1822fd44c1ca47dfb073" title="Get the number of channels." alt="" coords="831,976,1039,1016"/>
 <area shape="poly" id="edge20_Node000014_Node000022" title=" " alt="" coords="759,1166,776,1154,788,1139,795,1124,799,1092,803,1059,810,1042,823,1026,828,1022,832,1026,827,1030,815,1045,808,1060,804,1093,800,1125,793,1142,779,1158,762,1170"/>
-<area shape="rect" id="Node000023" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#a76446df746c8a8b7fa97e05ea6e205f5" title="Get the current effect chain snapshot (Pass 3: returns canonical snapshot from EffectChain)." alt="" coords="831,1040,1038,1080"/>
+<area shape="rect" id="Node000023" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#a76446df746c8a8b7fa97e05ea6e205f5" title="The channel&#39;s effect chain snapshot, owned by EffectChain." alt="" coords="831,1040,1038,1080"/>
 <area shape="poly" id="edge21_Node000014_Node000023" title=" " alt="" coords="754,1165,776,1154,791,1139,799,1123,808,1106,824,1090,833,1084,836,1089,827,1094,812,1109,804,1125,795,1142,779,1158,757,1170"/>
 <area shape="rect" id="Node000025" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a653ee5f8eb05faa264a54e339a258233" title="Access the Master strip&#39;s mixer channel (id 0)." alt="" coords="831,1104,1039,1144"/>
 <area shape="poly" id="edge22_Node000014_Node000025" title=" " alt="" coords="738,1165,831,1144,832,1150,739,1171"/>

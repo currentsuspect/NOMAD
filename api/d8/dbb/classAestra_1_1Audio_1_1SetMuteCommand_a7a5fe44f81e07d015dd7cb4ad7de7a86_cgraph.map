@@ -1,5 +1,7 @@
 <map id="Aestra::Audio::SetMuteCommand::undo" name="Aestra::Audio::SetMuteCommand::undo">
-<area shape="rect" id="Node000001" title="Undo the command." alt="" coords="5,5,244,45"/>
-<area shape="rect" id="Node000002" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#aa9c7c20a71885a144b3c8f97340357cb" title="Set mute state." alt="" coords="292,5,499,45"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="244,23,278,23,278,28,244,28"/>
+<area shape="rect" id="Node000001" title="Undo the command." alt="" coords="5,37,244,77"/>
+<area shape="rect" id="Node000002" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a46d9c986c264576c28e32e061b81d877" title="Request a non&#45;real&#45;time rebuild of the live playback graph." alt="" coords="292,5,500,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="244,41,278,37,279,42,245,46"/>
+<area shape="rect" id="Node000003" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#aa9c7c20a71885a144b3c8f97340357cb" title="Set mute state." alt="" coords="293,69,499,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="245,69,279,73,279,78,244,74"/>
 </map>

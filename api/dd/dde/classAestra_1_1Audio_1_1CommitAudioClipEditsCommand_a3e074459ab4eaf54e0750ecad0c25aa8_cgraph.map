@@ -20,8 +20,10 @@
 <area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="138,332,162,369,196,415,239,462,290,503,299,509,297,514,286,508,236,466,192,418,157,372,133,335"/>
 <area shape="rect" id="Node000011" href="$da/df9/classAestra_1_1Audio_1_1ClipRenderService.html#adbc6b59ea80b9b1efca3eb534d66ef27" title="Resolve the audio a clip currently plays." alt="" coords="294,581,490,621"/>
 <area shape="poly" id="edge10_Node000001_Node000011" title=" " alt="" coords="134,332,154,380,187,444,232,510,259,541,290,567,297,572,294,577,286,571,256,544,228,513,182,446,149,383,129,334"/>
-<area shape="rect" id="Node000012" href="$d3/d1a/classAestra_1_1Audio_1_1PatternManager.html#a77910950ec791176dd209ba9c83e219a" title="Get a pattern by ID (returns nullptr if not found)" alt="" coords="544,549,764,589"/>
-<area shape="poly" id="edge11_Node000011_Node000012" title=" " alt="" coords="490,587,530,582,531,587,491,592"/>
-<area shape="rect" id="Node000013" href="$d6/d0f/classAestra_1_1Audio_1_1SourceManager.html#a9df135788c4b7117579dc103b01d9f94" title="Get a source by ID." alt="" coords="545,613,763,653"/>
-<area shape="poly" id="edge12_Node000011_Node000013" title=" " alt="" coords="491,611,531,616,531,621,490,616"/>
+<area shape="rect" id="Node000012" href="$d7/d56/structAestra_1_1Audio_1_1ClipEdits.html#a11adbc682b20b39cdbbdba80ac21e840" title="Combined varispeed factor (Speed x 2^(Pitch/12)), clamped to the render envelope." alt="" coords="567,517,741,557"/>
+<area shape="poly" id="edge11_Node000011_Node000012" title=" " alt="" coords="474,579,558,558,559,563,475,584"/>
+<area shape="rect" id="Node000013" href="$d3/d1a/classAestra_1_1Audio_1_1PatternManager.html#a77910950ec791176dd209ba9c83e219a" title="Get a pattern by ID (returns nullptr if not found)" alt="" coords="544,581,764,621"/>
+<area shape="poly" id="edge12_Node000011_Node000013" title=" " alt="" coords="490,599,530,599,530,604,490,604"/>
+<area shape="rect" id="Node000014" href="$d6/d0f/classAestra_1_1Audio_1_1SourceManager.html#a9df135788c4b7117579dc103b01d9f94" title="Get a source by ID." alt="" coords="545,645,763,685"/>
+<area shape="poly" id="edge13_Node000011_Node000014" title=" " alt="" coords="475,619,559,639,558,645,474,624"/>
 </map>

@@ -1,0 +1,17 @@
+<map id="Aestra::Audio::PlaylistModel::getLane" name="Aestra::Audio::PlaylistModel::getLane">
+<area shape="rect" id="Node000001" title="Get a mutable lane by identifier." alt="" coords="517,165,723,205"/>
+<area shape="rect" id="Node000002" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a262ce40712294e22aa79f9d9119c2f6d" title="Attach an existing lane to a Track (lane created after the track, e.g." alt="" coords="261,5,469,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="589,157,536,107,503,82,468,60,442,48,444,43,471,55,506,77,539,103,593,153"/>
+<area shape="rect" id="Node000003" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a5aa4bddbf54e346a7e26910eabc5078a" title="Create a Track owning the given lane (FD&#45;14)." alt="" coords="261,69,469,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="561,162,468,124,434,112,435,107,470,119,563,157"/>
+<area shape="rect" id="Node000004" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a50d14f8477298a3c5d0bbdd3ac8fe26f" title="Detach a lane from its Track (undo of attachLaneToTrack)." alt="" coords="261,133,469,173"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="504,173,469,169,470,164,504,168"/>
+<area shape="rect" id="Node000005" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a6792df40ce4390062fb4838be36167ec" title="Resolve the Track owning a lane, or nullptr when unowned." alt="" coords="261,197,469,237"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="504,203,470,207,469,202,504,197"/>
+<area shape="rect" id="Node000007" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a6dc29e3bc28436dab4977f10b9161a77" title="Remove a Track entirely." alt="" coords="261,261,469,301"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="563,214,470,252,435,264,434,259,468,247,561,209"/>
+<area shape="rect" id="Node000008" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a4f6d7d5b8c6517bf0cc4d5460baf8376" title="Restore a Track from serialized state (project load)." alt="" coords="261,325,469,365"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="593,217,539,267,506,293,471,316,444,328,442,323,468,311,503,289,536,263,589,214"/>
+<area shape="rect" id="Node000006" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a6871faaa658f9f26cd3ad5745173df5d" title="Stable routing channel for a lane&#39;s automation defaults: lane → owning Track → track channelId (FD&#45;14..." alt="" coords="5,197,213,237"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="248,220,213,220,213,215,248,215"/>
+</map>

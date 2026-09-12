@@ -1,0 +1,9 @@
+<map id="AestraContent::buildMixerCatalogEntries" name="AestraContent::buildMixerCatalogEntries">
+<area shape="rect" id="Node000001" title="Map the scanned plugins onto the mixer dropdown&#39;s entry type." alt="" coords="5,69,196,109"/>
+<area shape="rect" id="Node000002" href="$d2/d29/classAestra_1_1Audio_1_1PluginManager.html#a2b16ad3e0f43d5b9a12690af12156878" title="Get the singleton instance." alt="" coords="244,5,459,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="179,67,259,46,260,51,180,72"/>
+<area shape="rect" id="Node000003" href="$d5/d75/classAestra_1_1Audio_1_1PluginScanner.html#affcef3fc60ee455dd741b4a672df5155" title="Get all scanned plugins." alt="" coords="247,69,456,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="196,87,233,87,233,92,196,92"/>
+<area shape="rect" id="Node000004" href="$d2/d29/classAestra_1_1Audio_1_1PluginManager.html#aab327c998caf714e1f3010e9af72f8b2" title="Get the plugin scanner." alt="" coords="244,133,459,173"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="180,107,260,127,259,133,179,112"/>
+</map>

@@ -1,6 +1,6 @@
 <map id="Aestra::Audio::EffectChain::getSnapshot" name="Aestra::Audio::EffectChain::getSnapshot">
 <area shape="rect" id="Node000001" title="Get the current published snapshot." alt="" coords="1307,69,1497,109"/>
-<area shape="rect" id="Node000002" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#a76446df746c8a8b7fa97e05ea6e205f5" title="Get the current effect chain snapshot (Pass 3: returns canonical snapshot from EffectChain)." alt="" coords="1052,69,1259,109"/>
+<area shape="rect" id="Node000002" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#a76446df746c8a8b7fa97e05ea6e205f5" title="The channel&#39;s effect chain snapshot, owned by EffectChain." alt="" coords="1052,69,1259,109"/>
 <area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="1293,92,1259,92,1259,87,1293,87"/>
 <area shape="rect" id="Node000003" href="$d0/d3f/classAestra_1_1Audio_1_1AudioGraphBuilder.html#a808cde6e5a45b7255833bcdab7ac081b" title="Build a render graph from the current TrackManager state." alt="" coords="772,69,1004,109"/>
 <area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="1038,92,1004,92,1004,87,1038,87"/>

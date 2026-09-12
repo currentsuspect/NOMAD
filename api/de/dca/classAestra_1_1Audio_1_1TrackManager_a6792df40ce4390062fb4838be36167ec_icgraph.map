@@ -1,0 +1,5 @@
+<map id="Aestra::Audio::TrackManager::getTrackForLane" name="Aestra::Audio::TrackManager::getTrackForLane">
+<area shape="rect" id="Node000001" title="Resolve the Track owning a lane, or nullptr when unowned." alt="" coords="261,5,469,45"/>
+<area shape="rect" id="Node000002" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a6871faaa658f9f26cd3ad5745173df5d" title="Stable routing channel for a lane&#39;s automation defaults: lane → owning Track → track channelId (FD&#45;14..." alt="" coords="5,5,213,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="248,28,213,28,213,23,248,23"/>
+</map>

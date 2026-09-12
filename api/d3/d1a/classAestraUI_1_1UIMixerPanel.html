@@ -98,7 +98,7 @@ $(function() {
 <div id="dynsection-1-summary" class="dynsummary" style="display:block;">
 </div>
 <div id="dynsection-1-content" class="dyncontent" style="display:none;">
-<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="../../d3/d70/classAestraUI_1_1UIMixerPanel__coll__graph.svg" width="100%" height="477"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="../../d3/d70/classAestraUI_1_1UIMixerPanel__coll__graph.svg" width="100%" height="563"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
 <center><span class="legend">[<a href="../../graph_legend.html">legend</a>]</span></center></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
@@ -135,6 +135,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ac3047d7a29b696063b9dd1cae0dbbbc9" id="r_ac3047d7a29b696063b9dd1cae0dbbbc9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d3/d1a/classAestraUI_1_1UIMixerPanel.html#ac3047d7a29b696063b9dd1cae0dbbbc9">refreshChannels</a> ()</td></tr>
 <tr class="memdesc:ac3047d7a29b696063b9dd1cae0dbbbc9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Refresh channel list from view model.  <br /></td></tr>
 <tr class="separator:ac3047d7a29b696063b9dd1cae0dbbbc9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaf4666c8d554d1f3b9dd58a80e843a16" id="r_aaf4666c8d554d1f3b9dd58a80e843a16"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d3/d1a/classAestraUI_1_1UIMixerPanel.html#aaf4666c8d554d1f3b9dd58a80e843a16">setPluginEntries</a> (std::vector&lt; Aestra::Components::MixerPluginEntry &gt; entries)</td></tr>
+<tr class="memdesc:aaf4666c8d554d1f3b9dd58a80e843a16"><td class="mdescLeft">&#160;</td><td class="mdescRight">Replace the plugin dropdown's catalog.  <br /></td></tr>
+<tr class="separator:aaf4666c8d554d1f3b9dd58a80e843a16"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a74c72cde6655a436062b9461f97fc31e" id="r_a74c72cde6655a436062b9461f97fc31e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="../../d3/d51/classAestra_1_1MixerViewModel.html">Aestra::MixerViewModel</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d3/d1a/classAestraUI_1_1UIMixerPanel.html#a74c72cde6655a436062b9461f97fc31e">getViewModel</a> ()</td></tr>
 <tr class="memdesc:a74c72cde6655a436062b9461f97fc31e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the view model.  <br /></td></tr>
 <tr class="separator:a74c72cde6655a436062b9461f97fc31e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -261,6 +264,12 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
+<tr class="memitem:a37dd2139a693e1a2a2c065535031c139" id="r_a37dd2139a693e1a2a2c065535031c139"><td class="memItemLeft" align="right" valign="top">std::function&lt; void(const std::string &amp;searchQuery)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d3/d1a/classAestraUI_1_1UIMixerPanel.html#a37dd2139a693e1a2a2c065535031c139">onBrowseAllPlugins</a></td></tr>
+<tr class="memdesc:a37dd2139a693e1a2a2c065535031c139"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fired by the dropdown's "Browse all plugins" footer.  <br /></td></tr>
+<tr class="separator:a37dd2139a693e1a2a2c065535031c139"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad0f673767f5acbcd5cf0baec40dcd746" id="r_ad0f673767f5acbcd5cf0baec40dcd746"><td class="memItemLeft" align="right" valign="top">std::function&lt; void()&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d3/d1a/classAestraUI_1_1UIMixerPanel.html#ad0f673767f5acbcd5cf0baec40dcd746">onCatalogRefresh</a></td></tr>
+<tr class="memdesc:ad0f673767f5acbcd5cf0baec40dcd746"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fired when the dropdown opens with an empty catalog and asks the host to republish (used to recover when the initial setup ran before the async plugin scan completed).  <br /></td></tr>
+<tr class="separator:ad0f673767f5acbcd5cf0baec40dcd746"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4983d0ade66c0dc3ff46af6934eb00e1" id="r_a4983d0ade66c0dc3ff46af6934eb00e1"><td class="memItemLeft" align="right" valign="top">std::function&lt; void(bool expanded)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d3/d1a/classAestraUI_1_1UIMixerPanel.html#a4983d0ade66c0dc3ff46af6934eb00e1">onInspectorPreferenceChanged</a></td></tr>
 <tr class="memdesc:a4983d0ade66c0dc3ff46af6934eb00e1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fires only when the <em>explicit</em> preference changes, so the host can persist it.  <br /></td></tr>
 <tr class="separator:a4983d0ade66c0dc3ff46af6934eb00e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -322,7 +331,7 @@ Additional Inherited Members</h2></td></tr>
 <p>This is a barebones implementation for Checkpoint 1 ("Meters Move"). Creates one <a class="el" href="../../da/d17/classAestraUI_1_1UIMixerMeter.html" title="Stereo level meter widget for the mixer UI.">UIMixerMeter</a> per channel and lays them out horizontally. Future checkpoints will add faders, knobs, and full channel strips.</p>
 <p>Requirements: 3.1 - Channel strips with fixed width (96-112px) </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00040">40</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00041">41</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a94d68aa9c9b70bf0c2b941f13811e36d" name="a94d68aa9c9b70bf0c2b941f13811e36d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a94d68aa9c9b70bf0c2b941f13811e36d">&#9670;&#160;</a></span>UIMixerPanel()</h2>
@@ -359,9 +368,9 @@ Additional Inherited Members</h2></td></tr>
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00043">43</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00045">45</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
-<p class="reference">References <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00115">refreshChannels()</a>.</p>
+<p class="reference">References <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00091">onBrowseAllPlugins</a>, <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00096">onCatalogRefresh</a>, and <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00125">refreshChannels()</a>.</p>
 <div id="dynsection-2" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-2-trigger" src="../../closed.png" alt="+"/> Here is the call graph for this function:</div>
 <div id="dynsection-2-summary" class="dynsummary" style="display:block;">
@@ -395,7 +404,7 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00081">81</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00091">91</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
 </div>
 </div>
@@ -427,7 +436,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d3/d88/classAestraUI_1_1IDropTarget.html#a96f1742ef992a1c5c8d2514c4dd26657">AestraUI::IDropTarget</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00965">965</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l01000">1000</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
 </div>
 </div>
@@ -456,7 +465,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Get the inspector. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00083">83</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00106">106</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
 
 </div>
 </div>
@@ -483,7 +492,7 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00098">98</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00121">121</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
 
 </div>
 </div>
@@ -512,7 +521,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Get the view model. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00078">78</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00101">101</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
 
 </div>
 </div>
@@ -541,7 +550,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>What the panel actually draws right now. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00101">101</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00124">124</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
 
 <p class="reference">References <a class="el" href="../../d2/d35/InspectorCollapseState_8h_source.html#l00033">AestraUI::InspectorCollapseState::effectiveExpanded()</a>.</p>
 <div id="dynsection-3" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
@@ -579,7 +588,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>True when the collapse is imposed by width rather than chosen. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00104">104</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00127">127</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
 
 <p class="reference">References <a class="el" href="../../d2/d35/InspectorCollapseState_8h_source.html#l00030">AestraUI::InspectorCollapseState::forcedCollapsed</a>.</p>
 
@@ -624,9 +633,9 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d3/d88/classAestraUI_1_1IDropTarget.html#aa15505ba354c1931dfdd9a02ba321858">AestraUI::IDropTarget</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00861">861</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00896">896</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
-<p class="reference">References <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00865">onDragOver()</a>.</p>
+<p class="reference">References <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00900">onDragOver()</a>.</p>
 <div id="dynsection-4" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-4-trigger" src="../../closed.png" alt="+"/> Here is the call graph for this function:</div>
 <div id="dynsection-4-summary" class="dynsummary" style="display:block;">
@@ -664,7 +673,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d3/d88/classAestraUI_1_1IDropTarget.html#a306ccccae926817614c9c545104bf77e">AestraUI::IDropTarget</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00878">878</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00913">913</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
 </div>
 </div>
@@ -707,9 +716,9 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d3/d88/classAestraUI_1_1IDropTarget.html#a8319ed1c3d74b57348c7f658c555c389">AestraUI::IDropTarget</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00865">865</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00900">900</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00861">onDragEnter()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00896">onDragEnter()</a>.</p>
 <div id="dynsection-5" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-5-trigger" src="../../closed.png" alt="+"/> Here is the caller graph for this function:</div>
 <div id="dynsection-5-summary" class="dynsummary" style="display:block;">
@@ -759,7 +768,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d3/d88/classAestraUI_1_1IDropTarget.html#a7a1e8b8b5d72345ca9d76f7ed34ea720">AestraUI::IDropTarget</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00882">882</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00917">917</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
 <p class="reference">References <a class="el" href="../../dd/dd1/MixerViewModel_8h_source.html#l00038">Aestra::ChannelViewModel::channel</a>, <a class="el" href="../../d9/d8f/MixerChannel_8h_source.html#l00131">Aestra::Audio::MixerChannel::getName()</a>, <a class="el" href="../../dd/dd1/MixerViewModel_8h_source.html#l00036">Aestra::ChannelViewModel::id</a>, and <a class="el" href="../../dd/dd1/MixerViewModel_8h_source.html#l00040">Aestra::ChannelViewModel::name</a>.</p>
 <div id="dynsection-6" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
@@ -798,7 +807,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../db/d1a/classAestraUI_1_1NUIComponent.html">AestraUI::NUIComponent</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00595">595</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00627">627</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
 </div>
 </div>
@@ -828,7 +837,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../db/d1a/classAestraUI_1_1NUIComponent.html">AestraUI::NUIComponent</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00428">428</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00460">460</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
 </div>
 </div>
@@ -868,7 +877,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../db/d1a/classAestraUI_1_1NUIComponent.html">AestraUI::NUIComponent</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00332">332</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00364">364</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
 </div>
 </div>
@@ -900,7 +909,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../db/d1a/classAestraUI_1_1NUIComponent.html#a4685e1bd30fd0f50650effa1ac46b41c">AestraUI::NUIComponent</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00054">54</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00055">55</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
 
 <p class="reference">References <a class="el" href="../../d6/dbb/NUIComponent_8cpp_source.html#l00546">AestraUI::NUIComponent::onThemeChanged()</a>.</p>
 <div id="dynsection-7" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
@@ -939,7 +948,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../db/d1a/classAestraUI_1_1NUIComponent.html">AestraUI::NUIComponent</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00338">338</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00370">370</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
 </div>
 </div>
@@ -961,9 +970,9 @@ Additional Inherited Members</h2></td></tr>
 <p>Refresh channel list from view model. </p>
 <p>Call when tracks are added/removed to rebuild meter widgets. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00115">115</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00125">125</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00043">UIMixerPanel()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00045">UIMixerPanel()</a>.</p>
 <div id="dynsection-8" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-8-trigger" src="../../closed.png" alt="+"/> Here is the caller graph for this function:</div>
 <div id="dynsection-8-summary" class="dynsummary" style="display:block;">
@@ -993,9 +1002,9 @@ Additional Inherited Members</h2></td></tr>
 <p>Collapse the inspector to a thin re-open rail. </p>
 <p>A dedicated mixer view should be able to become almost entirely channel strips; collapsing the inspector returns its width to the strips. Explicit user intent. Persisted; width changes never write to it. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00306">306</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00338">338</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
-<p class="reference">References <a class="el" href="../../d2/d35/InspectorCollapseState_8h_source.html#l00027">AestraUI::InspectorCollapseState::expandedPreference</a>, and <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00111">onInspectorPreferenceChanged</a>.</p>
+<p class="reference">References <a class="el" href="../../d2/d35/InspectorCollapseState_8h_source.html#l00027">AestraUI::InspectorCollapseState::expandedPreference</a>, and <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00134">onInspectorPreferenceChanged</a>.</p>
 
 </div>
 </div>
@@ -1017,7 +1026,38 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Set platform bridge for cursor warping on mixer knobs/faders. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00208">208</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00240">240</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+
+</div>
+</div>
+<a id="aaf4666c8d554d1f3b9dd58a80e843a16" name="aaf4666c8d554d1f3b9dd58a80e843a16"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaf4666c8d554d1f3b9dd58a80e843a16">&#9670;&#160;</a></span>setPluginEntries()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void AestraUI::UIMixerPanel::setPluginEntries </td>
+          <td>(</td>
+          <td class="paramtype">std::vector&lt; Aestra::Components::MixerPluginEntry &gt;&#160;</td>
+          <td class="paramname"><em>entries</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Replace the plugin dropdown's catalog. </p>
+<p>The app layer injects from the plugin scanner (internal registry + VST3/CLAP); the policy filters to mixer inserts and groups by category. </p>
+
+<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00082">82</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
 
 </div>
 </div>
@@ -1038,9 +1078,9 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Rail click — records intent even while width-constrained. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00319">319</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00351">351</a> of file <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html">UIMixerPanel.cpp</a>.</p>
 
-<p class="reference">References <a class="el" href="../../d2/d35/InspectorCollapseState_8h_source.html#l00027">AestraUI::InspectorCollapseState::expandedPreference</a>, <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00111">onInspectorPreferenceChanged</a>, and <a class="el" href="../../d2/d35/InspectorCollapseState_8h_source.html#l00048">AestraUI::InspectorCollapseState::onRailClicked()</a>.</p>
+<p class="reference">References <a class="el" href="../../d2/d35/InspectorCollapseState_8h_source.html#l00027">AestraUI::InspectorCollapseState::expandedPreference</a>, <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00134">onInspectorPreferenceChanged</a>, and <a class="el" href="../../d2/d35/InspectorCollapseState_8h_source.html#l00048">AestraUI::InspectorCollapseState::onRailClicked()</a>.</p>
 <div id="dynsection-9" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-9-trigger" src="../../closed.png" alt="+"/> Here is the call graph for this function:</div>
 <div id="dynsection-9-summary" class="dynsummary" style="display:block;">
@@ -1052,6 +1092,47 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="a37dd2139a693e1a2a2c065535031c139" name="a37dd2139a693e1a2a2c065535031c139"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a37dd2139a693e1a2a2c065535031c139">&#9670;&#160;</a></span>onBrowseAllPlugins</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::function&lt;void(const std::string&amp; searchQuery)&gt; AestraUI::UIMixerPanel::onBrowseAllPlugins</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Fired by the dropdown's "Browse all plugins" footer. </p>
+<p>The app layer opens the full plugin browser; the current search query is passed so the browser opens with the same terms the user typed. </p>
+
+<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00091">91</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
+
+<p class="reference">Referenced by <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00045">UIMixerPanel()</a>.</p>
+
+</div>
+</div>
+<a id="ad0f673767f5acbcd5cf0baec40dcd746" name="ad0f673767f5acbcd5cf0baec40dcd746"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad0f673767f5acbcd5cf0baec40dcd746">&#9670;&#160;</a></span>onCatalogRefresh</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::function&lt;void()&gt; AestraUI::UIMixerPanel::onCatalogRefresh</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Fired when the dropdown opens with an empty catalog and asks the host to republish (used to recover when the initial setup ran before the async plugin scan completed). </p>
+
+<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00096">96</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
+
+<p class="reference">Referenced by <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00045">UIMixerPanel()</a>.</p>
+
+</div>
+</div>
 <a id="a4983d0ade66c0dc3ff46af6934eb00e1" name="a4983d0ade66c0dc3ff46af6934eb00e1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4983d0ade66c0dc3ff46af6934eb00e1">&#9670;&#160;</a></span>onInspectorPreferenceChanged</h2>
 
@@ -1067,9 +1148,9 @@ Additional Inherited Members</h2></td></tr>
 <p>Fires only when the <em>explicit</em> preference changes, so the host can persist it. </p>
 <p>Width-driven collapse deliberately does not fire. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00111">111</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html#l00134">134</a> of file <a class="el" href="../../d1/d4b/UIMixerPanel_8h_source.html">UIMixerPanel.h</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00306">setInspectorExpandedPreference()</a>, and <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00319">toggleInspectorCollapsed()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00338">setInspectorExpandedPreference()</a>, and <a class="el" href="../../de/d7b/UIMixerPanel_8cpp_source.html#l00351">toggleInspectorCollapsed()</a>.</p>
 
 </div>
 </div>

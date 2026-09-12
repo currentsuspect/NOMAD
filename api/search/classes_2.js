@@ -54,5 +54,6 @@ var searchData=
   ['cpuindicator_51',['CPUIndicator',['../df/d31/classAestraUI_1_1CPUIndicator.html',1,'AestraUI']]],
   ['crashflagpath_52',['CrashFlagPath',['../d3/dc8/classAestra_1_1CrashFlagPath.html',1,'Aestra']]],
   ['createlanecommand_53',['CreateLaneCommand',['../d7/d09/classAestra_1_1Audio_1_1CreateLaneCommand.html',1,'Aestra::Audio']]],
-  ['cubicinterpolator_54',['CubicInterpolator',['../dc/df2/structAestra_1_1Audio_1_1Interpolators_1_1CubicInterpolator.html',1,'Aestra::Audio::Interpolators']]]
+  ['createtrackwithlanecommand_54',['CreateTrackWithLaneCommand',['../de/d10/classAestra_1_1Audio_1_1CreateTrackWithLaneCommand.html',1,'Aestra::Audio']]],
+  ['cubicinterpolator_55',['CubicInterpolator',['../dc/df2/structAestra_1_1Audio_1_1Interpolators_1_1CubicInterpolator.html',1,'Aestra::Audio::Interpolators']]]
 ];

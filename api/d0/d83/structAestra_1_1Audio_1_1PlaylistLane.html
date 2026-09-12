@@ -118,6 +118,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:aef1b09294d60d430c22b885418642fbc" id="r_aef1b09294d60d430c22b885418642fbc"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="../../d2/d23/structAestra_1_1Audio_1_1ClipInstance.html">ClipInstance</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d0/d83/structAestra_1_1Audio_1_1PlaylistLane.html#aef1b09294d60d430c22b885418642fbc">clips</a></td></tr>
 <tr class="memdesc:aef1b09294d60d430c22b885418642fbc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Clips currently placed on the lane.  <br /></td></tr>
 <tr class="separator:aef1b09294d60d430c22b885418642fbc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a835a8a1da8ef2f6f90ba4e959f651518" id="r_a835a8a1da8ef2f6f90ba4e959f651518"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d0/d83/structAestra_1_1Audio_1_1PlaylistLane.html#a835a8a1da8ef2f6f90ba4e959f651518">trackId</a> {0}</td></tr>
+<tr class="memdesc:a835a8a1da8ef2f6f90ba4e959f651518"><td class="mdescLeft">&#160;</td><td class="mdescRight">Owning <a class="el" href="../../da/d7d/structAestra_1_1Audio_1_1Track.html" title="The user&#39;s recording and arrangement identity (FD-14).">Track</a>'s stable id (FD-14).  <br /></td></tr>
+<tr class="separator:a835a8a1da8ef2f6f90ba4e959f651518"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aea0c21e1f7815e6425e45a27e2fe27e6" id="r_aea0c21e1f7815e6425e45a27e2fe27e6"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d0/d83/structAestra_1_1Audio_1_1PlaylistLane.html#aea0c21e1f7815e6425e45a27e2fe27e6">volume</a> {1.0f}</td></tr>
 <tr class="memdesc:aea0c21e1f7815e6425e45a27e2fe27e6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Lane volume multiplier.  <br /></td></tr>
 <tr class="separator:aea0c21e1f7815e6425e45a27e2fe27e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -168,7 +171,7 @@ Public Attributes</h2></td></tr>
 
 <p>Construct a lane with an explicit display index. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00051">51</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00054">54</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
 
 </div>
 </div>
@@ -187,9 +190,9 @@ Public Attributes</h2></td></tr>
 
 <p>Automation curves attached to the lane. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00046">46</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00049">49</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00457">Aestra::Audio::PlaylistModel::buildRuntimeSnapshot()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00540">Aestra::Audio::PlaylistModel::buildRuntimeSnapshot()</a>.</p>
 
 </div>
 </div>
@@ -209,7 +212,7 @@ Public Attributes</h2></td></tr>
 
 <p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00033">33</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00457">Aestra::Audio::PlaylistModel::buildRuntimeSnapshot()</a>, and <a class="el" href="../../d1/d59/MuseService_8cpp_source.html#l00235">Aestra::Audio::MuseService::handleRequest()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00540">Aestra::Audio::PlaylistModel::buildRuntimeSnapshot()</a>, <a class="el" href="../../d1/df8/DeleteLaneCommand_8cpp_source.html#l00015">Aestra::Audio::DeleteLaneCommand::execute()</a>, and <a class="el" href="../../d1/d59/MuseService_8cpp_source.html#l00235">Aestra::Audio::MuseService::handleRequest()</a>.</p>
 
 </div>
 </div>
@@ -227,7 +230,7 @@ Public Attributes</h2></td></tr>
 
 <p>Lane color shown in the UI. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00044">44</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00047">47</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
 
 </div>
 </div>
@@ -247,7 +250,7 @@ Public Attributes</h2></td></tr>
 
 <p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00027">27</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00097">Aestra::Audio::PlaylistModel::createLaneWithId()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00146">Aestra::Audio::PlaylistModel::createLaneWithId()</a>.</p>
 
 </div>
 </div>
@@ -267,7 +270,7 @@ Public Attributes</h2></td></tr>
 
 <p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00031">31</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00097">Aestra::Audio::PlaylistModel::createLaneWithId()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00146">Aestra::Audio::PlaylistModel::createLaneWithId()</a>.</p>
 
 </div>
 </div>
@@ -285,9 +288,9 @@ Public Attributes</h2></td></tr>
 
 <p>Lane mute state. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00040">40</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00043">43</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00457">Aestra::Audio::PlaylistModel::buildRuntimeSnapshot()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00540">Aestra::Audio::PlaylistModel::buildRuntimeSnapshot()</a>.</p>
 
 </div>
 </div>
@@ -307,7 +310,7 @@ Public Attributes</h2></td></tr>
 
 <p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00029">29</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00097">Aestra::Audio::PlaylistModel::createLaneWithId()</a>, and <a class="el" href="../../d1/d59/MuseService_8cpp_source.html#l00235">Aestra::Audio::MuseService::handleRequest()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00146">Aestra::Audio::PlaylistModel::createLaneWithId()</a>, <a class="el" href="../../d1/df8/DeleteLaneCommand_8cpp_source.html#l00015">Aestra::Audio::DeleteLaneCommand::execute()</a>, and <a class="el" href="../../d1/d59/MuseService_8cpp_source.html#l00235">Aestra::Audio::MuseService::handleRequest()</a>.</p>
 
 </div>
 </div>
@@ -325,7 +328,7 @@ Public Attributes</h2></td></tr>
 
 <p>Lane pan value. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00038">38</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00041">41</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
 
 </div>
 </div>
@@ -343,9 +346,30 @@ Public Attributes</h2></td></tr>
 
 <p>Lane solo state. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00042">42</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00045">45</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00457">Aestra::Audio::PlaylistModel::buildRuntimeSnapshot()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00540">Aestra::Audio::PlaylistModel::buildRuntimeSnapshot()</a>.</p>
+
+</div>
+</div>
+<a id="a835a8a1da8ef2f6f90ba4e959f651518" name="a835a8a1da8ef2f6f90ba4e959f651518"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a835a8a1da8ef2f6f90ba4e959f651518">&#9670;&#160;</a></span>trackId</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint64_t Aestra::Audio::PlaylistLane::trackId {0}</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Owning <a class="el" href="../../da/d7d/structAestra_1_1Audio_1_1Track.html" title="The user&#39;s recording and arrangement identity (FD-14).">Track</a>'s stable id (FD-14). </p>
+<p>0 = unowned/legacy until the loader migration assigns ownership. Never derived from lane index. </p>
+
+<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00036">36</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
+
+<p class="reference">Referenced by <a class="el" href="../../d4/dfc/TrackManager_8h_source.html#l00443">Aestra::Audio::TrackManager::attachLaneToTrack()</a>, <a class="el" href="../../d4/dfc/TrackManager_8h_source.html#l00460">Aestra::Audio::TrackManager::detachLaneFromTrack()</a>, <a class="el" href="../../d1/df8/DeleteLaneCommand_8cpp_source.html#l00015">Aestra::Audio::DeleteLaneCommand::execute()</a>, and <a class="el" href="../../d4/dfc/TrackManager_8h_source.html#l00538">Aestra::Audio::TrackManager::restoreTrack()</a>.</p>
 
 </div>
 </div>
@@ -363,7 +387,7 @@ Public Attributes</h2></td></tr>
 
 <p>Lane volume multiplier. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00036">36</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html#l00039">39</a> of file <a class="el" href="../../d4/ddd/PlaylistModel_8h_source.html">PlaylistModel.h</a>.</p>
 
 </div>
 </div>

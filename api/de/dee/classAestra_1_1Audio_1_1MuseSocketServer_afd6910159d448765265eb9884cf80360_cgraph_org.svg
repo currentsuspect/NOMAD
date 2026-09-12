@@ -287,7 +287,7 @@
 <!-- Node63 -->
 <g id="Node000063" class="node">
 <title>Node63</title>
-<g id="a_Node000063"><a xlink:href="../../de/dca/classAestra_1_1Audio_1_1TrackManager.html#a2206c36c5c97de4986bd6c081226acb4" target="_top" xlink:title="Stop transport playback and return to the stored cue/start position.">
+<g id="a_Node000063"><a xlink:href="../../de/dca/classAestra_1_1Audio_1_1TrackManager.html#a2206c36c5c97de4986bd6c081226acb4" target="_top" xlink:title="Stop transport playback and reset the playhead to 0.">
 <polygon fill="white" stroke="#666666" points="751.5,-78 595.5,-78 595.5,-48 751.5,-48 751.5,-78"/>
 <text text-anchor="start" x="603.5" y="-66" font-family="Helvetica,sans-Serif" font-size="10.00">Aestra::Audio::TrackManager</text>
 <text text-anchor="middle" x="673.5" y="-55" font-family="Helvetica,sans-Serif" font-size="10.00">::stop</text>

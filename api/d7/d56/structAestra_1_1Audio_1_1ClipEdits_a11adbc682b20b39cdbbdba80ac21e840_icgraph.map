@@ -1,0 +1,24 @@
+<map id="Aestra::Audio::ClipEdits::effectiveVarispeed" name="Aestra::Audio::ClipEdits::effectiveVarispeed">
+<area shape="rect" id="Node000001" title="Combined varispeed factor (Speed x 2^(Pitch/12)), clamped to the render envelope." alt="" coords="789,181,964,221"/>
+<area shape="rect" id="Node000002" href="$da/df9/classAestra_1_1Audio_1_1ClipRenderService.html#adbc6b59ea80b9b1efca3eb534d66ef27" title="Resolve the audio a clip currently plays." alt="" coords="541,117,737,157"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="788,180,713,160,714,155,789,175"/>
+<area shape="rect" id="Node000007" href="$db/db8/classAestra_1_1Audio_1_1PlaylistModel.html#a17983ade5aa7a81a8f2d11fba2db2ad6" title="Replace the editable playback properties for one clip instance." alt="" coords="536,213,741,253"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="776,218,742,222,741,217,775,212"/>
+<area shape="rect" id="Node000003" href="$db/dd1/classAestra_1_1Audio_1_1RenderAudioClipCommand.html#a02798abf02b4c53a3f28a7bd35521041" title="Execute the command (first time)" alt="" coords="271,133,471,173"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="527,147,471,150,471,145,527,141"/>
+<area shape="rect" id="Node000005" href="$d0/d62/classAestra_1_1Audio_1_1ReverseAudioClipCommand.html#a96c8a9f625eea70ef256c3f46ead14fc" title="Produce the replacement audio for this clip." alt="" coords="267,5,474,45"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="591,112,542,85,487,60,453,48,455,43,489,55,544,80,594,108"/>
+<area shape="rect" id="Node000006" href="$dd/dde/classAestra_1_1Audio_1_1CommitAudioClipEditsCommand.html#a3e074459ab4eaf54e0750ecad0c25aa8" title="Produce the replacement audio for this clip." alt="" coords="253,69,488,109"/>
+<area shape="poly" id="edge5_Node000002_Node000006" title=" " alt="" coords="527,120,482,112,483,107,528,115"/>
+<area shape="rect" id="Node000004" href="$db/dd1/classAestra_1_1Audio_1_1RenderAudioClipCommand.html#ac9aa69760b9cd441d6a6d15af5aa19d5" title="Redo the command (must be explicitly implemented) Implementers should consider: is redo() exactly exe..." alt="" coords="5,133,205,173"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="257,156,206,156,206,151,257,151"/>
+<area shape="poly" id="edge7_Node000007_Node000003" title=" " alt="" coords="563,212,487,188,446,176,447,171,489,183,565,207"/>
+<area shape="rect" id="Node000008" href="$dd/d1c/classAestra_1_1Audio_1_1SetClipEditsCommand.html#ae3b47a09e203a278d7e310e263fa6af7" title="Execute the command (first time)" alt="" coords="273,197,468,237"/>
+<area shape="poly" id="edge8_Node000007_Node000008" title=" " alt="" coords="522,229,468,226,468,220,522,224"/>
+<area shape="rect" id="Node000009" href="$dd/d1c/classAestra_1_1Audio_1_1SetClipEditsCommand.html#a93ccb1cb008970c9d3c5fea655f6effb" title="Redo the command (must be explicitly implemented) Implementers should consider: is redo() exactly exe..." alt="" coords="273,261,468,301"/>
+<area shape="poly" id="edge9_Node000007_Node000009" title=" " alt="" coords="523,257,469,267,468,261,522,251"/>
+<area shape="rect" id="Node000010" href="$db/dd1/classAestra_1_1Audio_1_1RenderAudioClipCommand.html#a08716ecaa1091866d9147b3811752a30" title="Undo the command." alt="" coords="271,325,471,365"/>
+<area shape="poly" id="edge10_Node000007_Node000010" title=" " alt="" coords="594,263,544,290,489,316,455,328,453,323,487,311,542,285,591,258"/>
+<area shape="rect" id="Node000011" href="$dd/d1c/classAestra_1_1Audio_1_1SetClipEditsCommand.html#a806cc932d9b91335a9ffae08008e95a7" title="Undo the command." alt="" coords="273,389,468,429"/>
+<area shape="poly" id="edge11_Node000007_Node000011" title=" " alt="" coords="615,266,561,324,527,354,489,380,464,392,461,387,487,375,524,350,558,320,611,263"/>
+</map>

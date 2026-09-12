@@ -1,5 +1,12 @@
 <map id="AestraContent::refreshPluginList" name="AestraContent::refreshPluginList">
-<area shape="rect" id="Node000001" title="Refresh the visible plugin list in the browser." alt="" coords="5,13,237,38"/>
-<area shape="rect" id="Node000002" href="$d2/d29/classAestra_1_1Audio_1_1PluginManager.html#a2b16ad3e0f43d5b9a12690af12156878" title="Get the singleton instance." alt="" coords="285,5,500,45"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="237,23,271,23,271,28,237,28"/>
+<area shape="rect" id="Node000001" title="Refresh the visible plugin list in the browser." alt="" coords="5,46,237,71"/>
+<area shape="rect" id="Node000002" href="$db/d60/classAestraContent.html#a17c7d66e5933065fb19ade9603fbfdb9" title="Map the scanned plugins onto the mixer dropdown&#39;s entry type." alt="" coords="285,68,476,108"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="234,69,272,73,271,78,233,74"/>
+<area shape="rect" id="Node000003" href="$d2/d29/classAestra_1_1Audio_1_1PluginManager.html#a2b16ad3e0f43d5b9a12690af12156878" title="Get the singleton instance." alt="" coords="524,5,739,45"/>
+<area shape="poly" id="edge5_Node000001_Node000003" title=" " alt="" coords="238,48,510,31,511,36,238,54"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="460,65,537,46,538,51,462,71"/>
+<area shape="rect" id="Node000004" href="$d5/d75/classAestra_1_1Audio_1_1PluginScanner.html#affcef3fc60ee455dd741b4a672df5155" title="Get all scanned plugins." alt="" coords="527,69,736,109"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="476,86,513,86,513,91,476,91"/>
+<area shape="rect" id="Node000005" href="$d2/d29/classAestra_1_1Audio_1_1PluginManager.html#aab327c998caf714e1f3010e9af72f8b2" title="Get the plugin scanner." alt="" coords="524,133,739,173"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="459,105,542,127,540,132,457,111"/>
 </map>

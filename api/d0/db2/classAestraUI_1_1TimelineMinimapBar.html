@@ -121,6 +121,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ac0e675824f6fecab7039c4eb219ee60f" id="r_ac0e675824f6fecab7039c4eb219ee60f"><td class="memItemLeft" align="right" valign="top">TimelineMinimapCursorHint&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d0/db2/classAestraUI_1_1TimelineMinimapBar.html#ac0e675824f6fecab7039c4eb219ee60f">getCursorHint</a> () const</td></tr>
 <tr class="memdesc:ac0e675824f6fecab7039c4eb219ee60f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the current cursor hint for the host UI.  <br /></td></tr>
 <tr class="separator:ac0e675824f6fecab7039c4eb219ee60f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a751a12bf83306a4bf40807ecf8485461" id="r_a751a12bf83306a4bf40807ecf8485461"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d0/db2/classAestraUI_1_1TimelineMinimapBar.html#a751a12bf83306a4bf40807ecf8485461">isViewportPanActive</a> () const</td></tr>
+<tr class="memdesc:a751a12bf83306a4bf40807ecf8485461"><td class="mdescLeft">&#160;</td><td class="mdescRight">True while the viewport bar body is the interaction (pan/grab) — hover inside the bar, or actively dragging it.  <br /></td></tr>
+<tr class="separator:a751a12bf83306a4bf40807ecf8485461"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae22108ef842967c42b8349df36ff9fab" id="r_ae22108ef842967c42b8349df36ff9fab"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d0/db2/classAestraUI_1_1TimelineMinimapBar.html#ae22108ef842967c42b8349df36ff9fab">setShowModeToggles</a> (bool show)</td></tr>
 <tr class="memdesc:ae22108ef842967c42b8349df36ff9fab"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enable or disable the top-left mode toggles.  <br /></td></tr>
 <tr class="separator:ae22108ef842967c42b8349df36ff9fab"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -382,6 +385,36 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a751a12bf83306a4bf40807ecf8485461" name="a751a12bf83306a4bf40807ecf8485461"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a751a12bf83306a4bf40807ecf8485461">&#9670;&#160;</a></span>isViewportPanActive()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool AestraUI::TimelineMinimapBar::isViewportPanActive </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>True while the viewport bar body is the interaction (pan/grab) — hover inside the bar, or actively dragging it. </p>
+<p>Resize edges are excluded (their hint is ResizeHorizontal). Gated on visibility: a hidden minimap stops receiving events and its hover state freezes. </p>
+
+<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00047">47</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
+
+</div>
+</div>
 <a id="a142ae3fe75ea4dc715a0d5e5af879440" name="a142ae3fe75ea4dc715a0d5e5af879440"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a142ae3fe75ea4dc715a0d5e5af879440">&#9670;&#160;</a></span>onMouseEvent()</h2>
 
@@ -408,7 +441,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../db/d1a/classAestraUI_1_1NUIComponent.html">AestraUI::NUIComponent</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../da/da1/TimelineMinimapBar_8cpp_source.html#l00401">401</a> of file <a class="el" href="../../da/da1/TimelineMinimapBar_8cpp_source.html">TimelineMinimapBar.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../da/da1/TimelineMinimapBar_8cpp_source.html#l00402">402</a> of file <a class="el" href="../../da/da1/TimelineMinimapBar_8cpp_source.html">TimelineMinimapBar.cpp</a>.</p>
 
 </div>
 </div>
@@ -568,7 +601,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Set an additional leading inset applied before the minimap content. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00046">46</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00053">53</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
 
 </div>
 </div>
@@ -620,7 +653,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Enable or disable the top-left mode toggles. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00044">44</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00051">51</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
 
 </div>
 </div>
@@ -639,7 +672,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Callback fired when the minimap mode toggle changes. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00057">57</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00064">64</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
 
 </div>
 </div>
@@ -657,7 +690,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Callback requesting that the host center the view around a beat. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00049">49</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00056">56</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
 
 </div>
 </div>
@@ -675,7 +708,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Callback requesting viewport-edge resizing. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00053">53</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00060">60</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
 
 </div>
 </div>
@@ -693,7 +726,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Callback requesting a new view-start beat. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00051">51</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00058">58</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
 
 </div>
 </div>
@@ -711,7 +744,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Callback requesting zoom around an anchor beat. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00055">55</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html#l00062">62</a> of file <a class="el" href="../../d6/d19/TimelineMinimapBar_8h_source.html">TimelineMinimapBar.h</a>.</p>
 
 </div>
 </div>

@@ -1,0 +1,9 @@
+<map id="Aestra::Audio::FitToBarsResult" name="Aestra::Audio::FitToBarsResult">
+<area shape="rect" id="Node000001" title=" " alt="" coords="91,108,267,148"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,5,72,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="46,43,53,64,66,82,83,95,102,105,99,110,80,100,62,86,49,66,41,45"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="153,5,204,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="181,45,181,108,176,108,176,45"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="277,5,328,31"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="299,45,290,66,275,86,258,100,239,110,237,106,255,95,271,82,285,63,294,43"/>
+</map>

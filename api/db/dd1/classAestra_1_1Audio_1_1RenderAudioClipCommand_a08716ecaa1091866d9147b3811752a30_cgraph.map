@@ -14,6 +14,8 @@
 <area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="150,267,254,311,277,319,275,324,252,316,148,272"/>
 <area shape="rect" id="Node000008" href="$db/db8/classAestra_1_1Audio_1_1PlaylistModel.html#a17983ade5aa7a81a8f2d11fba2db2ad6" title="Replace the editable playback properties for one clip instance." alt="" coords="261,389,466,429"/>
 <area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="126,268,181,321,216,350,255,375,268,382,266,386,252,380,213,354,177,325,123,272"/>
-<area shape="rect" id="Node000009" href="$db/db8/classAestra_1_1Audio_1_1PlaylistModel.html#afef7f68c8b1a5e22fb9b0ddfb21731ed" title="Replace the source pattern referenced by one clip instance." alt="" coords="261,453,466,493"/>
-<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="119,268,139,305,169,351,208,399,255,439,264,445,261,449,252,443,205,402,165,354,135,308,114,271"/>
+<area shape="rect" id="Node000010" href="$db/db8/classAestra_1_1Audio_1_1PlaylistModel.html#afef7f68c8b1a5e22fb9b0ddfb21731ed" title="Replace the source pattern referenced by one clip instance." alt="" coords="261,453,466,493"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="119,268,139,305,169,351,208,399,255,439,264,445,261,449,252,443,205,402,165,354,135,308,114,271"/>
+<area shape="rect" id="Node000009" href="$d7/d56/structAestra_1_1Audio_1_1ClipEdits.html#a11adbc682b20b39cdbbdba80ac21e840" title="Combined varispeed factor (Speed x 2^(Pitch/12)), clamped to the render envelope." alt="" coords="521,389,696,429"/>
+<area shape="poly" id="edge8_Node000008_Node000009" title=" " alt="" coords="466,407,508,407,508,412,466,412"/>
 </map>

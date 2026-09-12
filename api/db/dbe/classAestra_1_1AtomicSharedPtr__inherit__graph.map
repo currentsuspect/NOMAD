@@ -1,15 +1,13 @@
 <map id="Aestra::AtomicSharedPtr&lt; T &gt;" name="Aestra::AtomicSharedPtr&lt; T &gt;">
-<area shape="rect" id="Node000001" title=" " alt="" coords="5,189,224,214"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,141,224,166"/>
 <area shape="rect" id="Node000002" href="$df/d6c/classAestra_1_1AtomicSharedPtr.html" title=" " alt="" coords="475,5,691,45"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="133,176,181,128,213,103,247,83,303,61,362,45,420,34,474,27,475,33,421,39,363,50,305,66,249,88,216,108,185,132,137,180"/>
-<area shape="rect" id="Node000003" href="$df/d6c/classAestra_1_1AtomicSharedPtr.html" title=" " alt="" coords="492,70,673,125"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="165,182,247,157,375,130,491,109,492,114,376,135,249,163,166,187"/>
-<area shape="rect" id="Node000004" href="$df/d6c/classAestra_1_1AtomicSharedPtr.html" title=" " alt="" coords="492,149,673,189"/>
-<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="238,190,492,173,492,178,238,196"/>
-<area shape="rect" id="Node000005" href="$df/d6c/classAestra_1_1AtomicSharedPtr.html" title=" " alt="" coords="492,213,673,253"/>
-<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="238,209,248,209,492,225,492,231,248,215,237,214"/>
-<area shape="rect" id="Node000006" href="$df/d6c/classAestra_1_1AtomicSharedPtr.html" title=" " alt="" coords="473,278,692,333"/>
-<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="152,218,197,239,249,257,364,282,473,296,473,301,363,287,247,263,195,244,150,223"/>
-<area shape="rect" id="Node000007" href="$df/d6c/classAestra_1_1AtomicSharedPtr.html" title=" " alt="" coords="492,357,673,397"/>
-<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="137,223,185,270,216,294,249,314,310,337,373,354,436,365,492,371,491,376,435,370,372,359,308,342,247,318,213,298,182,274,134,226"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="147,131,194,107,247,84,364,53,474,34,475,40,365,59,249,89,196,111,150,136"/>
+<area shape="rect" id="Node000003" href="$df/d6c/classAestra_1_1AtomicSharedPtr.html" title=" " alt="" coords="492,69,673,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="211,136,248,131,491,98,492,103,248,136,212,141"/>
+<area shape="rect" id="Node000004" href="$df/d6c/classAestra_1_1AtomicSharedPtr.html" title=" " alt="" coords="492,133,673,173"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="238,151,492,151,492,156,238,156"/>
+<area shape="rect" id="Node000005" href="$df/d6c/classAestra_1_1AtomicSharedPtr.html" title=" " alt="" coords="473,198,692,253"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="172,167,249,185,364,203,473,215,473,220,364,208,247,191,171,172"/>
+<area shape="rect" id="Node000006" href="$df/d6c/classAestra_1_1AtomicSharedPtr.html" title=" " alt="" coords="492,277,673,317"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="145,172,192,204,249,232,311,252,375,268,492,287,491,292,373,273,309,258,247,237,189,208,142,177"/>
 </map>

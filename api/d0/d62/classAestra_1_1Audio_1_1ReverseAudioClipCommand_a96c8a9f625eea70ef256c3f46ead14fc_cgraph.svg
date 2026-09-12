@@ -178,20 +178,20 @@ var sectionId = 'dynsection-2';
 </a>
 </g>
 </g>
-<!-- Node10 -->
-<g id="Node000010" class="node">
-<title>Node10</title>
-<g id="a_Node000010"><a xlink:href="../../da/df9/classAestra_1_1Audio_1_1ClipRenderService.html#ad6ddd40d6a2f0c65f1c5ed4e71c8cea6" target="_top" xlink:title="Reverse buffer in place, keeping channel interleaving intact.">
+<!-- Node11 -->
+<g id="Node000011" class="node">
+<title>Node11</title>
+<g id="a_Node000011"><a xlink:href="../../da/df9/classAestra_1_1Audio_1_1ClipRenderService.html#ad6ddd40d6a2f0c65f1c5ed4e71c8cea6" target="_top" xlink:title="Reverse buffer in place, keeping channel interleaving intact.">
 <polygon fill="white" stroke="#666666" points="339.5,-30 198.5,-30 198.5,0 339.5,0 339.5,-30"/>
 <text text-anchor="start" x="206.5" y="-18" font-family="Helvetica,sans-Serif" font-size="10.00">Aestra::Audio::ClipRender</text>
 <text text-anchor="middle" x="269" y="-7" font-family="Helvetica,sans-Serif" font-size="10.00">Service::reverseInPlace</text>
 </a>
 </g>
 </g>
-<!-- Node1&#45;&gt;Node10 -->
-<g id="edge9_Node000001_Node000010" class="edge">
-<title>Node1&#45;&gt;Node10</title>
-<g id="a_edge9_Node000001_Node000010"><a xlink:title=" ">
+<!-- Node1&#45;&gt;Node11 -->
+<g id="edge10_Node000001_Node000011" class="edge">
+<title>Node1&#45;&gt;Node11</title>
+<g id="a_edge10_Node000001_Node000011"><a xlink:title=" ">
 <path fill="none" stroke="#63b8ff" d="M88.75,-143.73C106.58,-118.32 145.75,-67.36 191,-39 193.64,-37.34 196.41,-35.79 199.26,-34.34"/>
 <polygon fill="#63b8ff" stroke="#63b8ff" points="200.96,-37.41 208.58,-30.05 198.04,-31.05 200.96,-37.41"/>
 </a>
@@ -200,10 +200,10 @@ var sectionId = 'dynsection-2';
 <!-- Node8 -->
 <g id="Node000008" class="node">
 <title>Node8</title>
-<g id="a_Node000008"><a xlink:href="../../d3/d1a/classAestra_1_1Audio_1_1PatternManager.html#a77910950ec791176dd209ba9c83e219a" target="_top" xlink:title="Get a pattern by ID (returns nullptr if not found)">
-<polygon fill="white" stroke="#666666" points="548,-102 383,-102 383,-72 548,-72 548,-102"/>
-<text text-anchor="start" x="391" y="-90" font-family="Helvetica,sans-Serif" font-size="10.00">Aestra::Audio::PatternManager</text>
-<text text-anchor="middle" x="465.5" y="-79" font-family="Helvetica,sans-Serif" font-size="10.00">::getPattern</text>
+<g id="a_Node000008"><a xlink:href="../../d7/d56/structAestra_1_1Audio_1_1ClipEdits.html#a11adbc682b20b39cdbbdba80ac21e840" target="_top" xlink:title="Combined varispeed factor (Speed x 2^(Pitch/12)), clamped to the render envelope.">
+<polygon fill="white" stroke="#666666" points="531,-126 400,-126 400,-96 531,-96 531,-126"/>
+<text text-anchor="start" x="408" y="-114" font-family="Helvetica,sans-Serif" font-size="10.00">Aestra::Audio::ClipEdits</text>
+<text text-anchor="middle" x="465.5" y="-103" font-family="Helvetica,sans-Serif" font-size="10.00">::effectiveVarispeed</text>
 </a>
 </g>
 </g>
@@ -211,18 +211,18 @@ var sectionId = 'dynsection-2';
 <g id="edge7_Node000007_Node000008" class="edge">
 <title>Node7&#45;&gt;Node8</title>
 <g id="a_edge7_Node000007_Node000008"><a xlink:title=" ">
-<path fill="none" stroke="#63b8ff" d="M342.7,-71.97C352.49,-73.18 362.64,-74.43 372.71,-75.67"/>
-<polygon fill="#63b8ff" stroke="#63b8ff" points="372.38,-79.16 382.74,-76.91 373.24,-72.21 372.38,-79.16"/>
+<path fill="none" stroke="#63b8ff" d="M331.01,-78.06C350.92,-82.97 373.2,-88.47 393.77,-93.54"/>
+<polygon fill="#63b8ff" stroke="#63b8ff" points="393.16,-97 403.71,-96 394.84,-90.2 393.16,-97"/>
 </a>
 </g>
 </g>
 <!-- Node9 -->
 <g id="Node000009" class="node">
 <title>Node9</title>
-<g id="a_Node000009"><a xlink:href="../../d6/d0f/classAestra_1_1Audio_1_1SourceManager.html#a9df135788c4b7117579dc103b01d9f94" target="_top" xlink:title="Get a source by ID.">
-<polygon fill="white" stroke="#666666" points="547.5,-54 383.5,-54 383.5,-24 547.5,-24 547.5,-54"/>
-<text text-anchor="start" x="391.5" y="-42" font-family="Helvetica,sans-Serif" font-size="10.00">Aestra::Audio::SourceManager</text>
-<text text-anchor="middle" x="465.5" y="-31" font-family="Helvetica,sans-Serif" font-size="10.00">::getSource</text>
+<g id="a_Node000009"><a xlink:href="../../d3/d1a/classAestra_1_1Audio_1_1PatternManager.html#a77910950ec791176dd209ba9c83e219a" target="_top" xlink:title="Get a pattern by ID (returns nullptr if not found)">
+<polygon fill="white" stroke="#666666" points="548,-78 383,-78 383,-48 548,-48 548,-78"/>
+<text text-anchor="start" x="391" y="-66" font-family="Helvetica,sans-Serif" font-size="10.00">Aestra::Audio::PatternManager</text>
+<text text-anchor="middle" x="465.5" y="-55" font-family="Helvetica,sans-Serif" font-size="10.00">::getPattern</text>
 </a>
 </g>
 </g>
@@ -230,8 +230,27 @@ var sectionId = 'dynsection-2';
 <g id="edge8_Node000007_Node000009" class="edge">
 <title>Node7&#45;&gt;Node9</title>
 <g id="a_edge8_Node000007_Node000009"><a xlink:title=" ">
-<path fill="none" stroke="#63b8ff" d="M342.7,-54.03C352.66,-52.8 362.98,-51.53 373.21,-50.26"/>
-<polygon fill="#63b8ff" stroke="#63b8ff" points="373.9,-53.71 383.39,-49.01 373.04,-46.76 373.9,-53.71"/>
+<path fill="none" stroke="#63b8ff" d="M342.7,-63C352.49,-63 362.64,-63 372.71,-63"/>
+<polygon fill="#63b8ff" stroke="#63b8ff" points="372.74,-66.5 382.74,-63 372.74,-59.5 372.74,-66.5"/>
+</a>
+</g>
+</g>
+<!-- Node10 -->
+<g id="Node000010" class="node">
+<title>Node10</title>
+<g id="a_Node000010"><a xlink:href="../../d6/d0f/classAestra_1_1Audio_1_1SourceManager.html#a9df135788c4b7117579dc103b01d9f94" target="_top" xlink:title="Get a source by ID.">
+<polygon fill="white" stroke="#666666" points="547.5,-30 383.5,-30 383.5,0 547.5,0 547.5,-30"/>
+<text text-anchor="start" x="391.5" y="-18" font-family="Helvetica,sans-Serif" font-size="10.00">Aestra::Audio::SourceManager</text>
+<text text-anchor="middle" x="465.5" y="-7" font-family="Helvetica,sans-Serif" font-size="10.00">::getSource</text>
+</a>
+</g>
+</g>
+<!-- Node7&#45;&gt;Node10 -->
+<g id="edge9_Node000007_Node000010" class="edge">
+<title>Node7&#45;&gt;Node10</title>
+<g id="a_edge9_Node000007_Node000010"><a xlink:title=" ">
+<path fill="none" stroke="#63b8ff" d="M331.01,-47.94C350.92,-43.03 373.2,-37.53 393.77,-32.46"/>
+<polygon fill="#63b8ff" stroke="#63b8ff" points="394.84,-35.8 403.71,-30 393.16,-29 394.84,-35.8"/>
 </a>
 </g>
 </g>

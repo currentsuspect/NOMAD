@@ -2,7 +2,7 @@
 <area shape="rect" id="Node000001" title="Execute the command (first time)" alt="" coords="5,133,208,173"/>
 <area shape="rect" id="Node000002" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#a10f7a504ea3bba99081df5d67b618040" title="Positional lookup for a stable sendId; &#45;1 when absent." alt="" coords="257,5,463,45"/>
 <area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="132,131,187,93,255,55,272,48,274,53,257,60,190,98,136,136"/>
-<area shape="rect" id="Node000003" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a53fe3e0e1b269690efd09c6a74f467c0" title="Find a mixer channel by stable ID." alt="" coords="256,69,464,109"/>
+<area shape="rect" id="Node000003" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a53fe3e0e1b269690efd09c6a74f467c0" title="Get a track by zero&#45;based index." alt="" coords="256,69,464,109"/>
 <area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="186,131,266,110,268,115,187,136"/>
 <area shape="rect" id="Node000004" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#a8d71d598a1c2a2cfac6df269776ee594" title="Get a copy of the current send list." alt="" coords="257,133,463,173"/>
 <area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="208,151,243,151,243,156,208,156"/>

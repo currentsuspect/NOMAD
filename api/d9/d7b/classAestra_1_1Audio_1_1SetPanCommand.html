@@ -102,8 +102,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a37c7e298a60dc83de32e1bf539f0e1a4" id="r_a37c7e298a60dc83de32e1bf539f0e1a4"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d9/d7b/classAestra_1_1Audio_1_1SetPanCommand.html#a37c7e298a60dc83de32e1bf539f0e1a4">SetPanCommand</a> (<a class="el" href="../../d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html">MixerChannel</a> &amp;channel, float newPan)</td></tr>
-<tr class="separator:a37c7e298a60dc83de32e1bf539f0e1a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad0cccd6f40dc817c9df3fa0d9b0d54da" id="r_ad0cccd6f40dc817c9df3fa0d9b0d54da"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d9/d7b/classAestra_1_1Audio_1_1SetPanCommand.html#ad0cccd6f40dc817c9df3fa0d9b0d54da">SetPanCommand</a> (<a class="el" href="../../de/dca/classAestra_1_1Audio_1_1TrackManager.html">TrackManager</a> &amp;trackManager, <a class="el" href="../../d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html">MixerChannel</a> &amp;channel, float newPan)</td></tr>
+<tr class="separator:ad0cccd6f40dc817c9df3fa0d9b0d54da"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa9c3cfecf37f4a1761c4e409f9c3746d" id="r_aa9c3cfecf37f4a1761c4e409f9c3746d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d9/d7b/classAestra_1_1Audio_1_1SetPanCommand.html#aa9c3cfecf37f4a1761c4e409f9c3746d">execute</a> () override</td></tr>
 <tr class="memdesc:aa9c3cfecf37f4a1761c4e409f9c3746d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Execute the command (first time)  <br /></td></tr>
 <tr class="separator:aa9c3cfecf37f4a1761c4e409f9c3746d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -135,11 +135,12 @@ Public Member Functions</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Command to change a channel's pan position. </p>
+<p>Requests an audio graph rebuild on every mutation (execute/undo/redo): the strip pan reads TrackRenderState.pan, baked into the immutable graph snapshot at build time — a pan change without a rebuild leaves the snapshot stale (the T-4 mute-bug class). </p>
 
-<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00016">16</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00022">22</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a37c7e298a60dc83de32e1bf539f0e1a4" name="a37c7e298a60dc83de32e1bf539f0e1a4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a37c7e298a60dc83de32e1bf539f0e1a4">&#9670;&#160;</a></span>SetPanCommand()</h2>
+<a id="ad0cccd6f40dc817c9df3fa0d9b0d54da" name="ad0cccd6f40dc817c9df3fa0d9b0d54da"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad0cccd6f40dc817c9df3fa0d9b0d54da">&#9670;&#160;</a></span>SetPanCommand()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -150,6 +151,12 @@ Public Member Functions</h2></td></tr>
         <tr>
           <td class="memname">Aestra::Audio::SetPanCommand::SetPanCommand </td>
           <td>(</td>
+          <td class="paramtype"><a class="el" href="../../de/dca/classAestra_1_1Audio_1_1TrackManager.html">TrackManager</a> &amp;&#160;</td>
+          <td class="paramname"><em>trackManager</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype"><a class="el" href="../../d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html">MixerChannel</a> &amp;&#160;</td>
           <td class="paramname"><em>channel</em>, </td>
         </tr>
@@ -172,7 +179,7 @@ Public Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00018">18</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00024">24</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
 
 </div>
 </div>
@@ -204,7 +211,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a22e8a4fe943a30ec50ff3d83d3bff9ee">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00048">48</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00057">57</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
 
 </div>
 </div>
@@ -235,15 +242,15 @@ Public Member Functions</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a659dccd246e1e0dd194b9c65186bd79a">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00021">21</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00027">27</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
 
-<p class="reference">References <a class="el" href="../../d9/d8f/MixerChannel_8h_source.html#l00148">Aestra::Audio::MixerChannel::getPan()</a>, and <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00049">Aestra::Audio::MixerChannel::setPan()</a>.</p>
+<p class="reference">References <a class="el" href="../../d9/d8f/MixerChannel_8h_source.html#l00148">Aestra::Audio::MixerChannel::getPan()</a>, <a class="el" href="../../d4/dfc/TrackManager_8h_source.html#l01649">Aestra::Audio::TrackManager::requestAudioGraphRebuild()</a>, and <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00056">Aestra::Audio::MixerChannel::setPan()</a>.</p>
 <div id="dynsection-2" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-2-trigger" src="../../closed.png" alt="+"/> Here is the call graph for this function:</div>
 <div id="dynsection-2-summary" class="dynsummary" style="display:block;">
 </div>
 <div id="dynsection-2-content" class="dyncontent" style="display:none;">
-<div class="center"><iframe scrolling="no" frameborder="0" src="../../d9/d7b/classAestra_1_1Audio_1_1SetPanCommand_aa9c3cfecf37f4a1761c4e409f9c3746d_cgraph.svg" width="494" height="115"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+<div class="center"><iframe scrolling="no" frameborder="0" src="../../d9/d7b/classAestra_1_1Audio_1_1SetPanCommand_aa9c3cfecf37f4a1761c4e409f9c3746d_cgraph.svg" width="495" height="179"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
 </div>
 
 </div>
@@ -275,7 +282,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#ae3e1f451745928e912757c133d949589">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00046">46</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00055">55</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
 
 </div>
 </div>
@@ -306,7 +313,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a75361941c8c0630fb345a45d2e36eb1d">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00047">47</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00056">56</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
 
 </div>
 </div>
@@ -337,15 +344,15 @@ Public Member Functions</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a4fd53fa4b883ba1b1b6535d49fb9e381">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00038">38</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00046">46</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
 
-<p class="reference">References <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00049">Aestra::Audio::MixerChannel::setPan()</a>.</p>
+<p class="reference">References <a class="el" href="../../d4/dfc/TrackManager_8h_source.html#l01649">Aestra::Audio::TrackManager::requestAudioGraphRebuild()</a>, and <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00056">Aestra::Audio::MixerChannel::setPan()</a>.</p>
 <div id="dynsection-3" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-3-trigger" src="../../closed.png" alt="+"/> Here is the call graph for this function:</div>
 <div id="dynsection-3-summary" class="dynsummary" style="display:block;">
 </div>
 <div id="dynsection-3-content" class="dyncontent" style="display:none;">
-<div class="center"><iframe scrolling="no" frameborder="0" src="../../d9/d7b/classAestra_1_1Audio_1_1SetPanCommand_a1a7a12cb5a6dc97cdd8ee605d3fafb2d_cgraph.svg" width="494" height="51"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+<div class="center"><iframe scrolling="no" frameborder="0" src="../../d9/d7b/classAestra_1_1Audio_1_1SetPanCommand_a1a7a12cb5a6dc97cdd8ee605d3fafb2d_cgraph.svg" width="495" height="115"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
 </div>
 
 </div>
@@ -377,15 +384,15 @@ Public Member Functions</h2></td></tr>
 
 <p>Implements <a class="el" href="../../d1/d5e/classAestra_1_1Audio_1_1ICommand.html#a7328063595af865922e82ba6feaaf5c3">Aestra::Audio::ICommand</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00030">30</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html#l00037">37</a> of file <a class="el" href="../../dc/d1d/SetPanCommand_8h_source.html">SetPanCommand.h</a>.</p>
 
-<p class="reference">References <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00049">Aestra::Audio::MixerChannel::setPan()</a>.</p>
+<p class="reference">References <a class="el" href="../../d4/dfc/TrackManager_8h_source.html#l01649">Aestra::Audio::TrackManager::requestAudioGraphRebuild()</a>, and <a class="el" href="../../d8/d00/MixerChannel_8cpp_source.html#l00056">Aestra::Audio::MixerChannel::setPan()</a>.</p>
 <div id="dynsection-4" onclick="return toggleVisibility(this)" class="dynheader closed" style="cursor:pointer;">
   <img id="dynsection-4-trigger" src="../../closed.png" alt="+"/> Here is the call graph for this function:</div>
 <div id="dynsection-4-summary" class="dynsummary" style="display:block;">
 </div>
 <div id="dynsection-4-content" class="dyncontent" style="display:none;">
-<div class="center"><iframe scrolling="no" frameborder="0" src="../../d9/d7b/classAestra_1_1Audio_1_1SetPanCommand_a79b83716b6ed0c5da83f17906159a511_cgraph.svg" width="494" height="51"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+<div class="center"><iframe scrolling="no" frameborder="0" src="../../d9/d7b/classAestra_1_1Audio_1_1SetPanCommand_a79b83716b6ed0c5da83f17906159a511_cgraph.svg" width="495" height="115"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
 </div>
 
 </div>

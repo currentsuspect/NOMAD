@@ -1,7 +1,9 @@
 <map id="AestraContent::refreshPluginList" name="AestraContent::refreshPluginList">
-<area shape="rect" id="Node000001" title="Refresh the visible plugin list in the browser." alt="" coords="265,35,497,60"/>
+<area shape="rect" id="Node000001" title="Refresh the visible plugin list in the browser." alt="" coords="265,63,497,88"/>
 <area shape="rect" id="Node000002" href="$db/d60/classAestraContent.html#a9cd2ff0a44640c8c7c68543fc33f56d1" title="Advance workspace state and child&#45;panel updates." alt="" coords="18,5,205,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="251,36,205,31,205,25,252,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="307,62,171,33,172,28,308,57"/>
 <area shape="rect" id="Node000003" href="$db/d60/classAestraContent.html#af214284a167c0d4485e8c7849733eee2" title="Create the file/plugin/preview/pattern browser panels." alt="" coords="5,55,217,95"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="252,63,218,67,217,62,251,58"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="252,78,217,78,217,73,252,73"/>
+<area shape="rect" id="Node000004" href="$db/d60/classAestraContent.html#a59842dc639e11b43359a064651907ae6" title="Create the mixer overlay and the routing&#45;map full panel." alt="" coords="14,119,209,159"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="314,94,197,122,196,117,313,89"/>
 </map>

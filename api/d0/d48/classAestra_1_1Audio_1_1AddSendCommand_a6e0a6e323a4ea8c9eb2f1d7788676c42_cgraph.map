@@ -6,7 +6,7 @@
 <area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="458,117,583,62,618,48,620,53,585,66,460,122"/>
 <area shape="rect" id="Node000004" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a8e8a0ddb09f99d50dd977579c3a73086" title="Whether routing source &#45;&gt; target is legal (Routing Contract D1)." alt="" coords="584,120,792,160"/>
 <area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="536,137,570,137,570,143,536,143"/>
-<area shape="rect" id="Node000005" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a53fe3e0e1b269690efd09c6a74f467c0" title="Find a mixer channel by stable ID." alt="" coords="840,56,1048,96"/>
+<area shape="rect" id="Node000005" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a53fe3e0e1b269690efd09c6a74f467c0" title="Get a track by zero&#45;based index." alt="" coords="840,56,1048,96"/>
 <area shape="poly" id="edge7_Node000002_Node000005" title=" " alt="" coords="512,117,584,105,709,91,826,81,827,86,709,96,584,111,513,123"/>
 <area shape="rect" id="Node000007" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#a8d71d598a1c2a2cfac6df269776ee594" title="Get a copy of the current send list." alt="" coords="841,184,1047,224"/>
 <area shape="poly" id="edge8_Node000002_Node000007" title=" " alt="" coords="513,157,584,169,710,184,827,194,827,199,709,189,584,175,512,163"/>

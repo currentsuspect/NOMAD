@@ -1,0 +1,9 @@
+<map id="Aestra::Audio::WaveformCache::selectLevel" name="Aestra::Audio::WaveformCache::selectLevel">
+<area shape="rect" id="Node000001" title="Select the best mip level for a given samples&#45;per&#45;pixel." alt="" coords="565,37,789,77"/>
+<area shape="rect" id="Node000002" href="$d7/dae/classAestra_1_1Audio_1_1WaveformCache.html#a4d9f2bc6cd5a553c22e4d20b47093cbd" title="Get peaks for a source range while preserving fractional pixel boundaries." alt="" coords="285,5,509,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="552,46,509,41,510,36,552,40"/>
+<area shape="rect" id="Node000004" href="$d7/dae/classAestra_1_1Audio_1_1WaveformCache.html#ad5318e1997cbd798dee22e2c48095bd2" title="Two&#45;channel variant of getPeaksForRangePrecise under one lock pass." alt="" coords="277,69,517,109"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="552,74,518,78,517,73,552,69"/>
+<area shape="rect" id="Node000003" href="$d7/dae/classAestra_1_1Audio_1_1WaveformCache.html#a0b23ef894457773b89d8e8535a47e04c" title="Get peaks for drawing a range at specified zoom." alt="" coords="5,5,229,45"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="272,28,230,28,230,23,272,23"/>
+</map>

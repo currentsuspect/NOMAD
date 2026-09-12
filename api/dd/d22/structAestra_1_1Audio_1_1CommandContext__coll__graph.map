@@ -1,22 +1,24 @@
 <map id="Aestra::Audio::CommandContext" name="Aestra::Audio::CommandContext">
-<area shape="rect" id="Node000001" title="Live session dependencies a command factory needs to build a command." alt="" coords="213,357,447,383"/>
-<area shape="rect" id="Node000002" href="$d8/d20/classAestra_1_1Audio_1_1AudioEngine.html" title="Real&#45;time audio engine with 144dB dynamic range." alt="" coords="116,269,315,295"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="243,301,316,355,313,359,240,305"/>
-<area shape="rect" id="Node000003" title=" " alt="" coords="5,181,65,207"/>
-<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="43,219,49,232,58,243,86,260,116,271,115,276,83,265,55,247,45,235,38,222"/>
-<area shape="rect" id="Node000004" title=" " alt="" coords="99,181,313,207"/>
-<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="211,220,217,269,211,269,206,221"/>
-<area shape="rect" id="Node000005" title=" " alt="" coords="124,93,235,119"/>
-<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="180,132,183,156,197,180,193,183,178,158,174,133"/>
-<area shape="rect" id="Node000006" title=" " alt="" coords="285,93,418,119"/>
-<area shape="poly" id="edge5_Node000004_Node000006" title=" " alt="" coords="289,125,250,145,230,163,215,183,211,180,226,160,247,140,287,121"/>
-<area shape="rect" id="Node000008" title=" " alt="" coords="337,181,501,207"/>
-<area shape="poly" id="edge9_Node000008_Node000006" title=" " alt="" coords="370,128,391,156,411,179,407,183,387,159,366,131"/>
-<area shape="rect" id="Node000007" title=" " alt="" coords="332,5,371,31"/>
-<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="354,45,354,93,349,93,349,45"/>
-<area shape="poly" id="edge7_Node000002_Node000008" title=" " alt="" coords="391,216,331,248,261,272,259,267,329,243,389,211"/>
-<area shape="rect" id="Node000009" title=" " alt="" coords="466,93,517,119"/>
-<area shape="poly" id="edge8_Node000008_Node000009" title=" " alt="" coords="482,132,464,159,438,183,434,179,460,156,478,129"/>
-<area shape="rect" id="Node000010" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html" title="Track/Channel manager for the audio engine." alt="" coords="339,269,547,295"/>
-<area shape="poly" id="edge10_Node000001_Node000010" title=" " alt="" coords="419,305,347,359,344,355,416,301"/>
+<area shape="rect" id="Node000001" title="Live session dependencies a command factory needs to build a command." alt="" coords="366,357,601,383"/>
+<area shape="rect" id="Node000002" href="$d8/d20/classAestra_1_1Audio_1_1AudioEngine.html" title="Real&#45;time audio engine with 144dB dynamic range." alt="" coords="271,269,469,295"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="398,301,470,355,466,359,394,305"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="452,181,512,207"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="474,221,455,247,434,262,411,272,409,267,431,257,451,243,470,218"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="5,181,220,207"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="138,213,161,229,187,243,229,257,271,267,270,272,227,262,185,248,158,234,135,218"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="31,93,141,119"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="86,132,90,156,104,180,100,183,85,158,81,133"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="191,93,325,119"/>
+<area shape="poly" id="edge5_Node000004_Node000006" title=" " alt="" coords="197,126,158,145,138,163,122,183,118,180,134,160,155,140,195,121"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="244,181,408,207"/>
+<area shape="poly" id="edge9_Node000008_Node000006" title=" " alt="" coords="276,128,297,156,318,179,314,183,293,159,272,131"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="239,5,277,31"/>
+<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="261,45,261,93,255,93,255,45"/>
+<area shape="poly" id="edge7_Node000002_Node000008" title=" " alt="" coords="311,219,307,232,310,244,321,257,337,267,334,272,318,261,305,247,302,232,306,218"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="373,93,423,119"/>
+<area shape="poly" id="edge8_Node000008_Node000009" title=" " alt="" coords="389,132,371,159,344,183,341,179,367,156,384,129"/>
+<area shape="rect" id="Node000010" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html" title="Track/Channel manager for the audio engine." alt="" coords="526,269,734,295"/>
+<area shape="poly" id="edge10_Node000001_Node000010" title=" " alt="" coords="600,304,505,359,502,355,597,299"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="625,181,699,207"/>
+<area shape="poly" id="edge11_Node000010_Node000011" title=" " alt="" coords="655,221,637,270,632,268,650,219"/>
 </map>

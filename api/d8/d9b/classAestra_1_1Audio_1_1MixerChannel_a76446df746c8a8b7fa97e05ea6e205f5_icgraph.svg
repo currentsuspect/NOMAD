@@ -57,7 +57,7 @@ var sectionId = 'dynsection-5';
 <!-- Node1 -->
 <g id="Node000001" class="node">
 <title>Node1</title>
-<g id="a_Node000001"><a xlink:title="Get the current effect chain snapshot (Pass 3: returns canonical snapshot from EffectChain).">
+<g id="a_Node000001"><a xlink:title="The channel&#39;s effect chain snapshot, owned by EffectChain.">
 <polygon fill="#999999" stroke="#666666" points="940,-78 785,-78 785,-48 940,-48 940,-78"/>
 <text text-anchor="start" x="793" y="-66" font-family="Helvetica,sans-Serif" font-size="10.00">Aestra::Audio::MixerChannel</text>
 <text text-anchor="middle" x="862.5" y="-55" font-family="Helvetica,sans-Serif" font-size="10.00">::getEffectChainSnapshot</text>

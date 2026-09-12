@@ -108,6 +108,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a5277634e8037951173f5b825cd249574"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0ea7878e4d1d4b4e517da0134834084e" id="r_a0ea7878e4d1d4b4e517da0134834084e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="../../dd/da9/structAestra_1_1Audio_1_1ClipInstanceID.html">ClipInstanceID</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d6/d24/classAestra_1_1Audio_1_1AudioClipEditorPanel.html#a0ea7878e4d1d4b4e517da0134834084e">getClipId</a> () const</td></tr>
 <tr class="separator:a0ea7878e4d1d4b4e517da0134834084e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2d834477594d1205f62acd30e540bf5d" id="r_a2d834477594d1205f62acd30e540bf5d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d6/d24/classAestra_1_1Audio_1_1AudioClipEditorPanel.html#a2d834477594d1205f62acd30e540bf5d">setOnClipEditsCommitted</a> (std::function&lt; void()&gt; callback)</td></tr>
+<tr class="memdesc:a2d834477594d1205f62acd30e540bf5d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fired after committed clip edits reach the model (slider commit or discrete edit).  <br /></td></tr>
+<tr class="separator:a2d834477594d1205f62acd30e540bf5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aef25db3ac87e6e48e2c0e98ed739c050" id="r_aef25db3ac87e6e48e2c0e98ed739c050"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d6/d24/classAestra_1_1Audio_1_1AudioClipEditorPanel.html#aef25db3ac87e6e48e2c0e98ed739c050">onRender</a> (<a class="el" href="../../d8/d1c/classAestraUI_1_1NUIRenderer.html">AestraUI::NUIRenderer</a> &amp;renderer) override</td></tr>
 <tr class="separator:aef25db3ac87e6e48e2c0e98ed739c050"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaff819b32c2d0b45623ce7d33fc7ffb0" id="r_aaff819b32c2d0b45623ce7d33fc7ffb0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="../../d6/d24/classAestra_1_1Audio_1_1AudioClipEditorPanel.html#aaff819b32c2d0b45623ce7d33fc7ffb0">onResize</a> (int width, int height) override</td></tr>
@@ -338,7 +341,7 @@ Additional Inherited Members</h2></td></tr>
 <div class="textblock"><p>Focused editor for one Playlist audio-clip instance and its shared source route. </p>
 <p>Instance controls affect only the selected clip. The output selector edits the referenced audio pattern, so every linked instance follows the same destination. </p>
 
-<p class="definition">Definition at line <a class="el" href="../../d7/d54/AudioClipEditorPanel_8h_source.html#l00031">31</a> of file <a class="el" href="../../d7/d54/AudioClipEditorPanel_8h_source.html">AudioClipEditorPanel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d7/d54/AudioClipEditorPanel_8h_source.html#l00033">33</a> of file <a class="el" href="../../d7/d54/AudioClipEditorPanel_8h_source.html">AudioClipEditorPanel.h</a>.</p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a2f7cf029c8f65927a789e3e66c2476e0" name="a2f7cf029c8f65927a789e3e66c2476e0"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2f7cf029c8f65927a789e3e66c2476e0">&#9670;&#160;</a></span>AudioClipEditorPanel()</h2>
@@ -364,7 +367,7 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html#l00181">181</a> of file <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html">AudioClipEditorPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html#l00184">184</a> of file <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html">AudioClipEditorPanel.cpp</a>.</p>
 
 </div>
 </div>
@@ -392,7 +395,7 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="../../d7/d54/AudioClipEditorPanel_8h_source.html#l00036">36</a> of file <a class="el" href="../../d7/d54/AudioClipEditorPanel_8h_source.html">AudioClipEditorPanel.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d7/d54/AudioClipEditorPanel_8h_source.html#l00038">38</a> of file <a class="el" href="../../d7/d54/AudioClipEditorPanel_8h_source.html">AudioClipEditorPanel.h</a>.</p>
 
 </div>
 </div>
@@ -422,7 +425,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../db/d1a/classAestraUI_1_1NUIComponent.html">AestraUI::NUIComponent</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html#l00408">408</a> of file <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html">AudioClipEditorPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html#l00424">424</a> of file <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html">AudioClipEditorPanel.cpp</a>.</p>
 
 </div>
 </div>
@@ -462,7 +465,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../db/d1a/classAestraUI_1_1NUIComponent.html">AestraUI::NUIComponent</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html#l00698">698</a> of file <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html">AudioClipEditorPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html#l00772">772</a> of file <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html">AudioClipEditorPanel.cpp</a>.</p>
 
 </div>
 </div>
@@ -492,7 +495,7 @@ Additional Inherited Members</h2></td></tr>
 
 <p>Reimplemented from <a class="el" href="../../db/d1a/classAestraUI_1_1NUIComponent.html">AestraUI::NUIComponent</a>.</p>
 
-<p class="definition">Definition at line <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html#l00785">785</a> of file <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html">AudioClipEditorPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html#l00870">870</a> of file <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html">AudioClipEditorPanel.cpp</a>.</p>
 
 </div>
 </div>
@@ -512,7 +515,37 @@ Additional Inherited Members</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html#l00425">425</a> of file <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html">AudioClipEditorPanel.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html#l00441">441</a> of file <a class="el" href="../../d2/dcc/AudioClipEditorPanel_8cpp_source.html">AudioClipEditorPanel.cpp</a>.</p>
+
+</div>
+</div>
+<a id="a2d834477594d1205f62acd30e540bf5d" name="a2d834477594d1205f62acd30e540bf5d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2d834477594d1205f62acd30e540bf5d">&#9670;&#160;</a></span>setOnClipEditsCommitted()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void Aestra::Audio::AudioClipEditorPanel::setOnClipEditsCommitted </td>
+          <td>(</td>
+          <td class="paramtype">std::function&lt; void()&gt;&#160;</td>
+          <td class="paramname"><em>callback</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Fired after committed clip edits reach the model (slider commit or discrete edit). </p>
+
+<p class="definition">Definition at line <a class="el" href="../../d7/d54/AudioClipEditorPanel_8h_source.html#l00041">41</a> of file <a class="el" href="../../d7/d54/AudioClipEditorPanel_8h_source.html">AudioClipEditorPanel.h</a>.</p>
 
 </div>
 </div>

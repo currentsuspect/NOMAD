@@ -161,7 +161,7 @@ var sectionId = 'dynsection-1';
 <polygon fill="#9a32cd" stroke="#9a32cd" points="418.75,-86.71 409.04,-90.94 419.27,-93.69 418.75,-86.71"/>
 </a>
 </g>
-<text text-anchor="middle" x="492" y="-102.5" font-family="Helvetica,sans-Serif" font-size="10.00" fill="grey"> onArmToggled</text>
+<text text-anchor="middle" x="492" y="-102.5" font-family="Helvetica,sans-Serif" font-size="10.00" fill="grey"> onMonitorToggled</text>
 <text text-anchor="middle" x="492" y="-91.5" font-family="Helvetica,sans-Serif" font-size="10.00" fill="grey">onMuteToggled</text>
 </g>
 <!-- Node7 -->

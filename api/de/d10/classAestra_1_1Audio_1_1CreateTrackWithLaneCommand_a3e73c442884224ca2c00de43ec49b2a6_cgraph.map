@@ -1,0 +1,5 @@
+<map id="Aestra::Audio::CreateTrackWithLaneCommand::serialize" name="Aestra::Audio::CreateTrackWithLaneCommand::serialize">
+<area shape="rect" id="Node000001" title="Serialize command to JSON string for persistence." alt="" coords="5,5,219,45"/>
+<area shape="rect" id="Node000002" href="$db/d96/structAestra_1_1Audio_1_1AestraUUID.html#ac0e193f6bab4eaeecb0f096ff6f99181" title="Convert to string representation." alt="" coords="267,5,460,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="219,23,253,23,253,28,219,28"/>
+</map>

@@ -1,5 +1,7 @@
 <map id="Aestra::Audio::SetPanCommand::undo" name="Aestra::Audio::SetPanCommand::undo">
-<area shape="rect" id="Node000001" title="Undo the command." alt="" coords="5,5,233,45"/>
-<area shape="rect" id="Node000002" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#a74a65973ed6e8c59c769932888ad8967" title="Set stereo pan." alt="" coords="281,5,488,45"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="234,23,268,23,268,28,234,28"/>
+<area shape="rect" id="Node000001" title="Undo the command." alt="" coords="5,37,233,77"/>
+<area shape="rect" id="Node000002" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a46d9c986c264576c28e32e061b81d877" title="Request a non&#45;real&#45;time rebuild of the live playback graph." alt="" coords="281,5,489,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="233,41,267,37,268,42,234,46"/>
+<area shape="rect" id="Node000003" href="$d8/d9b/classAestra_1_1Audio_1_1MixerChannel.html#a74a65973ed6e8c59c769932888ad8967" title="Set stereo pan." alt="" coords="282,69,489,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="234,68,269,73,268,78,233,74"/>
 </map>

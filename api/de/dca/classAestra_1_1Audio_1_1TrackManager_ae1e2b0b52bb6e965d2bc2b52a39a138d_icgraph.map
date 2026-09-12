@@ -1,0 +1,5 @@
+<map id="Aestra::Audio::TrackManager::setPlayStartPosition" name="Aestra::Audio::TrackManager::setPlayStartPosition">
+<area shape="rect" id="Node000001" title="Store the play start position used by stop/rewind." alt="" coords="261,5,469,45"/>
+<area shape="rect" id="Node000002" href="$de/dca/classAestra_1_1Audio_1_1TrackManager.html#a2a2568f5d3b314e560fb325c2b74a385" title="Begin the count&#45;in phase ahead of playback/recording." alt="" coords="5,5,213,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="248,28,213,28,213,23,248,23"/>
+</map>

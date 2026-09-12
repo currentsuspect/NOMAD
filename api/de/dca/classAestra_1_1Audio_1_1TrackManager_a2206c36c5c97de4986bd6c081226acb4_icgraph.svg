@@ -48,7 +48,7 @@
 <script type="application/ecmascript">
 var viewWidth = 724;
 var viewHeight = 59;
-var sectionId = 'dynsection-47';
+var sectionId = 'dynsection-74';
 </script>
 <script type="application/ecmascript" xlink:href="../../svg.min.js"/>
 <svg id="graph" class="graph">
@@ -57,7 +57,7 @@ var sectionId = 'dynsection-47';
 <!-- Node1 -->
 <g id="Node000001" class="node">
 <title>Node1</title>
-<g id="a_Node000001"><a xlink:title="Stop transport playback and return to the stored cue/start position.">
+<g id="a_Node000001"><a xlink:title="Stop transport playback and reset the playhead to 0.">
 <polygon fill="#999999" stroke="#666666" points="716,-51 560,-51 560,-21 716,-21 716,-51"/>
 <text text-anchor="start" x="568" y="-39" font-family="Helvetica,sans-Serif" font-size="10.00">Aestra::Audio::TrackManager</text>
 <text text-anchor="middle" x="638" y="-28" font-family="Helvetica,sans-Serif" font-size="10.00">::stop</text>

@@ -1,5 +1,14 @@
 <map id="Aestra::Audio::PluginManager::getScanner" name="Aestra::Audio::PluginManager::getScanner">
-<area shape="rect" id="Node000001" title="Get the plugin scanner." alt="" coords="240,5,455,45"/>
-<area shape="rect" id="Node000002" href="$db/d60/classAestraContent.html#a9cd2ff0a44640c8c7c68543fc33f56d1" title="Advance workspace state and child&#45;panel updates." alt="" coords="5,13,192,38"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="226,28,192,28,192,23,226,23"/>
+<area shape="rect" id="Node000001" title="Get the plugin scanner." alt="" coords="784,27,999,67"/>
+<area shape="rect" id="Node000002" href="$db/d60/classAestraContent.html#a17c7d66e5933065fb19ade9603fbfdb9" title="Map the scanned plugins onto the mixer dropdown&#39;s entry type." alt="" coords="545,55,736,95"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="771,63,737,67,736,62,770,58"/>
+<area shape="rect" id="Node000004" href="$db/d60/classAestraContent.html#a9cd2ff0a44640c8c7c68543fc33f56d1" title="Advance workspace state and child&#45;panel updates." alt="" coords="18,5,205,31"/>
+<area shape="poly" id="edge6_Node000001_Node000004" title=" " alt="" coords="770,45,205,24,205,19,770,40"/>
+<area shape="rect" id="Node000003" href="$db/d60/classAestraContent.html#ac26422b2b67064f27b39f0c8463b9015" title="Refresh the visible plugin list in the browser." alt="" coords="265,63,497,88"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="532,78,498,78,498,73,532,73"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="307,62,171,33,172,28,308,57"/>
+<area shape="rect" id="Node000005" href="$db/d60/classAestraContent.html#af214284a167c0d4485e8c7849733eee2" title="Create the file/plugin/preview/pattern browser panels." alt="" coords="5,55,217,95"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="252,78,217,78,217,73,252,73"/>
+<area shape="rect" id="Node000006" href="$db/d60/classAestraContent.html#a59842dc639e11b43359a064651907ae6" title="Create the mixer overlay and the routing&#45;map full panel." alt="" coords="14,119,209,159"/>
+<area shape="poly" id="edge5_Node000003_Node000006" title=" " alt="" coords="314,94,197,122,196,117,313,89"/>
 </map>
