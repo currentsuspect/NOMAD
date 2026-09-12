@@ -7,6 +7,12 @@
 // Include panel headers FIRST to define complete types before AestraContent.h forward declarations
 #include "AestraContent.h"
 
+namespace {
+// Frames (≈1s at 60fps) the app waits for the engine to actually start the
+// count-in metronome before degrading to plain playback (e.g. no live stream).
+constexpr int kCountInStartupFrameLimit = 60;
+} // namespace
+
 #include "../AestraUI/Widgets/PluginBrowserPanel.h"
 #include "../AestraUI/Widgets/PluginUIController.h"
 #include "../AestraUI/Widgets/UIMixerInspector.h"
@@ -153,9 +159,10 @@ AestraContent::~AestraContent() {
         m_audioEngine->setPreviewEngine(nullptr);
     }
 
-    // TrackManager may be shared outside this component; clear the stored owner callback before member teardown.
+    // TrackManager may be shared outside this component; clear the stored owner callbacks before member teardown.
     if (m_trackManager) {
         m_trackManager->setStopPreviewCallback(nullptr);
+        m_trackManager->setOnTakeCommitted(nullptr);
     }
 
     // Cancel any running plugin scan to prevent callbacks from accessing dead pointers
@@ -215,6 +222,9 @@ AestraContent::AestraContent()
     m_pluginController->setPluginManager(&PluginManager::getInstance());
     m_pluginController->setPluginScanner(&PluginManager::getInstance().getScanner());
     m_pluginController->setPopupLayer(m_overlayLayer.get());
+    // The inspector rack's per-click "+ Add Insert" menu is created on demand,
+    // so it pulls the catalog here instead of via refreshPluginList().
+    m_pluginController->setMixerCatalogProvider([this]() { return buildMixerCatalogEntries(); });
 
     // Scoped subscriptions for playback-critical callbacks
     // Plugin loaded: mark project dirty
@@ -239,6 +249,15 @@ AestraContent::AestraContent()
 
     // TrackManager is owned by AestraContent, and the destructor clears this stored callback before teardown.
     m_trackManager->setStopPreviewCallback([this]() { stopSoundPreview(); });
+
+    // A committed take creates a new track-owned lane in the model; expand the
+    // recording track, rebuild the track view, and scroll the take lane into
+    // view (FD-14 phase-5: take lanes must be discoverable, not silent rows).
+    m_trackManager->setOnTakeCommitted([this](PlaylistLaneID laneId) {
+        if (m_trackManagerUI) {
+            m_trackManagerUI->revealLane(laneId);
+        }
+    });
 
     addDemoTracks();
 
@@ -345,6 +364,9 @@ void AestraContent::setupTrackManagerUI() {
         }
         if (preset == 0) {
             m_audioEngine->setLoopEnabled(false);
+            if (m_trackManager) {
+                m_trackManager->setTransportLoopRegion(0.0, 0.0, false);
+            }
         }
     });
     m_trackManagerUI->setOnLoopRegionUpdate([this](double startBeat, double endBeat) {
@@ -353,6 +375,9 @@ void AestraContent::setupTrackManagerUI() {
         }
         m_audioEngine->setLoopRegion(startBeat, endBeat);
         m_audioEngine->setLoopEnabled(endBeat > startBeat);
+        if (m_trackManager) {
+            m_trackManager->setTransportLoopRegion(startBeat, endBeat, endBeat > startBeat);
+        }
     });
     m_trackManagerUI->setOnSelectionMade([this](double startBeat, double endBeat) {
         if (!m_audioEngine) {
@@ -360,6 +385,9 @@ void AestraContent::setupTrackManagerUI() {
         }
         m_audioEngine->setLoopRegion(startBeat, endBeat);
         m_audioEngine->setLoopEnabled(endBeat > startBeat);
+        if (m_trackManager) {
+            m_trackManager->setTransportLoopRegion(startBeat, endBeat, endBeat > startBeat);
+        }
     });
 
     // Wire TrackManagerUI's graph dirty signal to PlaybackGraphController.
@@ -467,11 +495,29 @@ void AestraContent::setupTransportBar() {
         stopSoundPreview();
     });
     m_transportBar->setOnRecord([this](bool recording) {
-        if (m_trackManager) {
-            bool isRecordArmed = m_trackManager->isRecordArmed();
-            if (recording != isRecordArmed) {
-                m_trackManager->record();
+        if (!m_trackManager) {
+            return;
+        }
+        const bool isRecordArmed = m_trackManager->isRecordArmed();
+        if (recording != isRecordArmed) {
+            m_trackManager->record();
+        }
+        if (recording && !m_trackManager->hasArmedTracks()) {
+            showToast("No armed tracks — recording will capture nothing. Arm a track in the playlist.");
+            return;
+        }
+        if (!recording) {
+            // Disarming cancels any pending count-in so the transport does not
+            // start rolling (and "record") after the count-in finishes.
+            if (m_trackManager->isCountInPending()) {
+                clearPendingCountIn();
             }
+            return;
+        }
+        // Count-in enabled: pressing Record enters the count-in phase and
+        // recording begins automatically at the post-count-in position.
+        if (m_countInEnabled && !isTransportRolling()) {
+            handleTransportPlayRequest();
         }
     });
     m_transportBar->setOnMetronomeToggle([this](bool enabled) {
@@ -603,15 +649,11 @@ void AestraContent::setupBrowserPanels() {
                 }
 
                 if (success) {
-                    // Map results to UI items
-                    std::vector<AestraUI::PluginListItem> uiPlugins;
-                    for (const auto& p : results) {
-                        uiPlugins.push_back(m_pluginController->convertToListItem(p));
-                    }
-
-                    if (m_pluginBrowser) {
-                        m_pluginBrowser->setPluginList(uiPlugins);
-                    }
+                    // The scanner has already stored the results by the time
+                    // this callback runs, so one refreshPluginList() covers
+                    // both surfaces: the browser list and the mixer's
+                    // quick-add dropdown (which shares the catalog).
+                    refreshPluginList();
                     AESTRA_LOG_DEBUG("Scan complete. UI updated with " + std::to_string(results.size()) + " plugins.");
                 } else {
                     AESTRA_LOG_ERROR("Plugin scan failed or cancelled.");
@@ -737,6 +779,34 @@ void AestraContent::setupMixerPanels() {
     m_mixerPanel = std::make_shared<MixerPanel>(m_trackManager);
     m_mixerPanel->setVisible(false);
     m_mixerPanel->setOnClose([this]() { toggleView(Audio::ViewType::Mixer); });
+    if (const auto mixerUI = m_mixerPanel->getMixerUI()) {
+        // The mixer dropdown's "Browse all plugins" opens the full plugin
+        // browser (internal + VST3/CLAP) in the library pane, with the same
+        // search query the user typed so a dead-end search lands on results.
+        mixerUI->onBrowseAllPlugins = [this](const std::string& searchQuery) {
+            if (!m_fileBrowser || !m_pluginBrowser) {
+                return;
+            }
+            m_fileBrowser->setVisible(true);
+            m_pluginBrowser->setVisible(true);
+            if (!searchQuery.empty()) {
+                m_pluginBrowser->setSearchQuery(searchQuery);
+            }
+            m_fileBrowser->selectNavAction(AestraUI::FileBrowser::BrowserNavAction::Plugins);
+            onResize(static_cast<int>(getBounds().width), static_cast<int>(getBounds().height));
+        };
+        // Republish the catalog so the dropdown has data even when the
+        // initial setup-time refresh ran before the async plugin scan
+        // completed. The mixer panel calls this when the user opens the
+        // dropdown and finds the catalog empty.
+        mixerUI->onCatalogRefresh = [this]() { refreshPluginList(); };
+    }
+
+    // setupBrowserPanels() ran before the mixer existed, so the initial
+    // refreshPluginList() silently skipped mixer publication. Catch up now
+    // that the mixer panel is in place, then mirror future scans the same
+    // way the browser does.
+    refreshPluginList();
     wireFloatingPanel(m_mixerPanel, ViewType::Mixer, &ViewState::mixerRect, 560.0f, 300.0f);
     m_overlayLayer->addChild(m_mixerPanel);
     if (m_platformBridge) {
@@ -894,6 +964,29 @@ void AestraContent::setupArsenalPanels() {
     // Create Arsenal panel
     m_sequencerPanel = std::make_shared<ArsenalPanel>(m_trackManager);
     m_sequencerPanel->setPatternBrowser(m_patternBrowser.get());
+    m_sequencerPanel->setOnPreferredHeightChanged([this](float preferredHeight) {
+        if (!m_sequencerPanel || m_sequencerPanel->isMaximized()) {
+            return;
+        }
+        const auto allowed = computeAllowedRectForPanels();
+        auto rect = m_viewState.sequencerRect;
+        rect.width = std::max(rect.width, 520.0f);
+        // std::clamp requires lo <= hi: on short layouts the 220 floor must
+        // shrink with the allowed height.
+        const float floorHeight = std::min(220.0f, allowed.height);
+        const float desiredHeight = std::clamp(preferredHeight, floorHeight, allowed.height);
+        rect.height = desiredHeight;
+        // Normalize against the allowed rect BEFORE the equality check, so an
+        // out-of-bounds request cannot masquerade as a settled layout.
+        rect = clampRectToAllowed(rect, allowed);
+        if (std::abs(rect.height - m_viewState.sequencerRect.height) < 0.5f &&
+            std::abs(rect.width - m_viewState.sequencerRect.width) < 0.5f) {
+            return;
+        }
+        m_viewState.sequencerRect = rect;
+        m_sequencerPanel->setBounds(rect);
+        setDirty(true);
+    });
 
     m_sampleEditorPanel = std::make_shared<SampleEditorPanel>(m_trackManager);
     m_sampleEditorPanel->setVisible(false);
@@ -1040,6 +1133,10 @@ void AestraContent::setupArsenalPanels() {
 
     m_audioClipEditorPanel = std::make_shared<AudioClipEditorPanel>(m_trackManager);
     m_audioClipEditorPanel->setVisible(false);
+    m_audioClipEditorPanel->setOnClipEditsCommitted([this]() {
+        if (m_trackManagerUI)
+            m_trackManagerUI->invalidateCache();
+    });
     m_audioClipEditorPanel->setOnClose([this]() {
         if (m_audioClipEditorPanel) {
             m_audioClipEditorPanel->setVisible(false);
@@ -1177,6 +1274,21 @@ void AestraContent::setupArsenalPanels() {
         }
         m_musicalTyping.setTargetUnit(unitId);
     });
+    m_sequencerPanel->setOnPositionScrubbed([this](double beat, bool active) {
+        // Mirror the piano-roll scrub contract for the Arsenal progress header:
+        // pattern mode maps beat→seconds directly via the transport tempo.
+        if (!m_trackManager)
+            return;
+        m_trackManager->setUserScrubbing(active);
+        const double bpm = std::max(1.0, m_trackManager->getTimelineClock().getCurrentTempo());
+        const double positionSeconds = std::max(0.0, beat * (60.0 / bpm));
+        m_trackManager->setPosition(positionSeconds);
+        m_trackManager->setPlayStartPosition(positionSeconds);
+        if (m_audioEngine) {
+            m_audioEngine->setGlobalSamplePos(
+                static_cast<uint64_t>(positionSeconds * static_cast<double>(m_audioEngine->getSampleRate())));
+        }
+    });
     m_sequencerPanel->setOnPatternEdited([this](PatternID patternId) {
         if (m_patternBrowser) {
             m_patternBrowser->refreshPatterns();
@@ -1189,13 +1301,14 @@ void AestraContent::setupArsenalPanels() {
             m_trackManagerUI->refreshTracks();
             m_trackManagerUI->invalidateCache();
         }
-        // Re-prepare the pattern so the playback engine re-schedules the notes
-        // just edited in the Arsenal grid. Without this, newly placed steps stay
-        // silent during pattern playback until some other path rewinds the
-        // scheduler (e.g. editing the same pattern in the Piano Roll). Mirrors
-        // setActivePattern.
+        // Re-queue the pattern from the playhead so the playback engine picks up
+        // the notes just edited in the Arsenal grid: deletions silence at once,
+        // additions enter at their exact frame. Deliberately NOT
+        // preparePatternForArsenal() — a full rewind here re-fired every note
+        // currently sounding (audible flam on each edit) and made fresh
+        // placements sound before the playhead reached them (#823).
         if (m_trackManager) {
-            m_trackManager->preparePatternForArsenal(patternId);
+            m_trackManager->patternContentEdited();
         }
         // Update audio engine loop length to match actual pattern length
         updatePatternLoopLength(patternId);
@@ -1244,7 +1357,7 @@ void AestraContent::setupArsenalPanels() {
     m_sequencerPanel->setVisible(false);
     m_sequencerPanel->unregisterDropTargets();
     m_sequencerPanel->setOnClose([this]() { setArsenalPanelVisible(false); });
-    wireFloatingPanel(m_sequencerPanel, ViewType::Sequencer, &ViewState::sequencerRect, 520.0f, 260.0f);
+    wireFloatingPanel(m_sequencerPanel, ViewType::Sequencer, &ViewState::sequencerRect, 520.0f, 220.0f);
     m_overlayLayer->addChild(m_sequencerPanel);
 }
 
@@ -1255,17 +1368,7 @@ void AestraContent::setupHistoryAndTakesPanels() {
     m_historyPanel->setOnClose([this]() { toggleHistoryPanel(); });
     wireFloatingPanel(m_historyPanel, ViewType::History, &ViewState::historyRect, 240.0f, 220.0f);
     m_historyPanel->setMaximized(false);
-    m_historyPanel->setOnHistoryChanged([this]() {
-        if (m_trackManagerUI) {
-            m_trackManagerUI->refreshTracks();
-            m_trackManagerUI->invalidateCache();
-        }
-        if (m_mixerPanel)
-            m_mixerPanel->refreshChannels();
-        if (m_sequencerPanel)
-            m_sequencerPanel->refreshUnits();
-        m_trackManager->markModified();
-    });
+    m_historyPanel->setOnHistoryChanged([this]() { refreshAfterHistoryChange(); });
     // Create Takes panel — data providers and action callbacks are wired by the
     // app layer (AestraApp) because take operations need the project path and
     // the save/load safety rules that live there.
@@ -1377,15 +1480,27 @@ void AestraContent::onUpdate(double dt) {
                 // but let's be safe and assume we need to manage it)
 
                 if (selectedCh) {
-                    auto* channel = selectedCh->channel;
-                    if (channel) {
-                        auto mixerUI = m_mixerPanel->getMixerUI();
-                        if (mixerUI) {
-                            auto inspector = mixerUI->getInspector();
-                            if (inspector && inspector->getEffectRack()) {
-                                m_pluginController->bindEffectRack(inspector->getEffectRack().get(),
-                                                                   &channel->getEffectChain());
-                            }
+                    auto mixerUI = m_mixerPanel->getMixerUI();
+                    if (mixerUI) {
+                        auto inspector = mixerUI->getInspector();
+                        if (inspector && inspector->getEffectRack()) {
+                            // Bind by STABLE channel identity: the controller
+                            // resolves the chain fresh at refresh time, so a
+                            // deleted channel can never leave the rack pointing
+                            // at freed memory (#790).
+                            m_pluginController->bindEffectRack(inspector->getEffectRack().get(),
+                                                               m_trackManager.get(), selectedCh->id);
+                        }
+                    }
+                } else {
+                    // Selection cleared (e.g. the selected channel was deleted):
+                    // drop the binding so refreshRackDisplay can never dereference
+                    // a chain that died with its channel.
+                    auto mixerUI = m_mixerPanel->getMixerUI();
+                    if (mixerUI) {
+                        auto inspector = mixerUI->getInspector();
+                        if (inspector && inspector->getEffectRack()) {
+                            m_pluginController->unbindEffectRack(inspector->getEffectRack().get());
                         }
                     }
                 }
@@ -2459,6 +2574,14 @@ void AestraContent::setViewFocus(ViewFocus focus) {
 
         // Force layout update immediately to apply new visibility and margins
         onResize(getBounds().width, getBounds().height);
+
+        // Panels hidden by this switch stop receiving events, so any hover
+        // cursor they set (grab/resize) would linger app-wide via the bridge
+        // override. Reset to the default; the panel under the pointer re-claims
+        // its own style on the next move.
+        if (m_platformBridge) {
+            m_platformBridge->setCursorStyle(AestraUI::NUICursorStyle::Arrow);
+        }
     }
 
     // Update transport bar mode indicator (mode only, no panel visibility)
@@ -2841,13 +2964,13 @@ PatternID AestraContent::getActivePatternID() const {
 
 void AestraContent::clearPendingCountIn() {
     if (m_trackManager) {
-        m_trackManager->clearDeferredRecordingStartBeat();
-        m_trackManager->clearDisplayPositionOverride();
-        m_trackManager->clearNextCapturePlacementStartBeat();
+        m_trackManager->cancelCountIn();
     }
     if (m_audioEngine) {
         m_audioEngine->stopMetronomeCountIn();
     }
+    m_countInFullyStarted = false;
+    m_countInStartupFrames = 0;
 
     if (m_forcedMetronomeForCountIn && m_trackManager) {
         m_trackManager->enableMetronome(false);
@@ -2860,8 +2983,6 @@ void AestraContent::clearPendingCountIn() {
     }
 
     m_forcedMetronomeForCountIn = false;
-    m_pendingCountIn = false;
-    m_pendingCountInTargetSeconds = 0.0;
 }
 
 void AestraContent::startPatternClipPreview(PatternID patternId) {
@@ -2947,26 +3068,41 @@ ViewFocus AestraContent::resolveTransportFocus() const {
 }
 
 bool AestraContent::isTransportRolling() const {
-    if (m_pendingCountIn || (m_audioEngine && m_audioEngine->isMetronomeCountInActive())) {
+    if (m_trackManager && (m_trackManager->isCountInPending() || m_trackManager->isPlaying())) {
         return true;
     }
-
-    const bool trackManagerPlaying = m_trackManager && m_trackManager->isPlaying();
+    if (m_audioEngine && m_audioEngine->isMetronomeCountInActive()) {
+        return true;
+    }
     const bool transportBarPlaying = m_transportBar && m_transportBar->getState() == TransportState::Playing;
-    return trackManagerPlaying || transportBarPlaying;
+    return transportBarPlaying;
 }
 
 void AestraContent::updatePendingCountIn() {
-    if (!m_pendingCountIn || !m_trackManager) {
+    if (!m_trackManager || !m_trackManager->isCountInPending()) {
         return;
     }
 
-    if (m_audioEngine && m_audioEngine->isMetronomeCountInActive()) {
+    // The count-in command travels to the engine through the audio command
+    // queue, so isMetronomeCountInActive() stays false for a block or two
+    // after beginCountIn. Treating "still false" as "finished" made the
+    // transport start immediately with no count-in at all. Instead: wait
+    // until the engine has actually started clicking, then complete once it
+    // stops (with a degrade timer in case the stream never applies it).
+    const bool countInActive = m_audioEngine && m_audioEngine->isMetronomeCountInActive();
+    if (countInActive) {
+        m_countInFullyStarted = true;
+        m_countInStartupFrames = 0;
         return;
     }
 
-    m_trackManager->clearDisplayPositionOverride();
-    m_trackManager->clearNextCapturePlacementStartBeat();
+    if (!m_countInFullyStarted) {
+        if (++m_countInStartupFrames <= kCountInStartupFrameLimit) {
+            return; // engine may not have applied the command yet
+        }
+        AESTRA_LOG_WARNING("[AestraContent] Count-in never started on the engine; degrading to plain playback.");
+    }
+
     if (m_forcedMetronomeForCountIn) {
         m_trackManager->enableMetronome(false);
         if (m_audioEngine) {
@@ -2977,9 +3113,9 @@ void AestraContent::updatePendingCountIn() {
         }
         m_forcedMetronomeForCountIn = false;
     }
-    m_pendingCountIn = false;
-    m_pendingCountInTargetSeconds = 0.0;
-    m_trackManager->play();
+    m_countInFullyStarted = false;
+    m_countInStartupFrames = 0;
+    m_trackManager->completeCountIn();
     stopSoundPreview();
 }
 
@@ -3027,6 +3163,9 @@ void AestraContent::updatePatternLoopLength(PatternID patternId) {
         return; // Pattern loop length governs Arsenal playback only.
     }
     m_audioEngine->setPatternPlaybackMode(true, lengthBeats);
+    // Pattern-mode force-loop as an OVERRIDE: timeline loop truth is preserved
+    // underneath and restored when pattern mode ends (#845 review round 2).
+    m_trackManager->setPatternLoopOverride(0.0, lengthBeats, true);
 }
 
 void AestraContent::handleTransportPlayRequest() {
@@ -3035,35 +3174,32 @@ void AestraContent::handleTransportPlayRequest() {
         return;
     }
 
-    if (!isTransportRolling()) {
+    // Engine truth only: TransportBar::play() latches its button state BEFORE
+    // firing this callback, so isTransportRolling() (which includes the bar
+    // latch) is already true here on a fresh press. Consulting it would make
+    // the count-in branch below dead — the transport would latch "playing"
+    // and neither count in nor start (#count-in).
+    const bool engineRolling = m_trackManager->isPlaying() || m_trackManager->isCountInPending() ||
+                               (m_audioEngine && m_audioEngine->isMetronomeCountInActive());
+    if (!engineRolling) {
+        m_trackManager->cancelCountIn();
         if (m_audioEngine) {
             m_audioEngine->stopMetronomeCountIn();
         }
-        m_trackManager->clearDeferredRecordingStartBeat();
-        m_trackManager->clearDisplayPositionOverride();
-        m_trackManager->clearNextCapturePlacementStartBeat();
-        m_pendingCountIn = false;
-        m_pendingCountInTargetSeconds = 0.0;
     }
 
-    if (!m_countInEnabled || !m_trackManager->isRecordArmed() || !m_trackManager->hasArmedTracks()) {
+    if (!m_countInEnabled) {
         clearPendingCountIn();
         playFromCurrentFocus();
         return;
     }
 
-    const int beatsPerBar = m_transportBar ? std::max(1, m_transportBar->getTimeSignature()) : 4;
-    const double requestedStartSeconds = std::max(0.0, m_trackManager->getPosition());
-
-    if (isTransportRolling()) {
+    if (engineRolling) {
         return;
     }
 
-    m_pendingCountIn = true;
-    m_pendingCountInTargetSeconds = requestedStartSeconds;
-    m_trackManager->setPlayStartPosition(requestedStartSeconds);
-    m_trackManager->setPosition(requestedStartSeconds);
-    m_trackManager->setDisplayPositionOverride(requestedStartSeconds);
+    const int beatsPerBar = m_transportBar ? std::max(1, m_transportBar->getTimeSignature()) : 4;
+    const double requestedStartSeconds = std::max(0.0, m_trackManager->getPosition());
 
     if (m_audioEngine && !m_audioEngine->isMetronomeEnabled()) {
         m_trackManager->enableMetronome(true);
@@ -3076,11 +3212,12 @@ void AestraContent::handleTransportPlayRequest() {
         m_forcedMetronomeForCountIn = false;
     }
 
-    if (m_audioEngine) {
-        m_audioEngine->stopMetronomeCountIn();
-        m_audioEngine->startMetronomeCountIn(static_cast<uint32_t>(beatsPerBar));
-    } else {
-        m_pendingCountIn = false;
+    // The count-in machine (TrackManager) pins the position, defers recording
+    // capture to the post-count-in beat, and starts the engine metronome.
+    m_countInFullyStarted = false;
+    m_countInStartupFrames = 0;
+    if (!m_trackManager->beginCountIn(static_cast<uint32_t>(beatsPerBar), requestedStartSeconds)) {
+        clearPendingCountIn();
         playFromCurrentFocus();
     }
 }
@@ -3119,6 +3256,7 @@ void AestraContent::playFromCurrentFocus() {
         if (m_audioEngine) {
             m_audioEngine->setPatternPlaybackMode(true, getActivePatternLengthBeats());
         }
+        m_trackManager->setPatternLoopOverride(0.0, getActivePatternLengthBeats(), true);
 
         AESTRA_LOG_DEBUG("[Arsenal] Focus-aware play scheduling pattern " + std::to_string(activePattern.value));
         // Resumes from the cued transport position (e.g. a scrubbed piano-roll
@@ -3128,6 +3266,8 @@ void AestraContent::playFromCurrentFocus() {
     }
 
     if (m_trackManager) {
+        // Timeline playback: pattern override ends, timeline loop truth applies.
+        m_trackManager->setPatternLoopOverride(0.0, 0.0, false);
         m_trackManager->play();
     }
 }
@@ -3199,8 +3339,15 @@ void AestraContent::pauseFromCurrentFocus() {
     }
 
     if (focus == ViewFocus::Arsenal) {
-        // In Arsenal one-shot workflow, pause should hard-cut active sample voices.
-        stopFromCurrentFocus(true);
+        // In Arsenal one-shot workflow, pause hard-cuts active sample voices
+        // while preserving the playhead: play() resumes from the stored
+        // position instead of beat zero.
+        if (m_trackManager) {
+            m_trackManager->pauseArsenalPlayback();
+        }
+        if (m_audioEngine) {
+            m_audioEngine->panic();
+        }
         return;
     }
 
@@ -3279,6 +3426,12 @@ void AestraContent::setPlatformBridge(AestraUI::NUIPlatformBridge* bridge) {
     }
     if (m_pianoRollPanel) {
         m_pianoRollPanel->setPlatformBridge(bridge);
+    }
+    if (m_fileBrowser) {
+        m_fileBrowser->setPlatformBridge(bridge);
+    }
+    if (m_transportBar) {
+        m_transportBar->setPlatformBridge(bridge);
     }
 }
 
@@ -3412,7 +3565,16 @@ void AestraContent::addDemoTracks() {
         // "Channel", not "Insert": an insert is an effect slot living *on* this
         // strip, so naming the strip itself "Insert 1" produced instructions
         // like "add an insert to Insert 1".
-        m_trackManager->addChannel("Channel " + std::to_string(i));
+        auto* channel = m_trackManager->addChannel("Channel " + std::to_string(i));
+
+        // FD-14 ownership: the default project must be born fully owned, not
+        // legacy. Every lane belongs to a Track, and the Track carries the
+        // routing — its own channel preserves the historical pairing. Without
+        // this, record arm is a silent no-op (getTrackForLane returns null for
+        // unowned lanes) until a project file is loaded.
+        if (channel) {
+            m_trackManager->createTrack(laneId, laneName, channel->getChannelId());
+        }
 
         if (auto* lane = playlist.getLane(laneId)) {
             // Cycle the shared track palette so the lane strip matches the
@@ -3729,7 +3891,10 @@ void AestraContent::loadSampleIntoSelectedTrack(const std::string& filePath) {
             buffer->sampleRate = sampleRate;
             buffer->numChannels = numChannels;
             buffer->numFrames = buffer->interleavedData.size() / numChannels;
-            source->setBuffer(buffer);
+            // Canonical attach: bumps SourceManager's revision when this flips
+            // the source ready, so the UI's waveform-cache sweep re-runs even
+            // though path dedupe meant no new source id was minted.
+            sourceManager.attachBuffer(source, std::move(buffer));
         }
     }
 
@@ -3772,6 +3937,9 @@ void AestraContent::loadSampleIntoSelectedTrack(const std::string& filePath) {
     if (!targetLaneId.isValid()) {
         if (playlist.getLaneCount() == 0) {
             targetLaneId = playlist.createLane("Sample Lane");
+            // FD-14 ownership: a lane created in-session must own a Track too,
+            // or record arm / monitoring have no ownership to bind to.
+            m_trackManager->createTrack(targetLaneId, "Sample Lane");
         } else {
             targetLaneId = playlist.getLaneId(0);
         }
@@ -4089,19 +4257,64 @@ void AestraContent::loadInstrumentIntoArsenalUnit(UnitID unitId, const std::stri
     AESTRA_LOG_DEBUG("Attached instrument '" + unitName + "' to Arsenal Unit " + std::to_string(unitId));
 }
 
-void AestraContent::refreshPluginList() {
-    if (!m_pluginBrowser)
-        return;
+std::vector<Aestra::Components::MixerPluginEntry> AestraContent::buildMixerCatalogEntries() const {
+    const auto& scannedPlugins = Aestra::Audio::PluginManager::getInstance().getScanner().getScannedPlugins();
+    std::vector<Aestra::Components::MixerPluginEntry> mixerEntries;
+    mixerEntries.reserve(scannedPlugins.size());
+    for (const auto& plugin : scannedPlugins) {
+        Aestra::Components::MixerPluginEntry entry;
+        entry.id = plugin.id;
+        entry.name = plugin.name;
+        entry.category = plugin.category;
+        switch (plugin.type) {
+        case Aestra::Audio::PluginType::Effect:
+            entry.typeName = "Effect";
+            break;
+        case Aestra::Audio::PluginType::Instrument:
+            entry.typeName = "Instrument";
+            break;
+        case Aestra::Audio::PluginType::MidiEffect:
+            entry.typeName = "MidiEffect";
+            break;
+        case Aestra::Audio::PluginType::Analyzer:
+            entry.typeName = "Analyzer";
+            break;
+        }
+        mixerEntries.push_back(std::move(entry));
+    }
+    return mixerEntries;
+}
 
+void AestraContent::refreshPluginList() {
     auto& pm = Aestra::Audio::PluginManager::getInstance();
+    if (!m_pluginBrowser && !m_mixerPanel) {
+        AESTRA_LOG_WARNING("[AestraContent] Plugin refresh skipped: no plugin UI panels yet");
+        return;
+    }
+
     const auto& scannedPlugins = pm.getScanner().getScannedPlugins();
     std::vector<AestraUI::PluginListItem> uiPlugins;
     uiPlugins.reserve(scannedPlugins.size());
     for (const auto& p : scannedPlugins) {
         uiPlugins.push_back(m_pluginController->convertToListItem(p));
     }
-    m_pluginBrowser->setPluginList(uiPlugins);
-    AESTRA_LOG_DEBUG("Refreshed plugin list UI: " + std::to_string(uiPlugins.size()) + " plugins found.");
+    if (m_pluginBrowser) {
+        m_pluginBrowser->setPluginList(uiPlugins);
+    }
+
+    AESTRA_LOG_INFO("[AestraContent] Publishing " + std::to_string(scannedPlugins.size()) +
+                    " scanned plugins to plugin UI");
+
+    // The mixer's quick-add dropdown shares this catalog; the policy filters
+    // to mixer inserts and groups by category (MixerPluginListPolicy.h).
+    if (m_mixerPanel) {
+        if (const auto mixerUI = m_mixerPanel->getMixerUI()) {
+            auto mixerEntries = buildMixerCatalogEntries();
+            AESTRA_LOG_INFO("[AestraContent] Publishing " + std::to_string(mixerEntries.size()) +
+                            " mixer catalog entries from " + std::to_string(scannedPlugins.size()) + " plugins");
+            mixerUI->setPluginEntries(std::move(mixerEntries));
+        }
+    }
 }
 
 void AestraContent::refreshProjectViews() {
@@ -4144,6 +4357,25 @@ void AestraContent::refreshProjectViews() {
     }
 
     setDirty(true);
+}
+
+void AestraContent::refreshAfterHistoryChange() {
+    if (!m_trackManager)
+        return;
+    // Refresh ALL panels — not just timeline
+    if (m_trackManagerUI) {
+        m_trackManagerUI->refreshTracks();
+        m_trackManagerUI->invalidateCache();
+    }
+    if (m_mixerPanel)
+        m_mixerPanel->refreshChannels();
+    if (m_sequencerPanel)
+        m_sequencerPanel->refreshUnits();
+    m_trackManager->markModified();
+    // Undo/redo of clip ops (split, delete, duplicate, paint) changes the
+    // timeline under a running transport: reschedule the pattern scheduler
+    // set, which was snapshotted at play() time. No-op when stopped.
+    m_trackManager->refreshTimelinePatternInstances();
 }
 
 void AestraContent::toggleHistoryPanel() {
@@ -4291,16 +4523,7 @@ bool AestraContent::onKeyEvent(const AestraUI::NUIKeyEvent& event) {
         }
 
         if (performed) {
-            // Refresh ALL panels — not just timeline
-            if (m_trackManagerUI) {
-                m_trackManagerUI->refreshTracks();
-                m_trackManagerUI->invalidateCache();
-            }
-            if (m_mixerPanel)
-                m_mixerPanel->refreshChannels();
-            if (m_sequencerPanel)
-                m_sequencerPanel->refreshUnits();
-            m_trackManager->markModified();
+            refreshAfterHistoryChange();
             return true; // Consume the event — don't pass to text inputs
         }
     }

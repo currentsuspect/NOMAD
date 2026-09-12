@@ -31,6 +31,9 @@ struct PlaylistLane {
     int index = 0;
     /** @brief Clips currently placed on the lane. */
     std::vector<ClipInstance> clips;
+    /** @brief Owning Track's stable id (FD-14). 0 = unowned/legacy until the
+     *  loader migration assigns ownership. Never derived from lane index. */
+    uint64_t trackId{0};
 
     /** @brief Lane volume multiplier. */
     float volume{1.0f};
@@ -61,6 +64,52 @@ struct MidiClipPlaybackInstance {
     double patternStartBeat() const { return startBeat - sourceOffsetBeats; }
     double endBeat() const { return startBeat + durationBeats; }
 };
+
+/**
+ * @brief Prune a MIDI pattern to a temporal region, making it a truthful
+ *        self-contained pattern (#786).
+ *
+ * Drops notes fully outside [regionStart, regionStart + regionBeats),
+ * re-anchors straddling notes at the region start, clamps tails to the region
+ * end, and rebases the result to local origin (the pattern's lengthBeats
+ * becomes the region length). Without this, a split's second half carried the
+ * whole original pattern and only the engine's playback filter kept it honest
+ * — the editor showed notes/units that could never sound.
+ *
+ * @return true when the pattern was pruned (valid MIDI pattern).
+ */
+inline bool prunePatternToRegion(PatternManager* patternManager, PatternID patternId, double regionStart,
+                                 double regionBeats) {
+    if (!patternManager) {
+        return false;
+    }
+    auto* pattern = patternManager->getPattern(patternId);
+    if (!pattern || !pattern->isMidi() || regionBeats <= 0.0) {
+        return false;
+    }
+    const double regionEnd = regionStart + regionBeats;
+    auto& notes = pattern->getMidiNotes();
+    std::vector<MidiNote> kept;
+    kept.reserve(notes.size());
+    for (auto& note : notes) {
+        const double noteEnd = note.startBeat + note.durationBeats;
+        if (noteEnd <= regionStart || note.startBeat >= regionEnd) {
+            continue;
+        }
+        if (note.startBeat < regionStart) {
+            note.startBeat = regionStart;
+            note.durationBeats = noteEnd - regionStart;
+        }
+        if (note.startBeat + note.durationBeats > regionEnd) {
+            note.durationBeats = regionEnd - note.startBeat;
+        }
+        note.startBeat -= regionStart;
+        kept.push_back(note);
+    }
+    notes = std::move(kept);
+    pattern->lengthBeats = regionBeats;
+    return true;
+}
 
 /**
  * @brief Multi-lane playlist model with undo/redo support
@@ -121,6 +170,18 @@ public:
         if (it == m_laneMap.end())
             return nullptr;
         return &m_lanes[it->second];
+    }
+
+    /**
+     * @brief Run a read-only visitor over all lanes under the lane lock.
+     *
+     * FD-16 automation-presence aggregation uses this; keeps m_lanes private
+     * without copying lane data per query.
+     */
+    template <typename Fn>
+    auto withLanes(Fn&& fn) const {
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
+        return fn(m_lanes);
     }
 
     /**
@@ -227,6 +288,15 @@ public:
                 return false;
             }
             clip->edits = edits;
+            // #746 canonical invariant: durationSeconds == beatToSeconds(
+            // durationBeats) / effectiveVarispeed. A rate/pitch edit that
+            // skips this leaves the serializer's canonical field stale and
+            // every reload re-derives a distorted span (a fitted clip at 0.5x
+            // reloaded at double length). Mirror the trim/split discipline;
+            // the field is audio-specific.
+            if (isAudioClipUnlocked(*clip)) {
+                clip->durationSeconds = beatToSeconds(clip->durationBeats) / edits.effectiveVarispeed();
+            }
         }
         notifyClipChanged(clipId);
         return true;
@@ -396,12 +466,25 @@ public:
         ClipInstance newClip;
         newClip.id = ClipInstanceID::generate();
         newClip.name = clip->name;
+        newClip.startBeat = splitBeat;
+        newClip.durationBeats = clip->endBeat() - splitBeat;
         // Clone the pattern so split halves are independent (not instanced)
         // Per design philosophy: "Everything is independent by default"
+        bool rebased = false;
         if (m_patternManager) {
             PatternID clonedId = m_patternManager->clonePattern(clip->patternId);
             if (clonedId.isValid()) {
                 newClip.patternId = clonedId;
+                // Prune + rebase the clone to its region so the second half is
+                // a truthful, self-contained pattern (#786): notes fully
+                // outside the region are dropped (no ghost units), straddling
+                // notes re-anchor at the cut and are clamped to the region
+                // end, and the pattern starts at its own origin. Without this
+                // the clone carries the whole original pattern and only the
+                // engine's region filter keeps playback honest — the editor
+                // shows content the scheduler can never play.
+                rebased = prunePatternToRegion(m_patternManager, clonedId, splitBeat - clip->startBeat,
+                                               newClip.durationBeats);
             } else {
                 newClip.patternId = clip->patternId; // fallback: share if clone fails
             }
@@ -409,10 +492,10 @@ public:
             newClip.patternId = clip->patternId;
         }
         newClip.colorRGBA = clip->colorRGBA;
-        newClip.startBeat = splitBeat;
-        newClip.durationBeats = clip->endBeat() - splitBeat;
         newClip.sourceId = clip->sourceId;
-        newClip.sourceOffset = clip->sourceOffset + (splitBeat - clip->startBeat);
+        // A rebased pattern starts at its own origin; the shared-pattern
+        // fallback keeps the region-shifted offset (engine filter semantics).
+        newClip.sourceOffset = rebased ? 0.0 : (clip->sourceOffset + (splitBeat - clip->startBeat));
         newClip.sourceOffsetSeconds = clip->sourceOffsetSeconds;
         newClip.edits = clip->edits;
         newClip.edits.fadeInBeats = 0.0f; // Clear fades at split point
@@ -796,12 +879,65 @@ public:
         // Remove the lane
         m_lanes.erase(m_lanes.begin() + laneIdx);
 
-        // Rebuild lane map with correct indices
+        // Rebuild lane map with correct indices. PlaylistLane::index is
+        // display metadata consumed by the track-number marker and the
+        // automation-curve default channel pairing; after an erasure it must
+        // stay positional or a later lane reads a stale index (wrong channel,
+        // colliding numbers — #816 follow-up).
+        m_laneMap.clear();
+        for (size_t i = 0; i < m_lanes.size(); ++i) {
+            m_lanes[i].index = static_cast<int>(i);
+            m_laneMap[m_lanes[i].id] = i;
+        }
+
+        return true;
+    }
+
+    /**
+     * @brief Playlist row position of a lane (-1 when missing).
+     */
+    int getLaneIndex(const PlaylistLaneID& laneId) const {
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
+        auto it = m_laneMap.find(laneId);
+        return it == m_laneMap.end() ? -1 : static_cast<int>(it->second);
+    }
+
+    /**
+     * @brief Move an existing lane to a playlist position.
+     *
+     * Undo position fidelity for lane deletion (DeleteLaneCommand): the lane
+     * keeps its id, clips, and ownership, and lands back where it was instead
+     * of appending at the end. Also maintains PlaylistLane::index across the
+     * affected span (display numbering and channel lookups read it).
+     * Out-of-range targets clamp. Returns false when the lane is missing.
+     */
+    bool moveLaneToIndex(const PlaylistLaneID& laneId, size_t targetIndex) {
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
+        auto it = m_laneMap.find(laneId);
+        if (it == m_laneMap.end() || m_lanes.empty()) {
+            return false;
+        }
+        const size_t from = it->second;
+        targetIndex = std::min(targetIndex, m_lanes.size() - 1);
+        if (from == targetIndex) {
+            return true;
+        }
+
+        PlaylistLane lane = std::move(m_lanes[from]);
+        m_lanes.erase(m_lanes.begin() + from);
+        m_lanes.insert(m_lanes.begin() + targetIndex, std::move(lane));
+
+        // Keep .index truthful across the span the lane traveled.
+        const size_t lo = std::min(from, targetIndex);
+        const size_t hi = std::max(from, targetIndex);
+        for (size_t i = lo; i <= hi; ++i) {
+            m_lanes[i].index = static_cast<int>(i);
+        }
+
         m_laneMap.clear();
         for (size_t i = 0; i < m_lanes.size(); ++i) {
             m_laneMap[m_lanes[i].id] = i;
         }
-
         return true;
     }
 

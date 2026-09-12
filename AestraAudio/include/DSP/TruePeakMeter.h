@@ -1,6 +1,8 @@
 // © 2026 Aestra Studios — All Rights Reserved. Licensed for personal & educational use only.
 #pragma once
 
+#include "RealtimeThreadGuard.h" // AESTRA_RT_NONBLOCKING
+
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -56,7 +58,7 @@ public:
      * Use this when you want to take a fresh peak reading (e.g. UI meter
      * "peak hold" reset) without disturbing the FIR's internal state. RT-safe.
      */
-    void clearPeaks() noexcept {
+    void clearPeaks() noexcept AESTRA_RT_NONBLOCKING {
         m_samplePeakL = 0.0f;
         m_samplePeakR = 0.0f;
         m_truePeakL = 0.0f;
@@ -68,14 +70,16 @@ public:
      * @param interleavedStereo  Pointer to L/R/L/R/... float samples.
      * @param numFrames          Number of frames (one frame = one stereo pair).
      *
-     * RT-safe: uses only fixed-size arrays already owned by *this.
+     * RT-safe: uses only fixed-size arrays already owned by *this — and
+     * AESTRA_RT_NONBLOCKING is what holds that claim to the compiler.
      */
-    void processStereo(const float* interleavedStereo, uint32_t numFrames) noexcept;
+    void processStereo(const float* interleavedStereo,
+                       uint32_t numFrames) noexcept AESTRA_RT_NONBLOCKING;
 
     /**
      * @brief Process a single mono channel.
      */
-    void processMono(const float* mono, uint32_t numFrames) noexcept;
+    void processMono(const float* mono, uint32_t numFrames) noexcept AESTRA_RT_NONBLOCKING;
 
     // ---------------------------------------------------------------------
     // Accessors (RT-safe; cheap)

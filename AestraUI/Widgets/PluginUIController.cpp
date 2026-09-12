@@ -14,6 +14,10 @@
 #include "AestraFilterEditor.h"
 #include "AestraLFOEditor.h"
 #include "AestraOTTEditor.h"
+#include "AestraTransientEditor.h"
+
+#include "Models/TrackManager.h"
+#include "Core/MixerChannel.h"
 
 #ifdef AESTRAUI_ENABLE_PREMIUM_EDITORS
 #include "RumblePluginEditor.h"
@@ -49,6 +53,11 @@ void PluginUIController::setPluginManager(Aestra::Audio::PluginManager* manager)
 
 void PluginUIController::setPopupLayer(NUIComponent* layer) {
     m_popupLayer = layer;
+}
+
+void PluginUIController::setMixerCatalogProvider(
+    std::function<std::vector<Aestra::Components::MixerPluginEntry>()> provider) {
+    m_mixerCatalogProvider = std::move(provider);
 }
 
 void PluginUIController::bindBrowser(PluginBrowserPanel* browser) {
@@ -128,22 +137,48 @@ void PluginUIController::startScan() {
     );
 }
 
+Aestra::Audio::EffectChain* PluginUIController::resolveBoundChain(EffectChainRack* rack) {
+    for (const auto& binding : m_rackBindings) {
+        if (binding.rack == rack) {
+            Aestra::Audio::MixerChannel* channel = (binding.channelId == 0)
+                                                       ? binding.trackManager->getMasterChannel()
+                                                       : binding.trackManager->getChannelById(binding.channelId);
+            return channel ? &channel->getEffectChain() : nullptr;
+        }
+    }
+    return nullptr;
+}
+
 void PluginUIController::bindEffectRack(EffectChainRack* rack, 
-                                         Aestra::Audio::EffectChain* chain) {
-    if (!rack || !chain) return;
+                                         Aestra::Audio::TrackManager* trackManager,
+                                         uint32_t channelId) {
+    if (!rack || !trackManager) return;
     
-    // Store binding
-    m_rackBindings.push_back({rack, chain});
+    // One binding per rack: a re-bind (e.g. the inspector following a new
+    // selection) REPLACES the previous binding instead of appending. The
+    // binding holds the channel's STABLE IDENTITY, not a chain pointer: the
+    // chain is resolved fresh at refresh/callback time, so a channel deleted
+    // (or a project reloaded) mid-session can never leave the rack pointing
+    // at freed memory. Three SEGVs on 2026-08-16 plus two more after the
+    // pointer-based fix (22:04, 22:19) — getPlugin() from refreshRackDisplay
+    // on a normal frame update.
+    m_rackBindings.erase(
+        std::remove_if(m_rackBindings.begin(), m_rackBindings.end(),
+                       [rack](const RackBinding& b) { return b.rack == rack; }),
+        m_rackBindings.end());
+    m_rackBindings.push_back({rack, trackManager, channelId});
     
     // Wire slot clicks
-    rack->setOnSlotClicked([this, chain](int slot) {
+    rack->setOnSlotClicked([this, rack](int slot) {
+        auto* chain = resolveBoundChain(rack);
+        if (!chain) return;
         auto instance = chain->getPlugin(slot);
         if (instance && (instance->hasEditor() || instance->getParameterCount() > 0)) {
             openPluginEditor(instance, nullptr);
         }
     });
     
-    rack->setOnAddPluginRequested([this, rack, chain](int slot) {
+    rack->setOnAddPluginRequested([this, rack](int slot) {
         // Remove existing menu if any
         if (m_activeMenu) {
             if (auto parent = m_activeMenu->getParent()) {
@@ -151,9 +186,21 @@ void PluginUIController::bindEffectRack(EffectChainRack* rack,
             }
             m_activeMenu.reset();
         }
+        auto* chain = resolveBoundChain(rack);
+        if (!chain) {
+            m_activeMenu.reset();
+            return;
+        }
 
         // Create new dropdown
         m_activeMenu = std::make_shared<UIMixerPluginDropdown>();
+
+        // This menu is created per click, so it never receives the catalog
+        // republish the mixer strip's persistent dropdown gets — feed it the
+        // current catalog here or it opens with search + footer only.
+        if (m_mixerCatalogProvider) {
+            m_activeMenu->setPluginEntries(m_mixerCatalogProvider());
+        }
 
         // Add to popup layer if available, otherwise fallback to rack's parent
         if (m_popupLayer) {
@@ -185,8 +232,11 @@ void PluginUIController::bindEffectRack(EffectChainRack* rack,
         m_activeMenu->showAt(triggerRect, flipBoundary);
 
         // Handle selection
-        m_activeMenu->onPluginSelected = [this, chain, slot](const std::string& pluginId, const std::string&) {
-            loadPluginToSlot(pluginId, chain, slot);
+        m_activeMenu->onPluginSelected = [this, rack, slot](const std::string& pluginId, const std::string&) {
+            auto* chain = resolveBoundChain(rack);
+            if (chain) {
+                loadPluginToSlot(pluginId, chain, slot);
+            }
 
             // Close menu
             if (m_activeMenu) {
@@ -208,7 +258,9 @@ void PluginUIController::bindEffectRack(EffectChainRack* rack,
         };
     });
     
-    rack->setOnSlotBypassToggled([this, chain](int slot, bool bypassed) {
+    rack->setOnSlotBypassToggled([this, rack](int slot, bool bypassed) {
+        auto* chain = resolveBoundChain(rack);
+        if (!chain) return;
         chain->setSlotBypassed(slot, bypassed);
         if (!bypassed) {
             if (auto plugin = chain->getPlugin(static_cast<size_t>(slot))) {
@@ -251,16 +303,26 @@ void PluginUIController::unbindEffectRack(EffectChainRack* rack) {
 void PluginUIController::refreshRackDisplay(EffectChainRack* rack) {
     if (!rack) return;
     
-    // Find chain binding
-    Aestra::Audio::EffectChain* chain = nullptr;
-    for (const auto& binding : m_rackBindings) {
-        if (binding.rack == rack) {
-            chain = binding.chain;
-            break;
-        }
-    }
+    // Resolve the LIVE chain for this rack. A channel deleted since the last
+    // selection change (or a project reload that replaced channels) resolves
+    // to nullptr here — the rack shows empty instead of dereferencing freed
+    // memory. This is the crash the pointer-based binding caused: getPlugin()
+    // on a chain that died with its channel, five SEGVs on 2026-08-16.
+    Aestra::Audio::EffectChain* chain = resolveBoundChain(rack);
     
-    if (!chain) return;
+    if (!chain) {
+        // No live channel: clear the rack so it can never display (or touch)
+        // a chain that no longer exists.
+        for (int i = 0; i < EffectChainRack::MAX_SLOTS; ++i) {
+            EffectChainRack::EffectSlotInfo info;
+            info.name = "Empty";
+            info.isEmpty = true;
+            info.bypassed = false;
+            info.nonFiniteOutputFault = false;
+            rack->setSlot(i, info);
+        }
+        return;
+    }
     
     // Update slot display
     for (int i = 0; i < EffectChainRack::MAX_SLOTS; ++i) {
@@ -313,7 +375,7 @@ bool PluginUIController::loadPluginToSlot(const std::string& pluginId,
     
     // Refresh any bound rack
     for (const auto& binding : m_rackBindings) {
-        if (binding.chain == chain) {
+        if (resolveBoundChain(binding.rack) == chain) {
             refreshRackDisplay(binding.rack);
         }
     }
@@ -395,6 +457,11 @@ void PluginUIController::openPluginEditor(
         wireEditorClose(ed);
         ed->setPlatformBridge(m_platformBridge);
         editor = ed;
+    } else if (pluginId == "com.Aestrastudios.transient") {
+        auto ed = std::make_shared<AestraTransientEditor>(instance);
+        wireEditorClose(ed);
+        ed->setPlatformBridge(m_platformBridge);
+        editor = ed;
     } else {
         auto ed = std::make_shared<GenericPluginEditor>(instance);
         wireEditorClose(ed);
@@ -427,6 +494,8 @@ void PluginUIController::openPluginEditor(
             ott->onResize(static_cast<int>(width), static_cast<int>(height));
         } else if (auto lfoEd = std::dynamic_pointer_cast<AestraLFOEditor>(editorComp)) {
             lfoEd->onResize(static_cast<int>(width), static_cast<int>(height));
+        } else if (auto transientEd = std::dynamic_pointer_cast<AestraTransientEditor>(editorComp)) {
+            transientEd->onResize(static_cast<int>(width), static_cast<int>(height));
         } else if (auto generic = std::dynamic_pointer_cast<GenericPluginEditor>(editorComp)) {
             generic->onResize();
 #ifdef AESTRAUI_ENABLE_PREMIUM_EDITORS

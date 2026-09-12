@@ -39,12 +39,9 @@ void TrackManagerUI::updateScrollbar() {
         return;
 
     AestraUI::NUIRect bounds = getBounds();
-    float headerHeight = kTimelineHeaderHeight;
-    float rulerHeight = kTimelineRulerHeight;
-    float horizontalScrollbarHeight = kTimelineHorizontalScrollbarHeight;
 
     // In v3.1, panels are floating overlays and do not affect the scrollbar's viewport directly.
-    float viewportHeight = bounds.height - headerHeight - rulerHeight - horizontalScrollbarHeight;
+    float viewportHeight = bounds.height - kTimelineTimeBandHeight;
 
     const float laneCount = static_cast<float>(m_trackUIComponents.size());
     float totalContentHeight = laneCount * (m_trackHeight + m_trackSpacing);
@@ -71,8 +68,10 @@ float TrackManagerUI::getTimelineGridWidthPixels() const {
     const auto& layout = themeManager.getLayoutDimensions();
 
     const float controlAreaWidth = layout.trackControlsWidth;
-    const float trackWidth = m_timelineMinimap ? m_timelineMinimap->getBounds().width : getBounds().width;
-    float gridWidth = trackWidth - controlAreaWidth - 10.0f; // Match TrackUIComponent grid width
+    // Grid width is derived from the component bounds, not the minimap surface —
+    // the minimap is a cropped overview and no longer defines the plane width.
+    const float trackWidth = getBounds().width;
+    float gridWidth = trackWidth - kTimelineScrollbarWidth - controlAreaWidth - 10.0f; // Match TrackUIComponent grid width
     return std::max(0.0f, gridWidth);
 }
 
@@ -348,14 +347,14 @@ void TrackManagerUI::updateTimelineMinimap(double deltaTime) {
 
     m_timelineSummarySnapshot = m_timelineSummaryCache.getSnapshot();
 
-    if (m_isDrawingSelectionBox) {
+    if (m_marquee.active()) {
         auto& themeManager = AestraUI::NUIThemeManager::getInstance();
         const auto& layout = themeManager.getLayoutDimensions();
         const float controlAreaWidth = layout.trackControlsWidth;
         const float gridStartXAbs = getBounds().x + controlAreaWidth + kTimelineGridInsetX;
 
-        const float minX = std::min(m_selectionBoxStart.x, m_selectionBoxEnd.x);
-        const float maxX = std::max(m_selectionBoxStart.x, m_selectionBoxEnd.x);
+        const float minX = m_marquee.rectMinX();
+        const float maxX = m_marquee.rectMaxX();
 
         const double startBeat =
             (static_cast<double>((minX - gridStartXAbs) + m_timelineScrollOffset)) / m_pixelsPerBeat;

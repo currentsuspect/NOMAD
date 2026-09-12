@@ -6,6 +6,8 @@
 #include "WindowPanel.h"
 
 #include <cstdint>
+#include <functional>
+#include <array>
 #include <memory>
 #include <vector>
 
@@ -35,6 +37,9 @@ public:
     bool openClip(ClipInstanceID clipId);
     ClipInstanceID getClipId() const { return m_clipId; }
 
+    /** @brief Fired after committed clip edits reach the model (slider commit or discrete edit). */
+    void setOnClipEditsCommitted(std::function<void()> callback) { m_onClipEditsCommitted = std::move(callback); }
+
     void onRender(AestraUI::NUIRenderer& renderer) override;
     void onResize(int width, int height) override;
     void onUpdate(double deltaTime) override;
@@ -43,6 +48,7 @@ private:
     std::shared_ptr<TrackManager> m_trackManager;
     ClipInstanceID m_clipId;
     PatternID m_patternId;
+    std::function<void()> m_onClipEditsCommitted;
     ClipEdits m_workingEdits;
     ClipEdits m_gestureStartEdits;
     bool m_editGestureActive{false};
@@ -85,6 +91,8 @@ private:
     std::shared_ptr<AestraUI::NUISlider> m_pitchSlider;
     std::shared_ptr<AestraUI::NUISlider> m_speedSlider;
     std::shared_ptr<AestraUI::NUISlider> m_sourceStartSlider;
+    std::shared_ptr<AestraUI::NUILabel> m_fitLabel;
+    std::array<std::shared_ptr<AestraUI::NUIButton>, 4> m_fitButtons; // 1 / 2 / 4 / 8 bars
     std::shared_ptr<AestraUI::NUIButton> m_muteButton;
     std::shared_ptr<AestraUI::NUIButton> m_normalizeButton;
     std::shared_ptr<AestraUI::NUIButton> m_resetButton;
@@ -94,6 +102,7 @@ private:
 
     void buildUI();
     bool resolveClip(ClipInstance*& clip, PatternSource*& pattern) const;
+    void applyFitToBars(int bars);
     void rebuildWaveform();
     void rebuildRoutes(bool force);
     uint64_t calculateRouteFingerprint() const;

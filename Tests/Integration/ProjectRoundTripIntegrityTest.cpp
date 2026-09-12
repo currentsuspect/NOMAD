@@ -191,6 +191,8 @@ void testSourcesLanesClipsPatternsRoundTrip() {
     auto lane = playlist.getLane(laneId);
     lane->volume = 0.8f;
     lane->pan = -0.3f;
+    // FD-14: lanes belong to Tracks — the fixture builds the ownership model.
+    tm1->createTrack(laneId, "Test Lane");
 
     auto& patternManager = tm1->getPatternManager();
     Aestra::Audio::MidiPayload payload;
@@ -472,8 +474,11 @@ void testMultipleRoundTripCycles() {
     std::filesystem::path testProject = testDir / "project.aes";
 
     auto tm1 = std::make_shared<Aestra::Audio::TrackManager>();
-    tm1->getPlaylistModel().createLane("Track 1");
-    tm1->getPlaylistModel().createLane("Track 2");
+    Aestra::Audio::PlaylistLaneID lane1 = tm1->getPlaylistModel().createLane("Track 1");
+    Aestra::Audio::PlaylistLaneID lane2 = tm1->getPlaylistModel().createLane("Track 2");
+    // FD-14: lanes belong to Tracks — the fixture builds the ownership model.
+    tm1->createTrack(lane1, "Track 1");
+    tm1->createTrack(lane2, "Track 2");
 
     std::string save1 = serializeProject(*tm1, 128.0, 2.0);
 
@@ -806,8 +811,16 @@ void testAudioClipPlacementHelperPersistsClipAndDurationSeconds() {
     assert(std::abs(loadedLane->clips[0].edits.playbackRate - 1.75f) < 1.0e-7f);
     assert(std::abs(loadedLane->clips[0].edits.pitchSemitones - 5.0f) < 1.0e-7f);
     assert(std::abs(loadedLane->clips[0].edits.sourceStart - 1234.5) < 1.0e-9);
-    assert(std::abs(loadedLane->clips[0].durationSeconds - 1.0) < 1.0e-9);
-    assert(std::abs(loadedLane->clips[0].durationBeats - 2.0) < 1.0e-9);
+    // #746 canonical invariant through save/load: durationSeconds ==
+    // beatToSeconds(durationBeats) / effectiveVarispeed. The rate+pitch edit
+    // re-derives the canonical at edit time (setClipEdits), and the loader
+    // re-derives beats WITH the varispeed factor — a fitted/edited clip must
+    // reload at its exact span, not a flat-converted distortion.
+    const auto& loadedClip = loadedLane->clips[0];
+    const double expectedLoadedSeconds = tm2->getPlaylistModel().beatToSeconds(2.0) /
+                                         static_cast<double>(loadedClip.edits.effectiveVarispeed());
+    assert(std::abs(loadedClip.durationSeconds - expectedLoadedSeconds) < 1.0e-9);
+    assert(std::abs(loadedClip.durationBeats - 2.0) < 1.0e-9);
 
     std::cout << "[PASS] Audio clip placement helper persists clip and duration seconds" << std::endl;
 }

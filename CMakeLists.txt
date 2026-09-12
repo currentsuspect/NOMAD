@@ -16,7 +16,17 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/aestra-core/cmake/AestraCoreMode.cmake")
 	include(${CMAKE_SOURCE_DIR}/aestra-core/cmake/AestraCoreMode.cmake)
 endif()
 
-project(AESTRA VERSION 0.7.0 LANGUAGES C CXX)
+project(AESTRA VERSION 0.7.1 LANGUAGES C CXX)
+
+# The version, once, where the build can see it.
+#
+# It used to be here and nowhere else, so the running application had no way to
+# say which version it was: the startup banner carried a hand-written
+# "Aestra v1.0.0" that had been wrong since 0.5, and the build id was the
+# literal "Aestra-2025-Core" with no version and no commit in it. A crash report
+# asking "which build?" could not be answered from the log it came with, which
+# is the one place the answer has to be.
+add_compile_definitions(AESTRA_VERSION_STRING="${PROJECT_VERSION}")
 
 # Ensure CTest discovery/registration works from the build root.
 include(CTest)
@@ -39,6 +49,25 @@ option(AESTRA_ALLOW_LICENSE_GATE_OFF "Allow lab/development builds to omit offli
 option(AESTRA_ENABLE_TEST_LICENSES "Enable test-only mock license acceptance" OFF)
 option(AESTRA_REVERB_PROFILE "Enable AestraVerb stage profiling (lab/benchmark only)" OFF)
 option(AESTRA_REVERB_DIAGNOSTICS "Enable AestraVerb output-level diagnostics (lab only)" OFF)
+option(AESTRA_RT_EFFECT_CHECK "Enforce AESTRA_RT_NONBLOCKING at compile time (Clang only, B-005)" OFF)
+
+# B-005's compile-time half. -Wfunction-effects only inspects functions carrying
+# [[clang::nonblocking]] (AESTRA_RT_NONBLOCKING), so this is inert on code nobody
+# has annotated — turning it on cannot break an unannotated tree. It is an error
+# rather than a warning because a warning nobody fails on is not a gate.
+if(AESTRA_RT_EFFECT_CHECK)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-Wfunction-effects -Werror=function-effects)
+    message(STATUS "RT effect check: ON (-Werror=function-effects)")
+  else()
+    # Not fatal: the annotations are no-ops off Clang, so a GCC build is simply
+    # unchecked rather than wrong. Say so, because a silently-skipped gate reads
+    # as a passing one.
+    message(WARNING
+      "AESTRA_RT_EFFECT_CHECK requested but ${CMAKE_CXX_COMPILER_ID} has no "
+      "function-effects analysis — the RT annotations are inert in this build.")
+  endif()
+endif()
 
 if(AESTRA_HEADLESS_ONLY)
   set(AESTRA_ENABLE_UI OFF CACHE BOOL "Build the AESTRA_DAW UI application" FORCE)

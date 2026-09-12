@@ -21,6 +21,7 @@
 #include "UnifiedHUD.h"
 #include "RecoveryDialog.h"
 #include "ConfirmationDialog.h"
+#include "../Settings/MissingAssetsDialog.h"
 #include "../Settings/ExportDialog.h"
 #include "PluginManager.h"
 #include "AudioGraphBuilder.h"
@@ -28,9 +29,11 @@
 #include "../Panels/TakesPanel.h"
 #include "../../AestraAudio/include/Core/PlaybackGraphController.h"
 #include "../../AestraAudio/include/IO/AudioExporter.h"
+#include "../../AestraAudio/include/IO/MiniAudioDecoder.h"
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <chrono>
 #include "../Core/AudioSettingsStore.h"
 #include "PlaylistMixer.h"
@@ -66,6 +69,26 @@ void syncRecordingProjectPath(const std::shared_ptr<AestraContent>& content, con
     if (auto trackManager = content->getTrackManager()) {
         trackManager->setRecordingProjectPath(projectPath);
     }
+}
+
+/** @brief True when @p filePath's text contains @p needle (generic path form).
+ *
+ *  Project/autosave JSON stores recording paths as generic (forward-slash)
+ *  strings. A contains-check is deliberately permissive: a false positive
+ *  merely keeps a recording file, never deletes one. */
+bool pathAppearsInFile(const std::string& filePath, const std::string& needle) {
+    std::error_code ec;
+    if (!std::filesystem::exists(filePath, ec)) {
+        return false;
+    }
+    std::ifstream in(filePath, std::ios::in | std::ios::binary);
+    if (!in) {
+        return false;
+    }
+    std::ostringstream buffer;
+    buffer << in.rdbuf();
+    const std::string generic = std::filesystem::path(needle).generic_string();
+    return buffer.str().find(generic) != std::string::npos;
 }
 
 }
@@ -286,7 +309,9 @@ bool AestraApp::initialize(const std::string& projectPath) {
 
     if (!transitionToInitializing()) return false;
 
-    Log::info("Aestra v1.0.0 - Initializing...");
+    // Was a hand-written "v1.0.0", wrong since 0.5 and quoted back in reports
+    // as though it were the build. It comes from the build now.
+    Log::info(std::string("Aestra v") + AESTRA_VERSION_STRING + " - Initializing...");
 
     {
         StartupTimer t("Platform init");
@@ -356,6 +381,10 @@ bool AestraApp::initialize(const std::string& projectPath) {
     {
         StartupTimer t("Recovery dialog");
         buildRecoveryDialog();
+    }
+    {
+        StartupTimer t("Missing assets dialog");
+        buildMissingAssetsDialog();
     }
     {
         StartupTimer t("Menu bar");
@@ -515,6 +544,171 @@ void AestraApp::buildRecoveryDialog() {
     m_windowManager->setRecoveryDialog(std::make_shared<RecoveryDialog>());
 }
 
+void AestraApp::buildMissingAssetsDialog() {
+    auto dialog = std::make_shared<MissingAssetsDialog>();
+    dialog->setRelinkRequestedCallback([this](const Aestra::MissingAssetsDialog::MissingEntry& entry) {
+        relinkMissingAsset(entry);
+    });
+    m_windowManager->setMissingAssetsDialog(std::move(dialog));
+}
+
+void AestraApp::enqueueMainThreadTask(std::function<void()> task) {
+    if (!task || !m_mainThreadQueue) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(m_mainThreadQueue->mutex);
+    if (m_mainThreadQueue->shuttingDown) {
+        return;
+    }
+    m_mainThreadQueue->tasks.push_back(std::move(task));
+}
+
+void AestraApp::drainMainThreadTasks() {
+    std::vector<std::function<void()>> tasks;
+    if (m_mainThreadQueue) {
+        std::lock_guard<std::mutex> lock(m_mainThreadQueue->mutex);
+        tasks.swap(m_mainThreadQueue->tasks);
+    }
+    for (auto& task : tasks) {
+        if (task) {
+            task();
+        }
+    }
+}
+
+void AestraApp::relinkMissingAsset(const Aestra::MissingAssetsDialog::MissingEntry& entry) {
+    auto dialog = m_windowManager ? m_windowManager->getMissingAssetsDialog() : nullptr;
+    auto trackManager = (m_content && m_content->getTrackManager()) ? m_content->getTrackManager() : nullptr;
+    auto queue = m_mainThreadQueue;
+    // Resolved here on the main thread and shared into the worker: the raw
+    // getUtils() pointer is freed by Platform::shutdown(), which can run
+    // while this worker is still blocked inside the native picker.
+    auto utils = Aestra::Platform::getUtilsShared();
+    if (!dialog || !trackManager || !queue) {
+        return;
+    }
+    // Session token: if the user dismisses (or a new missing-assets session
+    // starts) while the picker/decoder is still running, the queued
+    // completion must drop instead of rebinding — Escape promised placeholders.
+    const uint64_t dialogGeneration = dialog->generation();
+    // One picker at a time: a second Relink click while the native dialog is
+    // up would stack pickers (and both decode) for the same entry.
+    if (queue->relinkInFlight.exchange(true)) {
+        Log::info("[MissingAssets] Relink already in progress; ignoring extra request");
+        return;
+    }
+
+    // The native file dialog (zenity/qarma/kdialog subprocess) and the decode
+    // both BLOCK. Running either on the UI thread freezes the event loop for
+    // the whole pick — the compositor flags the app unresponsive and the modal
+    // overlay can't repaint. Picker + decode on a worker; only the engine
+    // rebind hops back to the main thread.
+    //
+    // Lifetime: this thread is detached, so it captures NO `this` and no
+    // plain members — only the heap-shared queue, the track manager, and the
+    // dialog (all shared_ptr). Quitting mid-picker/mid-decode is safe: the
+    // queued UI work is dropped by the shutdown gate and the worker's own
+    // state frees itself.
+    std::thread([queue, dialog, tm = trackManager, entry, utils, dialogGeneration]() {
+        const std::string storedPath = entry.storedPath;
+
+        const auto finish = [queue, dialog, dialogGeneration, storedPath](std::function<void()> uiWork) {
+            {
+                std::lock_guard<std::mutex> lock(queue->mutex);
+                if (!queue->shuttingDown && uiWork) {
+                    // Session gate for every completion kind (success, fail,
+                    // cancel): a dismissed or superseded session must not be
+                    // touched — Escape promised placeholders, and a later
+                    // session's same-path rows belong to that session.
+                    uiWork = [dialog, dialogGeneration, storedPath, uiWork = std::move(uiWork)]() {
+                        if (dialog && dialog->generation() == dialogGeneration) {
+                            uiWork();
+                        } else {
+                            Log::info("[MissingAssets] Dropping stale relink completion for '" + storedPath +
+                                      "'");
+                        }
+                    };
+                    queue->tasks.push_back(std::move(uiWork));
+                }
+            }
+            queue->relinkInFlight.store(false);
+        };
+
+        try {
+            std::string pickedPath;
+            if (utils) {
+                const std::string filter = std::string(
+                    "Audio Files\0*.wav;*.flac;*.ogg;*.mp3;*.aif;*.aiff\0All Files\0*.*\0",
+                    sizeof("Audio Files\0*.wav;*.flac;*.ogg;*.mp3;*.aif;*.aiff\0All Files\0*.*\0") - 1);
+                pickedPath = utils->openFileDialog("Relink missing audio file", filter);
+            }
+            if (pickedPath.empty() || !std::filesystem::exists(pickedPath)) {
+                Log::info("[MissingAssets] Relink cancelled for '" + storedPath + "'");
+                finish([dialog, storedPath]() { dialog->markRelinkFailed(storedPath); });
+                return;
+            }
+
+            std::vector<float> decodedData;
+            uint32_t sampleRate = 0;
+            uint32_t numChannels = 0;
+            if (!decodeAudioFile(pickedPath, decodedData, sampleRate, numChannels, nullptr)) {
+                Log::warning("[MissingAssets] Relink decode failed: " + pickedPath);
+                finish([dialog, storedPath]() { dialog->markRelinkFailed(storedPath); });
+                return;
+            }
+            if (numChannels == 0) {
+                numChannels = 1;
+            }
+
+            auto buffer = std::make_shared<AudioBufferData>();
+            buffer->interleavedData = std::move(decodedData);
+            buffer->sampleRate = sampleRate;
+            buffer->numChannels = numChannels;
+            buffer->numFrames = buffer->interleavedData.size() / buffer->numChannels;
+            const uint64_t numFrames = buffer->numFrames;
+
+            finish([tm, dialog, entry, storedPath, pickedPath, buffer = std::move(buffer), numFrames]() {
+                // Validate before rebinding: a decode that "succeeds" with no
+                // audio must not move the path and close the row, stranding a
+                // rebound-but-silent source with no retry affordance.
+                // (Staleness itself is gated in finish(): dismissed or
+                // superseded sessions never reach this closure.)
+                if (!buffer || !buffer->isValid()) {
+                    Log::warning("[MissingAssets] Relink decoded no audio: " + pickedPath);
+                    dialog->markRelinkFailed(storedPath);
+                    return;
+                }
+                auto& sourceManager = tm->getSourceManager();
+                const auto sourceId =
+                    entry.sourceId.isValid() ? entry.sourceId : sourceManager.findSourceByPath(storedPath);
+                if (!sourceManager.getSource(sourceId)) {
+                    Log::warning("[MissingAssets] No source to relink for: " + storedPath);
+                    dialog->markRelinkFailed(storedPath);
+                    return;
+                }
+                if (!sourceManager.relinkSource(sourceId, pickedPath)) {
+                    Log::warning("[MissingAssets] Path already used by another source: " + pickedPath);
+                    dialog->markRelinkFailed(storedPath);
+                    return;
+                }
+                sourceManager.attachBuffer(sourceManager.getSource(sourceId), buffer);
+
+                // The new path must survive save/autosave, not just this session.
+                tm->setModified(true);
+                Log::info("[MissingAssets] Relinked '" + storedPath + "' -> " + pickedPath + " (" +
+                          std::to_string(numFrames) + " frames)");
+                dialog->markRelinked(storedPath);
+            });
+        } catch (const std::exception& e) {
+            Log::warning("[MissingAssets] Relink worker threw for '" + storedPath + "': " + e.what());
+            finish([dialog, storedPath]() { dialog->markRelinkFailed(storedPath); });
+        } catch (...) {
+            Log::warning("[MissingAssets] Relink worker threw for '" + storedPath + "'");
+            finish([dialog, storedPath]() { dialog->markRelinkFailed(storedPath); });
+        }
+    }).detach();
+}
+
 void AestraApp::buildSettingsAndDialogs() {
     StartupTimer t("SettingsAndDialogs build");
     auto settingsDialog = std::make_shared<SettingsDialog>();
@@ -558,6 +752,32 @@ void AestraApp::buildSettingsAndDialogs() {
     m_windowManager->setSettingsDialog(settingsDialog);
     m_windowManager->setConfirmationDialog(std::make_shared<ConfirmationDialog>());
 
+    // Route destructive UI confirmations (e.g. Delete Lane on a lane with
+    // clips) through the app-owned dialog, mirroring requestClose's parenting.
+    if (auto tmUI = m_content ? m_content->getTrackManagerUI() : nullptr) {
+        tmUI->setOnConfirmDialogRequest([this](const std::string& title, const std::string& message,
+                                               const std::string& confirmLabel,
+                                               std::function<void(bool)> onResult) {
+            auto dialog = m_windowManager ? m_windowManager->getConfirmationDialog() : nullptr;
+            if (!dialog || !onResult) {
+                if (onResult) {
+                    // Fail closed: a destructive action must not run without
+                    // its confirmation surface.
+                    onResult(false);
+                }
+                return;
+            }
+            if (auto* root = m_windowManager->getRootComponent()) {
+                dialog->setBounds(root->getBounds());
+                root->removeChild(dialog);
+                root->addChild(dialog);
+            }
+            dialog->showConfirm(title, message, confirmLabel, [onResult](DialogResponse response) {
+                onResult(response == DialogResponse::Confirm);
+            });
+        });
+    }
+
     auto exportDialog = std::make_shared<ExportDialog>();
     m_windowManager->setExportDialog(exportDialog);
 
@@ -580,6 +800,8 @@ void AestraApp::buildMenuBar() {
 
         menu->addItem("New Project", [this]() {
             if (m_content && m_content->getTrackManager()) m_content->getTrackManager()->stop();
+            // Leave the old session: discards its unsaved/unreferenced takes.
+            cleanupUnreferencedRecordings();
             if (m_content) m_content->resetToDefaultProject();
             clearProjectLoadReport();
             m_documentState.startUntitled(autosavePathOrEmpty());
@@ -596,8 +818,17 @@ void AestraApp::buildMenuBar() {
                                                        sizeof("Aestra Project\0*.aes\0All Files\0*.*\0") - 1);
                 const std::string pickedPath = utils->openFileDialog("Open Project", filter);
                 if (!pickedPath.empty() && std::filesystem::exists(pickedPath)) {
+                    // Old session's keeper path: captured BEFORE the load, so
+                    // discarded-take cleanup (run only on a successful switch)
+                    // keeps exactly the previous project's recordings.
+                    const std::string oldKeeperPath = m_documentState.canonicalPath();
                     auto result = loadProjectFromPath(pickedPath);
-                    if (!result.ok) {
+                    if (result.ok) {
+                        // Cleanup runs only after the transition SUCCEEDED: the
+                        // old session's redo history may still require its WAVs
+                        // if the new project failed to load.
+                        cleanupUnreferencedRecordings(oldKeeperPath);
+                    } else {
                         Log::error("Failed to load project: " + pickedPath + " (" + result.errorMessage + ")");
                     }
                 }
@@ -653,7 +884,9 @@ void AestraApp::buildMenuBar() {
         undoItem->setText(canUndo ? trackMgr->getCommandHistory().getUndoName() : "Undo");
         undoItem->setOnClick([this]() {
             if (m_content && m_content->getTrackManager()) {
-                m_content->getTrackManager()->getCommandHistory().undo();
+                // Guard on the result: a failed op must not mark the project modified.
+                if (m_content->getTrackManager()->getCommandHistory().undo())
+                    m_content->refreshAfterHistoryChange();
             }
         });
         menu->addItem(undoItem);
@@ -664,7 +897,9 @@ void AestraApp::buildMenuBar() {
         redoItem->setText(canRedo ? trackMgr->getCommandHistory().getRedoName() : "Redo");
         redoItem->setOnClick([this]() {
             if (m_content && m_content->getTrackManager()) {
-                m_content->getTrackManager()->getCommandHistory().redo();
+                // Guard on the result: a failed op must not mark the project modified.
+                if (m_content->getTrackManager()->getCommandHistory().redo())
+                    m_content->refreshAfterHistoryChange();
             }
         });
         menu->addItem(redoItem);
@@ -892,13 +1127,16 @@ void AestraApp::restoreUIState(const UIState& uiState) {
 
     if (m_content && m_content->getTrackManagerUI()) {
         auto trackManagerUI = m_content->getTrackManagerUI();
-        if (uiState.horizontalZoom != 1.0f || uiState.scrollPositionX != 0.0f || uiState.scrollPositionY != 0.0f) {
+        if (uiState.horizontalZoom != 1.0f || uiState.scrollPositionX != 0.0f) {
             trackManagerUI->setHorizontalZoom(uiState.horizontalZoom);
             trackManagerUI->setHorizontalScroll(uiState.scrollPositionX);
-            trackManagerUI->setVerticalScroll(uiState.scrollPositionY);
+            // Deliberately NOT restoring scrollPositionY: launching into a
+            // dead session's mid-list viewport reads as "the app starts me at
+            // track N" — the track list must open at the top of a fresh
+            // default project. Vertical viewport position is transient; zoom
+            // and horizontal fit are the durable parts.
             Log::info("[UIState] Applied track view state: zoom=" + std::to_string(uiState.horizontalZoom) +
-                      ", hScroll=" + std::to_string(uiState.scrollPositionX) +
-                      ", vScroll=" + std::to_string(uiState.scrollPositionY));
+                      ", hScroll=" + std::to_string(uiState.scrollPositionX));
         }
     }
 }
@@ -920,6 +1158,14 @@ void AestraApp::connectAudioToUI() {
             m_content->getTrackManager()->setInputChannelCount(config.numInputChannels);
             m_content->getTrackManager()->setOutputSampleRate(config.sampleRate);
             m_content->getTrackManager()->setInputSampleRate(config.sampleRate);
+            // T-6: same live provider as the controller stream-start path
+            // (covers re-sync after the stream is already up; idempotent).
+            if (auto* deviceManager = m_audioController->getDeviceManager()) {
+                m_content->getTrackManager()->setRecordLatencyProvider(
+                    [deviceManager](double& inMs, double& outMs) {
+                        deviceManager->getLatencyCompensationValues(inMs, outMs);
+                    });
+            }
             Log::info("[AestraApp] TrackManager audio config synced. SampleRate=" + std::to_string(config.sampleRate) +
                       ", InputChannels=" + std::to_string(config.numInputChannels) +
                       ", OutputChannels=" + std::to_string(config.numOutputChannels));
@@ -1122,12 +1368,69 @@ void AestraApp::run() {
     // so the UI feels instant even if the stream takes a second.
     finalizeAudioSetup();
 
+    // TEMP DEBUG PROBE (#845) — env-gated live record-path driver. REMOVE BEFORE PR.
+    if (std::getenv("AESTRA_RECORD_PROBE") && m_content && m_content->getTrackManager()) {
+        auto* tm = m_content->getTrackManager().get();
+        std::thread([tm]() {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(4s); // let session + audio settle
+            Log::info("[RecordProbe] === START ===");
+            const auto tracks = tm->getTracks();
+            Log::info("[RecordProbe] tracks=" + std::to_string(tracks.size()));
+            if (!tracks.empty()) {
+                tm->setTrackArmed(tracks.front()->trackId, true);
+                Log::info("[RecordProbe] armed track " + std::to_string(tracks.front()->trackId) +
+                          " hasArmed=" + std::to_string(tm->hasArmedTracks() ? 1 : 0));
+            }
+            tm->record();
+            std::this_thread::sleep_for(500ms);
+            const double cue = tm->getPosition();
+            const bool countingIn = tm->beginCountIn(4, cue);
+            Log::info("[RecordProbe] cue=" + std::to_string(cue) + "s countInStarted=" +
+                      std::to_string(countingIn ? 1 : 0));
+            if (countingIn) {
+                const double bpm = std::max(1.0, tm->getPlaylistModel().getBPM());
+                std::this_thread::sleep_for(std::chrono::milliseconds(
+                    static_cast<long long>(4 * 60000.0 / bpm) + 500)); // metronome lead-in
+                tm->completeCountIn();
+            } else {
+                tm->play();
+            }
+            Log::info("[RecordProbe] rolling=" + std::to_string(tm->isPlaying() ? 1 : 0));
+            for (int i = 1; i <= 8; ++i) {
+                std::this_thread::sleep_for(1s);
+                Log::info("[RecordProbe] t+" + std::to_string(i) + "s recording=" +
+                          std::to_string(tm->isRecording() ? 1 : 0) + " pos=" +
+                          std::to_string(tm->getPosition()));
+            }
+            Log::info("[RecordProbe] stopping");
+            tm->stop();
+            std::this_thread::sleep_for(800ms);
+            Log::info("[RecordProbe] === END ===");
+        }).detach();
+    }
+
     while (m_running && m_windowManager->processEvents()) {
+        // Worker → UI hop (native dialogs/decode off the UI thread); pumped
+        // before UI update so a completed relink lands this frame.
+        drainMainThreadTasks();
+
         UnifiedProfiler::getInstance().beginFrame();
         m_windowManager->beginFrame(); // Start timing
 
         {
             AESTRA_ZONE("UI_Update");
+
+            // AestraContent is the root content (a raw pointer on the root
+            // component, not a child in the NUI tree), so nothing else pumps
+            // its per-frame update. Without this full-cadence call nothing
+            // drives updatePendingCountIn (count-in → recording start),
+            // sound-preview pumping, or the mixer view-model resync — and it
+            // must live here (not in render), because render is idle-elided.
+            if (m_content) {
+                m_content->onUpdate(m_windowManager ? m_windowManager->getDeltaTime() : (1.0 / 60.0));
+            }
+
             // Sync Transport State
             if (m_audioController->getEngine() && m_content && m_content->getTrackManager()) {
                 auto engine = m_audioController->getEngine();
@@ -1307,6 +1610,39 @@ void AestraApp::startMuseSocketIfConfigured() {
     }
 }
 
+void AestraApp::cleanupUnreferencedRecordings(const std::string& keeperProjectPath) {
+    if (!m_content) {
+        return;
+    }
+    auto trackManager = m_content->getTrackManager();
+    if (!trackManager) {
+        return;
+    }
+    // A saved project owns its recording assets: anything the on-disk project
+    // file still references is kept. For an unsaved session the keeper is
+    // absent, so discarded takes become cleanup candidates. The keeper file can
+    // be overridden to the PREVIOUS project path after a successful Open, when
+    // the document path has already switched to the newly loaded project.
+    const std::string projectPath = !keeperProjectPath.empty() ? keeperProjectPath : m_documentState.canonicalPath();
+    std::function<bool(const std::string&)> keepCheck;
+    if (!projectPath.empty()) {
+        keepCheck = [projectPath](const std::string& path) {
+            return pathAppearsInFile(projectPath, path);
+        };
+    }
+    const auto removed = trackManager->cleanupOrphanedRecordings(keepCheck);
+    if (!removed.has_value()) {
+        // Realtime misuse: refused rather than attempted (never expected on the
+        // UI thread). Observable instead of silently conflated with a
+        // zero-file cleanup.
+        Log::warning("[AestraApp] Recording cleanup refused: called from the realtime thread");
+        return;
+    }
+    if (*removed > 0) {
+        Log::info("[AestraApp] Removed " + std::to_string(*removed) + " orphaned recording file(s)");
+    }
+}
+
 void AestraApp::shutdown() {
     Log::info("[SHUTDOWN] Entering shutdown function...");
     Aestra::AppLifecycle::instance().transitionTo(Aestra::AppState::ShuttingDown);
@@ -1314,6 +1650,16 @@ void AestraApp::shutdown() {
     // Invalidate lifetime token so any async callbacks that fire during teardown
     // bail out before touching partially-destroyed members.
     if (m_aliveToken) *m_aliveToken = false;
+
+    // Gate the main-thread task queue: detached workers may still be mid-
+    // picker/mid-decode; their queued UI work must not run against a torn-down
+    // app. Workers hold the queue by shared_ptr, so they only ever touch this
+    // heap state after this point — dropping tasks here is sufficient.
+    if (m_mainThreadQueue) {
+        std::lock_guard<std::mutex> lock(m_mainThreadQueue->mutex);
+        m_mainThreadQueue->shuttingDown = true;
+        m_mainThreadQueue->tasks.clear();
+    }
 
     // Stop the Muse socket before anything it references tears down.
     if (m_museSocketServer) m_museSocketServer->stop();
@@ -1325,6 +1671,13 @@ void AestraApp::shutdown() {
         m_autoSaveManager.forceAutosave();
     }
     m_autoSaveManager.shutdown();
+
+    // NOTE: recording cleanup intentionally does NOT run here. Shutdown still
+    // serves crash recovery until clearCrashFlag() (below) — deleting discarded
+    // takes now would leave the just-written emergency autosave referencing
+    // files that no longer exist if this process dies before the flag clears.
+    // Discarded takes are removed at the next project new/open transition,
+    // where no recovery is pending and the on-disk project is the keeper.
 
     // Save preferences and UI state (Issue #120)
     Preferences::instance().save();
@@ -1665,6 +2018,43 @@ ProjectSerializer::LoadResult AestraApp::applyLoadedProject(const std::string& p
     }
     updateWindowTitle();
     Log::info("Project loaded into app state from " + path);
+
+    // T-7 (C-004): missing/moved audio must be loud, not a log line. The
+    // project still loads (sources stay as retryable placeholders); this
+    // tells the user which files vanished and offers a relink per file.
+    // Successful loads only: a failed load never reaches a state whose
+    // sources are safe to rebind.
+    if (result.ok && !result.missingAssets.empty()) {
+        if (auto dialog = m_windowManager ? m_windowManager->getMissingAssetsDialog() : nullptr) {
+            auto trackManager = (m_content) ? m_content->getTrackManager() : nullptr;
+            if (!trackManager) {
+                Log::warning("[MissingAssets] Skipping dialog: no track manager for " + path);
+                return result;
+            }
+            auto& sourceManager = trackManager->getSourceManager();
+            std::vector<Aestra::MissingAssetsDialog::MissingEntry> entries;
+            entries.reserve(result.missingAssets.size());
+            for (const auto& storedPath : result.missingAssets) {
+                // Only registered sources get a row: the loader records a
+                // missing path before its commit loop skips source records
+                // with id 0, and a row with no source behind it could never
+                // relink (it would fail forever at getSource). The path still
+                // shows in the load log/summary; it just has no rebind target.
+                const auto id = sourceManager.findSourceByPath(storedPath);
+                if (!id.isValid()) {
+                    continue;
+                }
+                entries.push_back({storedPath, id});
+            }
+            if (entries.empty()) {
+                return result;
+            }
+            dialog->show(std::move(entries), [this](std::size_t stillMissing) {
+                Log::info("[MissingAssets] Dialog dismissed with " + std::to_string(stillMissing) +
+                          " asset(s) still missing");
+            });
+        }
+    }
     return result;
 }
 

@@ -3,6 +3,7 @@
 
 #include "WindowPanel.h"
 #include "TrackManager.h"
+#include <chrono>
 #include "../AestraUI/Widgets/UnitRow.h"
 #include "../AestraUI/Widgets/UnitColorPicker.h"
 #include "NUIComponent.h"
@@ -25,6 +26,9 @@ public:
 
     /** @brief Render the Arsenal panel and unit rows. */
     void onRender(AestraUI::NUIRenderer& renderer) override;
+    /** @brief Drag-hover ghost: dashed "new unit" outline while dragging a
+     *  sample over empty Arsenal space. */
+    void renderDragPreview(AestraUI::NUIRenderer& renderer);
     /** @brief Relayout the panel after a resize. */
     void onResize(int width, int height) override;
     /** @brief Advance Arsenal playback state and UI sync. */
@@ -86,6 +90,11 @@ public:
     void setOnSampleDroppedToUnit(std::function<void(UnitID, const std::string&)> cb) { m_onSampleDroppedToUnit = cb; }
     /** @brief Set the callback fired when unit selection changes. */
     void setOnSelectedUnitChanged(std::function<void(UnitID)> cb) { m_onSelectedUnitChanged = std::move(cb); }
+
+    /** @brief Fired while the user clicks/drags the progress header to cue the playhead (#831). */
+    void setOnPositionScrubbed(std::function<void(double beat, bool active)> cb) {
+        m_onPositionScrubbed = std::move(cb);
+    }
     /** @brief Set the callback used to activate playback before editing. */
     void setOnRequestPlaybackActivation(std::function<void()> cb) { m_onRequestPlaybackActivation = std::move(cb); }
     /** @brief Set the callback fired when the active pattern is edited. */
@@ -94,6 +103,10 @@ public:
     void setOnActivePatternChanged(std::function<void(PatternID)> cb) { m_onActivePatternChanged = std::move(cb); }
     /** @brief Get the currently selected unit identifier. */
     UnitID getSelectedUnitId() const { return m_selectedUnitId; }
+
+    void setOnPreferredHeightChanged(std::function<void(float)> callback) {
+        m_onPreferredHeightChanged = std::move(callback);
+    }
 
 private:
     std::shared_ptr<TrackManager> m_trackManager;
@@ -119,10 +132,14 @@ private:
     float m_targetScrollY = 0.0f;
     float m_gridScrollX = 0.0f; // Shared horizontal step-grid scroll (header + all rows)
     bool m_gridFollowSuspended = false; // User scrolled away while playing; stop chasing them
+    // Drag-hover ghost state (sample over empty Arsenal space → new-unit outline)
+    bool m_dragPreviewActive = false;
+    AestraUI::NUIPoint m_dragPreviewPos;
+    std::string m_dragPreviewName;
     bool m_fitToWidth = true; // Fit whole loop to width vs readable-min + scroll
     int m_stepCount = 16; // Default step count
     void layoutUnits();
-    void scrollGridBy(float deltaPx); // Clamp + broadcast the shared grid scroll
+    void scrollGridBy(float deltaPx, bool userScroll = true); // Clamp + broadcast the shared grid scroll
     float computeGridMaxScrollX() const;
     void followGridPlayhead(); // Keep the playing bar in view unless the user scrolled away
     
@@ -133,9 +150,15 @@ private:
     void drawProgressHeader(AestraUI::NUIRenderer& renderer, const AestraUI::NUIRect& bounds);
     void drawCommandHeader(AestraUI::NUIRenderer& renderer);
     int calculateCurrentStep(); // Calculate step from TrackManager clock
+
+    // Progress-header scrubbing helpers (#831).
+    double headerLengthBeats() const;
+    double headerBeatAtX(const AestraUI::NUIRect& bounds, float x) const;
+    void headerScrubTo(const AestraUI::NUIRect& bounds, float x);
     int computeLoopStepCount() const; // Steps spanning the full active-pattern loop (4/beat)
     int beatsPerBar() const; // Time-signature numerator from the timeline clock
     void adjustPatternBars(int deltaBars);
+    void adjustPatternSteps(int deltaBars);
     void createUnitOfType(UnitType type);
     void drawUnitTypePicker(AestraUI::NUIRenderer& renderer);
 
@@ -151,6 +174,8 @@ private:
     };
     std::optional<PatternClipboard> m_clipboard;
     UnitID m_selectedUnitId = 0; // Currently selected unit for copy/paste
+    UnitID m_selectionUnitId = 0; // Unit owning the current step selection (survives row rebuilds)
+    std::vector<int> m_selectedSteps; // Selected step indices for m_selectionUnitId
 
     void createLayout();
     void onAddUnit();
@@ -173,6 +198,10 @@ private:
     std::function<void(UnitID, const std::string&)> m_onPluginDroppedToUnit;
     std::function<void(UnitID, const std::string&)> m_onSampleDroppedToUnit;
     std::function<void(UnitID)> m_onSelectedUnitChanged;
+    std::function<void(double beat, bool active)> m_onPositionScrubbed;
+    bool m_headerScrubbing{false};
+    double m_headerScrubBeat{0.0};
+    std::function<void(float)> m_onPreferredHeightChanged;
     std::function<void()> m_onRequestPlaybackActivation;
     std::function<void(PatternID)> m_onPatternEdited;
     std::function<void(PatternID)> m_onActivePatternChanged;
@@ -180,6 +209,10 @@ private:
     bool m_showUnitTypePicker = false;
     AestraUI::NUIRect m_addUnitButtonRect{};
     AestraUI::NUIRect m_fitToggleRect{};
+    AestraUI::NUIRect m_fitModeRect{};
+    AestraUI::NUIRect m_scrollModeRect{};
+    float m_scrollIndicatorAlpha = 0.0f;
+    std::chrono::steady_clock::time_point m_lastUserGridScroll{};
     AestraUI::NUIRect m_commandHeaderRect{};
     AestraUI::NUIRect m_progressHeaderRect{};
     AestraUI::NUIRect m_listViewportRect{}; // Visible area for unit rows (scroll clip + hit-test)
@@ -187,6 +220,9 @@ private:
     AestraUI::NUIRect m_barsDecrementRect{};
     AestraUI::NUIRect m_barsValueRect{};
     AestraUI::NUIRect m_barsIncrementRect{};
+    AestraUI::NUIRect m_stepsDecrementRect{};
+    AestraUI::NUIRect m_stepsValueRect{};
+    AestraUI::NUIRect m_stepsIncrementRect{};
 };
 
 } // namespace Audio

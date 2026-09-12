@@ -21,6 +21,7 @@ namespace AestraUI {
 
 class NUIContextMenu;
 class NUITextInput;
+class NUIPlatformBridge;
 
 /**
  * File type enumeration for proper icon display
@@ -105,6 +106,9 @@ public:
     bool onMouseEvent(const NUIMouseEvent& event) override;
     bool onKeyEvent(const NUIKeyEvent& event) override;
     void onMouseLeave() override;
+
+    /** @brief Set the platform bridge for hover cursor styling (grab on rows). */
+    void setPlatformBridge(NUIPlatformBridge* bridge) { m_platformBridge = bridge; }
     
     // File browser functionality
     void setCurrentPath(const std::string& path);
@@ -253,6 +257,12 @@ public:
     void registerContentView(BrowserNavAction action, const std::shared_ptr<NUIComponent>& component);
     void setContentViewsEnabled(bool enabled);
     NUIRect getContentViewBounds() const;
+
+    /// Programmatically select a navigation entry — same pipeline as clicking
+    /// it (content view swap, nav callback), minus hit-testing. Lets host
+    /// surfaces (e.g. the mixer plugin dropdown's "Browse all plugins") open a
+    /// specific library section.
+    void selectNavAction(BrowserNavAction action);
 
     void setOnNavActionSelected(std::function<void(BrowserNavAction)> callback) { onNavActionSelected_ = callback; }
 
@@ -422,6 +432,7 @@ public:
 	    // Hover state
 	    int hoveredIndex_;
 	    NUIPoint lastMousePos_{0.0f, 0.0f};
+	    NUIPlatformBridge* m_platformBridge = nullptr;
     
 	    // Search/filter state
 	    std::shared_ptr<NUITextInput> searchInput_; // Replaced searchQuery_, searchBoxFocused_, searchCaretBlinkTime_, searchCaretVisible_
@@ -499,6 +510,7 @@ public:
     bool sortAscending_;
     
     // Icons
+    std::shared_ptr<NUIIcon> m_searchIcon;
     std::shared_ptr<NUIIcon> folderIcon_;
     std::shared_ptr<NUIIcon> folderOpenIcon_;
     std::shared_ptr<NUIIcon> audioFileIcon_;
@@ -524,7 +536,6 @@ public:
     NUIColor textColor_;
     NUIColor selectedColor_;
     NUIColor hoverColor_;
-    NUIColor borderColor_;
     
     // Navigation history
     std::vector<std::string> navHistory_;

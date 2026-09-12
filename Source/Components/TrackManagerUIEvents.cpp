@@ -46,6 +46,15 @@ bool TrackManagerUI::onMouseEvent(const AestraUI::NUIMouseEvent& event) {
     AestraUI::NUIRect bounds = getBounds();
     AestraUI::NUIPoint localPos(event.position.x - bounds.x, event.position.y - bounds.y);
 
+    // Active marquee owns every mouse event until release (#847), and routes
+    // before EVERY other gesture handler: the minimap consumes in-bounds
+    // releases even when idle, and a loop-handle press during a foreign-button
+    // marquee would start a loop drag whose release the marquee then eats —
+    // both strand a gesture.
+    if (m_marquee.active()) {
+        return handleSelectionBoxMouse(event, localPos);
+    }
+
     // Fix for "Sticky Drag": Route events to any track that is currently dragging automation
     // regardless of whether the mouse is inside its bounds.
     for (auto& track : m_trackUIComponents) {
@@ -84,6 +93,11 @@ bool TrackManagerUI::onMouseEvent(const AestraUI::NUIMouseEvent& event) {
 
     // Handle toolbar clicks (icons only, not dropdowns - they handled themselves above)
     if (event.pressed && event.button == AestraUI::NUIMouseButton::Left) {
+        // Loop markers outrank toolbar icons (their grab zones can overlap a
+        // button when a handle is scrolled over the corner column).
+        if (tryBeginLoopHandleDrag(event, localPos)) {
+            return true;
+        }
         if (handleToolbarClick(event.position)) {
             return true;
         }
@@ -135,17 +149,23 @@ bool TrackManagerUI::onMouseEvent(const AestraUI::NUIMouseEvent& event) {
         return true;
     }
 
-    // Layout constants
-    float headerHeight = kTimelineHeaderHeight;
+    // Layout constants — the time band is minimap row + ruler row.
     float rulerHeight = kTimelineRulerHeight;
-    float horizontalScrollbarHeight = kTimelineHorizontalScrollbarHeight;
-    AestraUI::NUIRect rulerRect(0, headerHeight + horizontalScrollbarHeight, bounds.width, rulerHeight);
+    float minimapHeight = kTimelineMinimapHeight;
+    AestraUI::NUIRect rulerRect(0, minimapHeight, bounds.width, rulerHeight);
 
     // Track area (below ruler)
-    float trackAreaTop = headerHeight + horizontalScrollbarHeight + rulerHeight;
+    float trackAreaTop = kTimelineTimeBandHeight;
     AestraUI::NUIRect trackArea(0, trackAreaTop, bounds.width, bounds.height - trackAreaTop);
 
-    bool isInRuler = rulerRect.contains(localPos);
+    // The toolbar dock occupies the ruler row's left corner; presses there are
+    // button hits, never ruler scrub/loop gestures. The corner cell's empty
+    // remainder is dead space too: ruler gestures start at the plane edge, so
+    // a click between the last button and the grid cannot scrub the playhead.
+    const float rulerContentStartX = timelineGridStartX(
+        0.0f, AestraUI::NUIThemeManager::getInstance().getLayoutDimensions().trackControlsWidth);
+    const bool isInRuler = rulerRect.contains(localPos) && localPos.x >= rulerContentStartX &&
+                           !m_toolbarCornerBounds.contains(event.position);
     bool isInTrackArea = trackArea.contains(localPos);
 
     if (handleTimelineWheel(event, localPos, isInRuler, isInTrackArea)) {
@@ -198,12 +218,9 @@ bool TrackManagerUI::handleTrackSeamSelect(const AestraUI::NUIMouseEvent& event,
         return false;
     }
 
-    const float headerHeight = kTimelineHeaderHeight;
-    const float rulerHeight = kTimelineRulerHeight;
-    const float horizontalScrollbarHeight = kTimelineHorizontalScrollbarHeight;
-    const float trackAreaTop = headerHeight + horizontalScrollbarHeight + rulerHeight;
+    const float trackAreaTop = kTimelineTimeBandHeight;
     if (localPos.y < trackAreaTop) {
-        return false; // header / ruler / horizontal scrollbar
+        return false; // ruler / minimap band
     }
 
     const float stride = static_cast<float>(m_trackHeight + m_trackSpacing);
@@ -365,113 +382,162 @@ bool TrackManagerUI::handleSelectionBoxMouse(const AestraUI::NUIMouseEvent& even
     // Marquee selection is owned by the visible Multi-Select tool. Supporting
     // both buttons preserves the timeline's established right-drag gesture;
     // outside this tool, right-click remains reserved for context menus.
-    const bool selectionButton = event.button == AestraUI::NUIMouseButton::Left ||
-                                 event.button == AestraUI::NUIMouseButton::Right;
-    const bool startSelectionBox = event.pressed && selectionButton &&
-                                   m_currentTool == PlaylistTool::MultiSelect;
+    const bool selectionButton =
+        event.button == AestraUI::NUIMouseButton::Left || event.button == AestraUI::NUIMouseButton::Right;
+    const auto marqueeButton = static_cast<Aestra::Components::MarqueeButton>(event.button);
 
-    if (startSelectionBox && !m_isDrawingSelectionBox) {
-        float headerHeight = kTimelineHeaderHeight;
-        float rulerHeight = kTimelineRulerHeight;
-        float horizontalScrollbarHeight = kTimelineHorizontalScrollbarHeight;
-        float trackAreaTop = headerHeight + horizontalScrollbarHeight + rulerHeight;
-
-        // Only start selection box in track area
-        if (localPos.y > trackAreaTop) {
-            m_isDrawingSelectionBox = true;
-            m_selectionBoxStart = event.position;
-            m_selectionBoxEnd = event.position;
-            m_selectionBoxButton = event.button;
-
-            // Note: System cursor is always hidden by Main.cpp custom cursor system
-            return true;
-        }
-    }
-
-    // Update selection box while dragging
-    if (m_isDrawingSelectionBox) {
+    // An active marquee owns every mouse event until the button that began it
+    // releases (#847): moves, foreign buttons, and hover state cannot escape
+    // or end someone else's drag. The machine filters endpoint changes to
+    // pointer moves and the initiating button's release.
+    if (m_marquee.ownsEvent()) {
+        float targetX = event.position.x;
+        float targetY = event.position.y;
         if (m_window) {
             // Calculate constrained cursor position
             auto& themeManager = AestraUI::NUIThemeManager::getInstance();
             const auto& layout = themeManager.getLayoutDimensions();
 
-            float headerHeight = kTimelineHeaderHeight;
-            float rulerHeight = kTimelineRulerHeight;
-            float horizontalScrollbarHeight = kTimelineHorizontalScrollbarHeight;
             float controlAreaWidth = layout.trackControlsWidth;
             float scrollbarWidth = kTimelineScrollbarWidth;
 
             AestraUI::NUIRect globalBounds = getBounds();
 
-
-
-            float gridTopLocal = globalBounds.y + headerHeight + rulerHeight + horizontalScrollbarHeight;
+            float gridTopLocal = globalBounds.y + kTimelineTimeBandHeight;
             float gridLeftLocal = globalBounds.x + controlAreaWidth + kTimelineGridInsetX;
             float gridRightLocal = globalBounds.x + globalBounds.width - scrollbarWidth; // Corrected width calc
             float gridBottomLocal = globalBounds.y + globalBounds.height;                // Full height down
 
-            // Clamp event position (window-local) to grid area
-            float targetX = safeClampFloat(event.position.x, gridLeftLocal, gridRightLocal);
-            float targetY = safeClampFloat(event.position.y, gridTopLocal, gridBottomLocal);
-
-            // Apply bounds to internal selection logic
-            m_selectionBoxEnd = {targetX, targetY};
-
-            // Force physical cursor to match the clamped position. setCursorPosition
-            // takes WINDOW-RELATIVE coords (targetX/Y are already window-local); the
-            // backend converts to screen. (Previously added the window offset, which
-            // is wrong under the window-relative cursor contract.)
-            m_window->setCursorPosition((int)targetX, (int)targetY);
-        } else {
-            m_selectionBoxEnd = event.position;
+            // Clamp event position (window-local) to grid area. The selection
+            // logic uses the clamped point; the physical cursor is left alone —
+            // warping it every move made the pointer fight the synthetic
+            // motion events it generated (felt like an app hang, #847).
+            targetX = safeClampFloat(event.position.x, gridLeftLocal, gridRightLocal);
+            targetY = safeClampFloat(event.position.y, gridTopLocal, gridBottomLocal);
         }
 
-        // Only the release matching the button that began the marquee may
-        // finalize it; this prevents the other button from ending a drag.
-        const bool endSelectionBox = event.released && event.button == m_selectionBoxButton;
+        // A bridge-generated event (focus-loss release, re-resolution) ends
+        // the gesture WITHOUT applying a selection the user never made.
+        if (event.synthetic) {
+            m_marquee.finalize();
+            return true;
+        }
 
-        if (endSelectionBox) {
-            // Calculate selection rectangle
-            float minX = std::min(m_selectionBoxStart.x, m_selectionBoxEnd.x);
-            float maxX = std::max(m_selectionBoxStart.x, m_selectionBoxEnd.x);
-            float minY = std::min(m_selectionBoxStart.y, m_selectionBoxEnd.y);
-            float maxY = std::max(m_selectionBoxStart.y, m_selectionBoxEnd.y);
+        // The machine consumes every owned event; endpoint changes only on
+        // Move kinds and the initiating button's Release. Wheel, enter/leave
+        // and synthetic events map to Other and cannot move the band.
+        Aestra::Components::MarqueeEventKind kind;
+        switch (event.type) {
+        case AestraUI::NUIMouseEventType::Move:
+        case AestraUI::NUIMouseEventType::Drag:
+            kind = Aestra::Components::MarqueeEventKind::Move;
+            break;
+        case AestraUI::NUIMouseEventType::Down:
+        case AestraUI::NUIMouseEventType::DoubleClick:
+            kind = Aestra::Components::MarqueeEventKind::Press;
+            break;
+        case AestraUI::NUIMouseEventType::Up:
+            kind = Aestra::Components::MarqueeEventKind::Release;
+            break;
+        default:
+            kind = Aestra::Components::MarqueeEventKind::Other; // Scroll, Enter, Leave, None
+            break;
+        }
+        if (m_marquee.onEvent(kind, marqueeButton, targetX, targetY)) {
+            const AestraUI::NUIRect selectionRect(m_marquee.rectMinX(), m_marquee.rectMinY(), m_marquee.rectWidth(),
+                                                  m_marquee.rectHeight());
 
-            AestraUI::NUIRect selectionRect(minX, minY, maxX - minX, maxY - minY);
-
-            // Select all tracks that intersect with selection box
-            clearSelection();
+            // Clip-level box selection (#848, "the future is now"): intersect
+            // the band with every visible clip; fall back to track rows when
+            // no clip was boxed.
+            std::vector<ClipInstanceID> boxed;
             for (auto& trackUI : m_trackUIComponents) {
-                if (trackUI->getBounds().intersects(selectionRect)) {
-                    selectTrack(trackUI.get(), true);
+                if (!trackUI)
+                    continue;
+                for (const auto& [clipId, clipRect] : trackUI->getAllClipBounds()) {
+                    if (selectionRect.intersects(clipRect)) {
+                        boxed.push_back(clipId);
+                    }
                 }
             }
 
+            // One modifier contract shared with clip/track/seam selection:
+            // toggle wins over shift, and the platform toggle key applies.
+            const bool toggleModifier = (event.modifiers & AestraUI::NUIModifiers::Ctrl) ||
+                                        (event.modifiers & AestraUI::NUIModifiers::Super);
+            const TrackSelectionIntent intent = trackSelectionIntentForModifierState(
+                toggleModifier, event.modifiers & AestraUI::NUIModifiers::Shift);
+
+            if (intent == TrackSelectionIntent::Replace) {
+                clearSelection();
+                clearClipSelection();
+            }
+
+            if (!boxed.empty()) {
+                selectClips(boxed, intent);
+            } else {
+                for (auto& trackUI : m_trackUIComponents) {
+                    if (trackUI->getBounds().intersects(selectionRect)) {
+                        selectTrack(trackUI.get(), intent != TrackSelectionIntent::Toggle);
+                    }
+                }
+            }
+
+            // Lane selection follows the FULL resulting clip selection (#853
+            // round 1): retained clips from a modifier marquee keep their
+            // owning lanes highlighted too.
+            if (m_trackManager && !m_clipSelection.empty()) {
+                auto& playlist = m_trackManager->getPlaylistModel();
+                if (intent == TrackSelectionIntent::Replace) {
+                    m_trackSelection.clear();
+                }
+                m_clipSelection.forEachClip([&](const ClipInstanceID& clipId) {
+                    const PlaylistLaneID laneId = playlist.findClipLane(clipId);
+                    if (laneId.isValid() && !m_trackSelection.contains(laneId)) {
+                        m_trackSelection.apply(laneId,
+                                               intent == TrackSelectionIntent::Replace
+                                                   ? TrackSelectionIntent::Add
+                                                   : intent);
+                    }
+                });
+                syncTrackSelectionView();
+            }
+
+            Log::info("Selection box completed: " +
+                      std::string(m_clipSelection.empty()
+                                      ? "0 clips"
+                                      : std::to_string(m_clipSelection.size()) + " clips"));
+
             // Note: System cursor is always hidden by Main.cpp custom cursor system
 
-            m_isDrawingSelectionBox = false;
-            m_selectionBoxButton = AestraUI::NUIMouseButton::None;
+            m_marquee.finalize();
             invalidateCache();
-
-            Log::info("Selection box completed, selected " + std::to_string(m_selectedTracks.size()) + " tracks");
         }
 
-        invalidateCache();
+        // The rubber band draws outside the playlist FBO cache; rebuilding the
+        // whole timeline every move made multi-select drag a per-move full
+        // re-render (#847). Finalize invalidates once above.
         return true;
+    }
+
+    // A marquee-button press in the track area starts a new drag.
+    if (event.pressed && selectionButton && m_currentTool == PlaylistTool::MultiSelect) {
+        const float trackAreaTop = kTimelineTimeBandHeight;
+        if (m_marquee.begin(true, marqueeButton, event.position.x, event.position.y,
+                            localPos.y > trackAreaTop)) {
+            // Note: System cursor is always hidden by Main.cpp custom cursor system
+            return true;
+        }
     }
     return false;
 }
 
 bool TrackManagerUI::handleTimelineWheel(const AestraUI::NUIMouseEvent& event, const AestraUI::NUIPoint& localPos, bool isInRuler, bool isInTrackArea) {
     const AestraUI::NUIRect bounds = getBounds();
-    const float headerHeight = kTimelineHeaderHeight;
-    const float rulerHeight = kTimelineRulerHeight;
-    const float horizontalScrollbarHeight = kTimelineHorizontalScrollbarHeight;
     // Mouse wheel handling
     if (event.wheelDelta != 0.0f && (isInRuler || isInTrackArea)) {
         const bool shiftHeld = (event.modifiers & AestraUI::NUIModifiers::Shift);
         const bool ctrlHeld = (event.modifiers & AestraUI::NUIModifiers::Ctrl);
-        const bool capsHeld = (event.modifiers & AestraUI::NUIModifiers::CapsLock);
 
         if (isInRuler || ctrlHeld) {
             // ZOOM: ruler wheel or Ctrl+wheel.
@@ -519,8 +585,8 @@ bool TrackManagerUI::handleTimelineWheel(const AestraUI::NUIMouseEvent& event, c
 
             invalidateCache(); // Full cache invalidation for zoom changes
             return true;
-        } else if (isInTrackArea && (shiftHeld || capsHeld)) {
-            // HORIZONTAL SCROLL: Shift/Caps+wheel (and synthetic Shift from laptop horizontal wheel).
+        } else if (isInTrackArea && shiftHeld) {
+            // HORIZONTAL SCROLL: Shift+wheel (and synthetic Shift from laptop horizontal wheel).
             auto& themeManager = AestraUI::NUIThemeManager::getInstance();
             const float controlAreaWidth = themeManager.getLayoutDimensions().trackControlsWidth;
             const float gridStartX = controlAreaWidth + kTimelineGridInsetX;
@@ -543,7 +609,7 @@ bool TrackManagerUI::handleTimelineWheel(const AestraUI::NUIMouseEvent& event, c
             m_targetScrollOffset += scrollDelta;
 
             // Clamp scroll offset
-            float viewportHeight = bounds.height - headerHeight - rulerHeight - horizontalScrollbarHeight;
+            float viewportHeight = bounds.height - kTimelineTimeBandHeight;
 
             const float laneCount = static_cast<float>(m_trackUIComponents.size());
             float totalContentHeight = laneCount * (m_trackHeight + m_trackSpacing);
@@ -563,46 +629,31 @@ bool TrackManagerUI::handleTimelineWheel(const AestraUI::NUIMouseEvent& event, c
 
 bool TrackManagerUI::handleRulerPress(const AestraUI::NUIMouseEvent& event, const AestraUI::NUIPoint& localPos, bool isInRuler) {
     // === RULER INTERACTION: Loop markers, Playhead scrubbing OR timeline selection ===
-    if (isInRuler) {
+    // Loop handles may sit left of the plane edge when scrolled (the range can
+    // intersect the viewport while a handle renders over the toolbar corner's
+    // dead zone). They stay hoverable/grabbable anywhere in the ruler row;
+    // scrub, selection, and click-seek remain confined to right of that edge.
+    const bool inRulerRow =
+        localPos.y >= kTimelineMinimapHeight && localPos.y < kTimelineTimeBandHeight;
+    if (isInRuler || (inRulerRow && m_hasRulerSelection)) {
         auto& themeManager = AestraUI::NUIThemeManager::getInstance();
         const auto& layout = themeManager.getLayoutDimensions();
         float controlAreaWidth = layout.trackControlsWidth;
         float gridStartX = controlAreaWidth + kTimelineGridInsetX;
 
         // === LOOP MARKER INTERACTION (highest priority) ===
+        // Hover tracking lives in tryBeginLoopHandleDrag so the pre-toolbar
+        // dispatch path and this path share one hit-test/grab contract.
         if (m_hasRulerSelection) {
-            // Calculate marker positions
-            float loopStartX =
-                gridStartX + (static_cast<float>(m_loopStartBeat) * m_pixelsPerBeat) - m_timelineScrollOffset;
-            float loopEndX =
-                gridStartX + (static_cast<float>(m_loopEndBeat) * m_pixelsPerBeat) - m_timelineScrollOffset;
-
-            const float hitZone = 12.0f; // Hit zone around markers
-            bool nearLoopStart = std::abs(localPos.x - loopStartX) < hitZone;
-            bool nearLoopEnd = std::abs(localPos.x - loopEndX) < hitZone;
-
-            // Update hover states
-            bool wasHoveringStart = m_hoveringLoopStart;
-            bool wasHoveringEnd = m_hoveringLoopEnd;
-            m_hoveringLoopStart = nearLoopStart;
-            m_hoveringLoopEnd = nearLoopEnd;
-
-            if (wasHoveringStart != m_hoveringLoopStart || wasHoveringEnd != m_hoveringLoopEnd) {
-                invalidateCache(); // Hover state changed
+            updateLoopHandleHover(localPos, gridStartX);
+            if (tryBeginLoopHandleDrag(event, localPos)) {
+                return true;
             }
-
-            // Start dragging loop marker
-            if (event.pressed && event.button == AestraUI::NUIMouseButton::Left) {
-                if (nearLoopStart) {
-                    m_isDraggingLoopStart = true;
-                    m_loopDragStartBeat = m_loopStartBeat;
-                    return true;
-                } else if (nearLoopEnd) {
-                    m_isDraggingLoopEnd = true;
-                    m_loopDragStartBeat = m_loopEndBeat;
-                    return true;
-                }
-            }
+        }
+        // Corner dead zone: only marker hover/grab (handled above) is allowed
+        // here — a click in the toolbar cell's empty remainder must never seek.
+        if (!isInRuler) {
+            return false;
         }
 
         // Right-click or Ctrl+Left-click starts ruler selection for looping
@@ -665,8 +716,71 @@ bool TrackManagerUI::handleRulerPress(const AestraUI::NUIMouseEvent& event, cons
     return false;
 }
 
+// Shared loop-handle hit test. Returns true when localPos sits inside a
+// handle's grab zone; hitStart reports which one. Pure — no state mutation.
+bool TrackManagerUI::hitLoopHandle(const AestraUI::NUIPoint& localPos, float gridStartX, bool& hitStart) const {
+    const float loopStartX =
+        gridStartX + (static_cast<float>(m_loopStartBeat) * m_pixelsPerBeat) - m_timelineScrollOffset;
+    const float loopEndX =
+        gridStartX + (static_cast<float>(m_loopEndBeat) * m_pixelsPerBeat) - m_timelineScrollOffset;
+
+    constexpr float hitZone = 12.0f; // Hit zone around markers
+    const bool nearLoopStart = std::abs(localPos.x - loopStartX) < hitZone;
+    const bool nearLoopEnd = std::abs(localPos.x - loopEndX) < hitZone;
+    if (nearLoopStart == nearLoopEnd) {
+        return false; // neither zone, or ambiguous double overlap
+    }
+    hitStart = nearLoopStart;
+    return true;
+}
+
+void TrackManagerUI::updateLoopHandleHover(const AestraUI::NUIPoint& localPos, float gridStartX) {
+    bool hitStart = false;
+    const bool hit = hitLoopHandle(localPos, gridStartX, hitStart);
+    const bool wasHoveringStart = m_hoveringLoopStart;
+    const bool wasHoveringEnd = m_hoveringLoopEnd;
+    m_hoveringLoopStart = hit && hitStart;
+    m_hoveringLoopEnd = hit && !hitStart;
+    if (wasHoveringStart != m_hoveringLoopStart || wasHoveringEnd != m_hoveringLoopEnd) {
+        invalidateCache(); // Hover state changed
+    }
+}
+
+bool TrackManagerUI::tryBeginLoopHandleDrag(const AestraUI::NUIMouseEvent& event,
+                                            const AestraUI::NUIPoint& localPos) {
+    // Loop markers outrank toolbar icons: a handle scrolled over the corner
+    // must stay draggable even where its grab zone overlaps a button.
+    if (!event.pressed || event.button != AestraUI::NUIMouseButton::Left) {
+        return false;
+    }
+    if (!m_playlistVisible || !m_hasRulerSelection) {
+        return false;
+    }
+    if (localPos.y < kTimelineMinimapHeight || localPos.y >= kTimelineTimeBandHeight) {
+        return false;
+    }
+
+    auto& themeManager = AestraUI::NUIThemeManager::getInstance();
+    float controlAreaWidth = themeManager.getLayoutDimensions().trackControlsWidth;
+    float gridStartX = controlAreaWidth + kTimelineGridInsetX;
+
+    updateLoopHandleHover(localPos, gridStartX);
+
+    bool hitStart = false;
+    if (!hitLoopHandle(localPos, gridStartX, hitStart)) {
+        return false;
+    }
+    if (hitStart) {
+        m_isDraggingLoopStart = true;
+        m_loopDragStartBeat = m_loopStartBeat;
+    } else {
+        m_isDraggingLoopEnd = true;
+        m_loopDragStartBeat = m_loopEndBeat;
+    }
+    return true;
+}
+
 bool TrackManagerUI::handleRulerSelectionDrag(const AestraUI::NUIMouseEvent& event, const AestraUI::NUIPoint& localPos) {
-    // Handle ruler selection dragging
     if (m_isDraggingRulerSelection) {
         auto& themeManager = AestraUI::NUIThemeManager::getInstance();
         const auto& layout = themeManager.getLayoutDimensions();
@@ -871,10 +985,7 @@ bool TrackManagerUI::handleSplitToolClick(const AestraUI::NUIMouseEvent& event, 
         float controlAreaWidth = layout.trackControlsWidth;
         float gridStartX = controlAreaWidth + kTimelineGridInsetX;
 
-        float headerHeight = kTimelineHeaderHeight;
-        float rulerHeight = kTimelineRulerHeight;
-        float horizontalScrollbarHeight = kTimelineHorizontalScrollbarHeight;
-        float trackAreaTop = headerHeight + horizontalScrollbarHeight + rulerHeight;
+        float trackAreaTop = kTimelineTimeBandHeight;
 
         AestraUI::NUIRect gridBounds(bounds.x + gridStartX, bounds.y + trackAreaTop,
                                      bounds.width - controlAreaWidth - 20.0f, bounds.height - trackAreaTop);
@@ -922,13 +1033,14 @@ bool TrackManagerUI::onKeyEvent(const AestraUI::NUIKeyEvent& event) {
         }
 
         if ((event.keyCode == AestraUI::NUIKeyCode::Delete || event.keyCode == AestraUI::NUIKeyCode::Backspace) &&
-            m_selectedClipId.isValid()) {
+            (m_selectedClipId.isValid() || !m_clipSelection.empty())) {
             deleteSelectedClip();
             return true;
         }
 
         if (event.keyCode == AestraUI::NUIKeyCode::Escape &&
-            (m_selectedClipId.isValid() || !m_selectedTracks.empty())) {
+            (m_selectedClipId.isValid() || !m_selectedTracks.empty() || !m_clipSelection.empty())) {
+            clearClipSelection();
             selectClip(ClipInstanceID{});
             clearSelection();
             return true;
@@ -939,10 +1051,13 @@ bool TrackManagerUI::onKeyEvent(const AestraUI::NUIKeyEvent& event) {
         // Clipboard (Ctrl+C/V/X/D)
         if (event.modifiers & AestraUI::NUIModifiers::Ctrl) {
             if (event.keyCode == AestraUI::NUIKeyCode::A) {
-                selectAllTracks();
+                // #848: Ctrl+A promotes to clip selection; tracks-only remains
+                // the fallback for an empty timeline.
+                selectAllClips();
                 return true;
             }
-            if (event.keyCode == AestraUI::NUIKeyCode::X && m_selectedClipId.isValid()) {
+            if (event.keyCode == AestraUI::NUIKeyCode::X &&
+                (m_selectedClipId.isValid() || !m_clipSelection.empty())) {
                 cutSelectedClip();
                 return true;
             }
@@ -952,6 +1067,12 @@ bool TrackManagerUI::onKeyEvent(const AestraUI::NUIKeyEvent& event) {
             }
             if (event.keyCode == AestraUI::NUIKeyCode::V && hasClipboardClip()) {
                 pasteClipboardAtCursor();
+                return true;
+            }
+            // Ctrl+B: duplicate the whole selection (#848; matches the Arsenal grid).
+            if (event.keyCode == AestraUI::NUIKeyCode::B &&
+                (m_selectedClipId.isValid() || !m_clipSelection.empty())) {
+                duplicateSelectedClip();
                 return true;
             }
             if (event.keyCode == AestraUI::NUIKeyCode::D && m_selectedClipId.isValid()) {

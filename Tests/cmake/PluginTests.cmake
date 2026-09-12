@@ -245,6 +245,42 @@ target_include_directories(EffectChainInstanceIdentityTest PRIVATE
 add_test(NAME EffectChainInstanceIdentityTest COMMAND EffectChainInstanceIdentityTest)
 set_tests_properties(EffectChainInstanceIdentityTest PROPERTIES LABELS "audio;plugins;automation;regression;contract:plugins")
 
+# FD-16: read-only automation presence aggregation (per-channel curve counts
+# and target masks over playlist lanes). Unassigned mixerChannelId 0 matches
+# nothing — zero is unassigned, never master.
+add_executable(AutomationPresenceTest AestraAudio/AutomationPresenceTest.cpp)
+target_link_libraries(AutomationPresenceTest PRIVATE AestraAudio)
+target_include_directories(AutomationPresenceTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include/Plugin
+    ${CMAKE_SOURCE_DIR}/AestraCore/include
+)
+add_test(NAME AutomationPresenceTest COMMAND AutomationPresenceTest)
+set_tests_properties(AutomationPresenceTest PROPERTIES LABELS "audio;automation;mixer;contract:audio")
+
+# FD-14 recovery regression: the loader's clear block must empty the track
+# table (clearAllTracks) or every restored ownership entry collides with
+# surviving default tracks and the migration doubles the table.
+add_executable(TrackRestoreAfterClearTest AestraAudio/TrackRestoreAfterClearTest.cpp)
+target_link_libraries(TrackRestoreAfterClearTest PRIVATE AestraAudio)
+target_include_directories(TrackRestoreAfterClearTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include
+    ${CMAKE_SOURCE_DIR}/AestraCore/include
+)
+add_test(NAME TrackRestoreAfterClearTest COMMAND TrackRestoreAfterClearTest)
+set_tests_properties(TrackRestoreAfterClearTest PROPERTIES LABELS "audio;regression;contract:durability")
+
+# #747: varispeed tempo-fit math — span/rate relationship, varispeed clamp,
+# input guards. Pitch-follows-tempo is definitional, not a defect.
+add_executable(ClipFitToBarsTest AestraAudio/ClipFitToBarsTest.cpp)
+target_link_libraries(ClipFitToBarsTest PRIVATE AestraAudio)
+target_include_directories(ClipFitToBarsTest PRIVATE
+    ${CMAKE_SOURCE_DIR}/AestraAudio/include
+    ${CMAKE_SOURCE_DIR}/AestraCore/include
+)
+add_test(NAME ClipFitToBarsTest COMMAND ClipFitToBarsTest)
+set_tests_properties(ClipFitToBarsTest PROPERTIES LABELS "audio;automation;contract:audio")
+
 # Automation Identity Resolution Test (contract I2/I3/I8/I10)
 add_executable(AutomationIdentityResolutionTest AestraAudio/AutomationIdentityResolutionTest.cpp)
 target_link_libraries(AutomationIdentityResolutionTest PRIVATE AestraAudio)

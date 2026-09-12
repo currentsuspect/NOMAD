@@ -18,14 +18,15 @@
 #include "../AestraAudio/include/Models/UnitManager.h"
 #include "../AestraUI/Core/NUIComponent.h"
 #include "../AestraUI/Core/NUIThemeSystem.h"
+#include "../AestraUI/Helpers/MixerPluginListPolicy.h"
 #include "../AestraUI/Widgets/UIRoutingMap.h"
 #include "Events/Connection.h"
-#include "NUILabel.h"
 #include "KeyboardNoteInput.h"
+#include "MusicalTypingController.h"
+#include "NUILabel.h"
 #include "NUISegmentedControl.h"
 #include "OverlayLayer.h"
 #include "PatternSource.h"
-#include "MusicalTypingController.h"
 #include "TransportBar.h"
 #include "ViewTypes.h"
 
@@ -150,6 +151,15 @@ public:
     bool onKeyEvent(const AestraUI::NUIKeyEvent& event) override; // [NEW] Global shortcuts
     /** @brief Release notes held by computer-keyboard musical typing. */
     void releaseMusicalTypingNotes();
+
+    /**
+     * @brief Refresh every panel after an undo/redo/history mutation.
+     *
+     * Single source of truth for the post-history refresh: the keyboard
+     * shortcut path, the Edit-menu items, the window-manager shortcuts and the
+     * history panel must all invalidate the same surfaces.
+     */
+    void refreshAfterHistoryChange();
 
     /** @brief Open or close a specific workspace overlay. */
     void setViewOpen(Aestra::Audio::ViewType view, bool open);
@@ -336,6 +346,8 @@ public:
 
     /** @brief Refresh the visible plugin list in the browser. */
     void refreshPluginList();
+    /** @brief Map the scanned plugins onto the mixer dropdown's entry type. */
+    std::vector<Aestra::Components::MixerPluginEntry> buildMixerCatalogEntries() const;
     /** @brief Refresh track/pattern/arsenal UI after an external project load. */
     void refreshProjectViews();
 
@@ -482,9 +494,12 @@ private:
     bool m_patternClipPreviewActive{false};
     Aestra::Audio::PatternID m_previewPatternId{};
     bool m_countInEnabled{false};
-    bool m_pendingCountIn{false};
     bool m_forcedMetronomeForCountIn{false};
-    double m_pendingCountInTargetSeconds{0.0};
+    // Count-in completion gate: the engine applies the start command
+    // asynchronously (a block or two), so the app waits for the metronome to
+    // be observed ACTIVE before treating its absence as "finished".
+    bool m_countInFullyStarted{false};
+    int m_countInStartupFrames{0};
 
     std::shared_ptr<Aestra::Audio::SampleEditorPanel> m_sampleEditorPanel;
     std::shared_ptr<Aestra::Audio::AudioClipEditorPanel> m_audioClipEditorPanel;

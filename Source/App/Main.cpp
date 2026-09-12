@@ -1,5 +1,12 @@
 // © 2025 Aestra Studios — All Rights Reserved. Licensed for personal & educational use only.
-#define AESTRA_BUILD_ID "Aestra-2025-Core"
+// AESTRA_VERSION_STRING comes from the build (see the top-level CMakeLists).
+// The fallback only applies to a translation unit compiled outside it, and says
+// so rather than inventing a number that would then be quoted back in a bug
+// report as though it meant something.
+#ifndef AESTRA_VERSION_STRING
+#define AESTRA_VERSION_STRING "unknown"
+#endif
+#define AESTRA_BUILD_ID "Aestra " AESTRA_VERSION_STRING " (Core)"
 
 /**
  * @file Main.cpp
@@ -228,9 +235,10 @@ int main(int argc, char* argv[]) {
     // which explicitly joins the thread during the deterministic shutdown
     // sequence, before static destruction.
     //
-    // Remaining static singletons (AppLifecycle, AudioThreadStats,
-    // Preferences, NUIThemeManager) have trivial or default destructors
-    // and are safe to destroy in unspecified order.
+    // Remaining static singletons (AppLifecycle, Preferences, NUIThemeManager)
+    // have trivial or default destructors and are safe to destroy in
+    // unspecified order. AudioThreadStats was also on this list until T-2
+    // (#257) removed it.
     //
     // If a future shutdown hang reappears, re-enable quick_exit as a
     // last-resort fallback and add targeted diagnostics to identify the

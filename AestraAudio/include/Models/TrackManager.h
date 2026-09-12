@@ -1,12 +1,13 @@
 #pragma once
-#include "../Core/GraphDirtyReason.h"
 #include "../Commands/AddClipCommand.h"
+#include "../Commands/AttachLaneToTrackCommand.h"
 #include "../Commands/CommandHistory.h"
 #include "../Commands/CommandTransaction.h"
 #include "../Commands/CreateLaneCommand.h"
 #include "../Core/AudioCommandQueue.h"
 #include "../Core/AudioTelemetry.h"
 #include "../Core/ChannelSlotMap.h"
+#include "../Core/GraphDirtyReason.h"
 #include "../Core/MixerChannel.h"
 #include "../DSP/ContinuousParamBuffer.h"
 #include "../DSP/PanLaw.h"
@@ -19,6 +20,7 @@
 #include "PatternManager.h"
 #include "PlaylistModel.h"
 #include "SourceManager.h"
+#include "Track.h"
 #include "UnitManager.h"
 
 #include <algorithm>
@@ -28,17 +30,18 @@
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
-#include <unordered_set>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iomanip>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <mutex>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace Aestra {
@@ -61,6 +64,7 @@ public:
         std::atomic<uint64_t> totalCapturedFrames{0};
         std::atomic<bool> hasStarted{false};
         int inputIndex{-1};
+        uint64_t trackId{0};
     };
 
     struct RtInputMonitorRoute {
@@ -320,8 +324,7 @@ public:
             return false;
         }
         const size_t clamped = std::min(index, m_channels.size());
-        m_channels.insert(m_channels.begin() + static_cast<std::ptrdiff_t>(clamped),
-                          std::move(channel));
+        m_channels.insert(m_channels.begin() + static_cast<std::ptrdiff_t>(clamped), std::move(channel));
         requestAudioGraphRebuild(GraphDirtyReason::TrackStructureChanged);
         m_modified.store(true, std::memory_order_relaxed);
         if (!m_channelSlotMap) {
@@ -338,14 +341,6 @@ public:
      * @param index Channel index inside the current track list.
      * @return Mutable track pointer or nullptr when out of range.
      */
-    MixerChannel* getTrack(size_t index) { return getChannel(index); }
-    /**
-     * @brief Get a track by zero-based index.
-     * @param index Channel index inside the current track list.
-     * @return Const track pointer or nullptr when out of range.
-     */
-    const MixerChannel* getTrack(size_t index) const { return getChannel(index); }
-
     /** @brief Find a mixer channel by stable ID. */
     MixerChannel* getChannelById(uint32_t channelId) {
         const size_t index = findChannelIndexById(channelId);
@@ -356,6 +351,209 @@ public:
     const MixerChannel* getChannelById(uint32_t channelId) const {
         const size_t index = findChannelIndexById(channelId);
         return index < m_channels.size() ? m_channels[index].get() : nullptr;
+    }
+
+    // ==============================
+    // Tracks (FD-14 ownership layer)
+    // ==============================
+
+    /**
+     * @brief Create a Track owning the given lane (FD-14).
+     *
+     * Ownership is by stable ID: the lane's trackId is set explicitly and the
+     * track's laneIds list is appended. Never positional.
+     *
+     * @param laneId The lane the track owns (must exist).
+     * @param name Track name.
+     * @param channelId Routing destination (MASTER_MIXER_CHANNEL_ID default).
+     * @return The new track's stable id, or 0 on failure.
+     */
+    uint64_t createTrack(PlaylistLaneID laneId, const std::string& name, uint32_t channelId = MASTER_MIXER_CHANNEL_ID) {
+        auto* lane = m_playlistModel.getLane(laneId);
+        if (!lane) {
+            return 0;
+        }
+        Track track;
+        track.trackId = m_nextTrackId++;
+        track.name = name.empty() ? ("Track " + std::to_string(track.trackId)) : name;
+        track.channelId = channelId;
+        track.laneIds.push_back(laneId);
+        track.activeLaneId = laneId;
+        lane->trackId = track.trackId;
+        m_tracks[track.trackId] = std::move(track);
+        return track.trackId;
+    }
+
+    /** @brief Remove a Track entirely. Owned lanes are detached (trackId=0)
+     *  and remain in the playlist. Returns false when the track is missing.
+     *  Used by CreateTrackWithLaneCommand::undo() so a dropped or added track
+     *  never survives the undo of the lane it was created with. */
+    bool removeTrack(uint64_t trackId) {
+        auto it = m_tracks.find(trackId);
+        if (it == m_tracks.end()) {
+            return false;
+        }
+        for (const auto& laneId : it->second.laneIds) {
+            if (auto* lane = m_playlistModel.getLane(laneId)) {
+                lane->trackId = 0;
+            }
+        }
+        m_tracks.erase(it);
+        requestAudioGraphRebuild(GraphDirtyReason::TrackStructureChanged);
+        return true;
+    }
+
+    /** @brief Find a Track by stable ID. */
+    Track* getTrack(uint64_t trackId) {
+        auto it = m_tracks.find(trackId);
+        return it != m_tracks.end() ? &it->second : nullptr;
+    }
+
+    /** @brief Find a Track by stable ID (const). */
+    const Track* getTrack(uint64_t trackId) const {
+        auto it = m_tracks.find(trackId);
+        return it != m_tracks.end() ? &it->second : nullptr;
+    }
+
+    /** @brief Resolve the Track owning a lane, or nullptr when unowned. */
+    Track* getTrackForLane(PlaylistLaneID laneId) {
+        auto* lane = m_playlistModel.getLane(laneId);
+        if (!lane || lane->trackId == 0) {
+            return nullptr;
+        }
+        return getTrack(lane->trackId);
+    }
+
+    /**
+     * @brief Stable routing channel for a lane's automation defaults:
+     * lane → owning Track → track channelId (FD-14 §15 — never by lane
+     * position). Returns 0 when the lane is unowned, its Track is gone, or
+     * the track's channel does not exist; callers fall back to master.
+     */
+    uint32_t resolveLaneChannelId(PlaylistLaneID laneId) {
+        const Track* track = getTrackForLane(laneId);
+        if (!track) {
+            return 0;
+        }
+        return getChannelById(track->channelId) ? track->channelId : 0;
+    }
+
+    /** @brief Attach an existing lane to a Track (lane created after the
+     *  track, e.g. a recorded take). Returns false when either is invalid. */
+    bool attachLaneToTrack(uint64_t trackId, PlaylistLaneID laneId) {
+        auto* track = getTrack(trackId);
+        auto* lane = m_playlistModel.getLane(laneId);
+        if (!track || !lane) {
+            return false;
+        }
+        lane->trackId = trackId;
+        track->laneIds.push_back(laneId);
+        if (!track->activeLaneId.isValid()) {
+            track->activeLaneId = laneId;
+        }
+        return true;
+    }
+
+    /** @brief Detach a lane from its Track (undo of attachLaneToTrack).
+     *  Returns false when either id is invalid or the lane is not owned by
+     *  the track. */
+    bool detachLaneFromTrack(uint64_t trackId, PlaylistLaneID laneId) {
+        auto* track = getTrack(trackId);
+        auto* lane = m_playlistModel.getLane(laneId);
+        if (!track || !lane || lane->trackId != trackId) {
+            return false;
+        }
+        lane->trackId = 0;
+        auto& lanes = track->laneIds;
+        lanes.erase(std::remove(lanes.begin(), lanes.end(), laneId), lanes.end());
+        if (track->activeLaneId == laneId) {
+            track->activeLaneId = lanes.empty() ? PlaylistLaneID{} : lanes.back();
+        }
+        return true;
+    }
+
+    /** @brief Move an owned lane to a position within its track's lane order
+     *  (undo position fidelity for DeleteLaneCommand). The lane must already
+     *  be owned by the track. Out-of-range targets clamp. */
+    bool moveLaneWithinTrack(uint64_t trackId, PlaylistLaneID laneId, size_t targetIndex) {
+        auto* track = getTrack(trackId);
+        if (!track) {
+            return false;
+        }
+        auto& laneIds = track->laneIds;
+        auto it = std::find(laneIds.begin(), laneIds.end(), laneId);
+        if (it == laneIds.end()) {
+            return false;
+        }
+        const size_t from = static_cast<size_t>(it - laneIds.begin());
+        targetIndex = std::min(targetIndex, laneIds.size() - 1);
+        if (from == targetIndex) {
+            return true;
+        }
+        laneIds.erase(it);
+        laneIds.insert(laneIds.begin() + targetIndex, laneId);
+        return true;
+    }
+
+    /** @brief Set the Track's recording arm state (FD-14 #6: the authoritative
+     *  recording arm lives on the Track). */
+    void setTrackArmed(uint64_t trackId, bool armed) {
+        if (auto* track = getTrack(trackId)) {
+            track->armed = armed;
+        }
+    }
+
+    /** @brief Number of armed Tracks. */
+    size_t getTrackArmedCount() const {
+        size_t count = 0;
+        for (const auto& [id, track] : m_tracks) {
+            (void)id;
+            if (track.armed) {
+                ++count;
+            }
+        }
+        return count;
+    }
+
+    /** @brief All tracks in stable-id order (for serialization/UI). */
+    std::vector<Track*> getTracks() {
+        std::vector<Track*> result;
+        result.reserve(m_tracks.size());
+        for (auto& [id, track] : m_tracks) {
+            (void)id;
+            result.push_back(&track);
+        }
+        // Deterministic serialization order (unordered_map iteration is not).
+        std::sort(result.begin(), result.end(), [](const Track* a, const Track* b) { return a->trackId < b->trackId; });
+        return result;
+    }
+
+    /**
+     * @brief Restore a Track from serialized state (project load).
+     *
+     * Rebuilds the exact stable ids from the file — never mints fresh ones —
+     * and re-attaches the owned lanes by their ids. Advances the minting
+     * counter past the restored id.
+     */
+    bool restoreTrack(const Track& restored) {
+        if (restored.trackId == 0 || m_tracks.count(restored.trackId) != 0) {
+            return false;
+        }
+        Track track = restored;
+        track.laneIds.clear();
+        for (const auto& laneId : restored.laneIds) {
+            auto* lane = m_playlistModel.getLane(laneId);
+            if (!lane) {
+                continue;
+            }
+            lane->trackId = restored.trackId;
+            track.laneIds.push_back(laneId);
+        }
+        m_tracks[restored.trackId] = std::move(track);
+        if (m_nextTrackId <= restored.trackId) {
+            m_nextTrackId = restored.trackId + 1;
+        }
+        return true;
     }
 
     /**
@@ -485,6 +683,22 @@ public:
     void setMaxRecordingSeconds(double seconds) { m_maxRecordingSeconds = std::max(1.0, seconds); }
 
     /**
+     * @brief Device latency to compensate on the record path (T-6).
+     *
+     * Takes land late by the input latency (signal arrival) plus the output
+     * latency (the backing the performer played along to was late by it).
+     * commitRecordingTake shifts placement earlier by the sum. The provider
+     * is queried live at take commit (main thread) so every reconfiguration
+     * — buffer size, device switch, sample rate, from any caller — is
+     * reflected without per-path push discipline; a push model went stale
+     * on exactly the settings-page paths that bypass the controller.
+     * Unset means zero (no behavior change; headless mains never register).
+     */
+    void setRecordLatencyProvider(std::function<void(double& inputMs, double& outputMs)> provider) {
+        m_recordLatencyProvider = std::move(provider);
+    }
+
+    /**
      * @brief Set input channel count
      * @param count Number of hardware input channels currently available.
      */
@@ -526,14 +740,14 @@ public:
 
     /**
      * @brief Get a copy of the currently captured waveform for one armed track.
-     * @param channelId Target channel identifier.
+     * @param trackId Target track identifier.
      * @param recordingData Output buffer for captured samples.
      * @param startBeat Output start beat for the returned capture.
      * @return True when captured waveform data exists for the target track.
      */
-    bool getRecordingDataSnapshot(uint32_t channelId, std::vector<float>& recordingData, double& startBeat) {
+    bool getRecordingDataSnapshot(uint64_t trackId, std::vector<float>& recordingData, double& startBeat) {
         std::lock_guard<std::mutex> lock(m_recordingMutex);
-        auto it = m_recordingCaptures.find(channelId);
+        auto it = m_recordingCaptures.find(trackId);
         if (it == m_recordingCaptures.end() || !it->second) {
             return false;
         }
@@ -545,6 +759,84 @@ public:
 
         startBeat = it->second->startBeat.load(std::memory_order_acquire);
         return true;
+    }
+
+    /**
+     * @brief Decimated min/max peaks of the live capture ring (#846, #849).
+     *
+     * Bounded alternative to getRecordingDataSnapshot for per-frame drawing:
+     * walks the ring once and emits at most @p maxPoints min/max pairs instead
+     * of copying every sample (the full copy moved ~3 MB per track per frame
+     * at default recording limits — a measurable render-heat contributor).
+     * @p ringSamplesOut receives the logical ring length so callers can map
+     * bucket index → time.
+     */
+    bool getRecordingDataPeaks(uint64_t trackId, uint32_t maxPoints, std::vector<float>& peaksOut,
+                               double& startBeat, size_t& ringSamplesOut) {
+        if (maxPoints == 0) {
+            return false;
+        }
+        std::lock_guard<std::mutex> lock(m_recordingMutex);
+        auto it = m_recordingCaptures.find(trackId);
+        if (it == m_recordingCaptures.end() || !it->second) {
+            return false;
+        }
+        RecordingCapture* capture = it->second.get();
+        const size_t size = capture->size.load(std::memory_order_acquire);
+        if (size == 0) {
+            return false;
+        }
+        startBeat = capture->startBeat.load(std::memory_order_acquire);
+        ringSamplesOut = size;
+
+        peaksOut.clear();
+        peaksOut.reserve(static_cast<size_t>(maxPoints) * 2);
+        const size_t head = capture->headIndex.load(std::memory_order_relaxed);
+        // Ceiling division: every sample lands in a bucket so the ring tail
+        // can never be dropped by rounding.
+        const size_t stride = (size + maxPoints - 1) / maxPoints;
+        if (stride == 0) {
+            return false;
+        }
+        for (size_t offset = 0; offset < size && peaksOut.size() < static_cast<size_t>(maxPoints) * 2;
+             offset += stride) {
+            const size_t span = std::min(stride, size - offset);
+            // Seed from the first sample: zero-init would report a false bound
+            // for positive-only or negative-only buckets. Non-finite input
+            // samples (driver glitches) are skipped rather than poisoning the
+            // pair — they are a render/capture concern, not signal.
+            bool seeded = false;
+            float lo = 0.0f;
+            float hi = 0.0f;
+            for (size_t k = 0; k < span; ++k) {
+                const float v =
+                    capture->samples[(head + offset + k) % capture->capacity].load(std::memory_order_relaxed);
+                if (!std::isfinite(v)) {
+                    continue;
+                }
+                if (!seeded) {
+                    lo = v;
+                    hi = v;
+                    seeded = true;
+                    continue;
+                }
+                lo = std::min(lo, v);
+                hi = std::max(hi, v);
+            }
+            if (!seeded) {
+                // All-non-finite span: emit a NaN pair as an explicit skipped
+                // slot. Dropping the pair entirely would shift every later
+                // bucket's screen position left (#854 round 2) — the renderer
+                // ignores non-finite pairs, so timing stays correct.
+                constexpr float nanPair = std::numeric_limits<float>::quiet_NaN();
+                peaksOut.push_back(nanPair);
+                peaksOut.push_back(nanPair);
+                continue;
+            }
+            peaksOut.push_back(lo);
+            peaksOut.push_back(hi);
+        }
+        return !peaksOut.empty();
     }
 
     /**
@@ -603,7 +895,16 @@ public:
      * @brief Set playhead position
      * @param position New UI playhead position in seconds.
      */
-    void setPosition(double position) { m_position.store(position, std::memory_order_relaxed); }
+    void setPosition(double position) {
+        m_position.store(position, std::memory_order_relaxed);
+        // A cue change during the count-in lead-in must keep the deferred
+        // capture aligned — otherwise capture waits for a beat playback will
+        // never reach (scrub-during-count-in desync, #845).
+        if (m_countInPending.load(std::memory_order_relaxed) &&
+            m_recordArmed.load(std::memory_order_relaxed) && hasArmedTracks()) {
+            pinDeferredRecordingStartBeat(reachableDeferredStart(secondsToBeats(std::max(0.0, position))));
+        }
+    }
     /**
      * @brief Update the UI playhead from the live audio engine.
      * @param position Current transport position in seconds.
@@ -665,7 +966,19 @@ public:
      */
     bool isUserScrubbing() const { return m_userScrubbing.load(std::memory_order_relaxed); }
 
-    void processInput(const float* input, uint32_t frames, AudioTelemetry* telemetry = nullptr) {
+    /**
+     * @brief Feed an interleaved hardware input block to armed captures.
+     *
+     * @param transportFrame Engine transport frame this block belongs to, when
+     *        the caller knows it (the audio-thread input callback reads
+     *        AudioEngine::getGlobalSamplePos). The capture start beat is
+     *        derived from it instead of the UI-cached position, which lags by
+     *        buffers. kUnknownTransportFrame keeps the legacy behavior
+     *        (existing callers/tests are unaffected).
+     */
+    static constexpr uint64_t kUnknownTransportFrame = UINT64_MAX;
+    void processInput(const float* input, uint32_t frames, AudioTelemetry* telemetry = nullptr,
+                      uint64_t transportFrame = kUnknownTransportFrame) {
         if (!m_isCapturing.load(std::memory_order_relaxed) || !input || frames == 0 || m_inputChannelCount <= 0) {
             return;
         }
@@ -690,11 +1003,16 @@ public:
 
         const auto& routes = m_recordingCaptureSnapshots[snapIdx];
 
-        const double captureBeat = getCurrentTransportBeat();
-        const bool hasDeferredStart = m_hasDeferredRecordingStart.load(std::memory_order_acquire);
-        const double deferredStartBeat = m_deferredRecordingStartBeat.load(std::memory_order_relaxed);
         const double bpm = std::max(1.0, m_playlistModel.getBPM());
         const double sampleRate = std::max(1.0, m_inputSampleRate > 0.0 ? m_inputSampleRate : m_outputSampleRate);
+        // T-6: prefer the engine's authoritative frame over the UI-cached
+        // position for capture placement; the latter lags by audio buffers.
+        const double captureBeat =
+            (transportFrame != kUnknownTransportFrame)
+                ? (static_cast<double>(transportFrame) / sampleRate) * bpm / 60.0
+                : getCurrentTransportBeat();
+        const bool hasDeferredStart = m_hasDeferredRecordingStart.load(std::memory_order_acquire);
+        const double deferredStartBeat = m_deferredRecordingStartBeat.load(std::memory_order_relaxed);
         bool capturedAnyChannel = false;
         bool startedDeferredCapture = false;
 
@@ -921,6 +1239,24 @@ public:
     }
 
     /**
+     * @brief Re-schedule timeline pattern instances from the current playhead
+     *        without stopping playback.
+     *
+     * Called after mutations that add or change timeline clips while playing
+     * (e.g. duplication): the scheduler's instance set was built at play() time
+     * and would otherwise only notice the new clip at the next loop wrap.
+     * Already-played material stays silent; anything ahead of the playhead is
+     * picked up immediately.
+     */
+    void refreshTimelinePatternInstances() {
+        if (!m_isPlaying.load(std::memory_order_relaxed) || m_patternMode.load(std::memory_order_relaxed)) {
+            return;
+        }
+        m_patternPlaybackEngine.clearScheduledInstances();
+        scheduleTimelinePatternInstances(m_position.load(std::memory_order_relaxed));
+    }
+
+    /**
      * @brief Start transport playback from the current UI position.
      */
     void play() {
@@ -958,14 +1294,23 @@ public:
     }
 
     /**
-     * @brief Stop transport playback and return to the stored cue/start position.
+     * @brief Stop transport playback and reset the playhead to 0.
+     *
+     * Single stop lands at 0 authoritatively (v0.7.1 T-8): the reset rides the
+     * transport command itself — the audio-thread drain is the single position
+     * authority, and a UI-side rewind after the fact races it (8714ede9 rule).
+     * The stored cue is dropped (play() cannot resurrect a scrubbed position)
+     * and any display override is cleared (a count-in leftover must not pin
+     * the UI to a stale position on a soft stop).
+     * Pause keeps its own preserve-sentinel path (#590) and is untouched.
      */
     void stop() {
         m_isPlaying.store(false, std::memory_order_relaxed);
         m_isPaused.store(false, std::memory_order_relaxed);
-        const double playStartPosition = m_playStartPosition.load(std::memory_order_relaxed);
-        m_position.store(playStartPosition, std::memory_order_relaxed);
-        pushTransportCommand(0.0f, playStartPosition);
+        m_playStartPosition.store(0.0, std::memory_order_relaxed);
+        m_position.store(0.0, std::memory_order_relaxed);
+        clearDisplayPositionOverride();
+        pushTransportCommand(0.0f, 0.0);
     }
 
     /**
@@ -992,7 +1337,7 @@ public:
     void scheduleTimelineForOfflineRender(double playStartPositionSeconds = 0.0) {
         scheduleTimelinePatternInstances(playStartPositionSeconds);
     }
-    bool hasArmedTracks() const { return getArmedTrackCount() > 0; }
+    bool hasArmedTracks() const { return getTrackArmedCount() > 0; }
 
     /**
      * @brief Toggle record-arm state and manage capture session lifetime.
@@ -1013,6 +1358,9 @@ public:
         } else {
             m_recordingCaptureAccepting.store(false, std::memory_order_release);
             clearNextCapturePlacementStartBeat();
+            // Disarmed before capture began: never leave a count-in's deferred
+            // start around for a later, unrelated recording.
+            clearDeferredRecordingStartBeat();
         }
     }
     /**
@@ -1029,6 +1377,169 @@ public:
             return;
         }
         clearDeferredRecordingStartBeat();
+    }
+
+    /**
+     * @brief Pin a deferred-capture beat unconditionally, including beat 0.
+     *
+     * The loop-region clamp (#845) can legitimately resolve to beat 0; going
+     * through setDeferredRecordingStartBeat would treat that as "clear" and
+     * let capture start at whatever frame happens to arrive first.
+     */
+    void pinDeferredRecordingStartBeat(double startBeat) {
+        m_deferredRecordingStartBeat.store(std::max(0.0, startBeat), std::memory_order_relaxed);
+        m_hasDeferredRecordingStart.store(true, std::memory_order_release);
+    }
+
+    /**
+     * @brief Mirror of the engine TIMELINE loop region (beats), for transport
+     *        decisions that must stay reachable inside it (#845).
+     *
+     * The engine wraps any playhead at/past the loop end back into the region;
+     * a deferred recording start pinned outside that region can therefore
+     * never be reached, and capture would skip every block forever.
+     */
+    void setTransportLoopRegion(double startBeats, double endBeats, bool enabled) {
+        m_timelineLoopStart.store(startBeats, std::memory_order_relaxed);
+        m_timelineLoopEnd.store(endBeats, std::memory_order_relaxed);
+        m_timelineLoopEnabled.store(enabled, std::memory_order_relaxed);
+        recomputeEffectiveLoop();
+    }
+
+    /**
+     * @brief Pattern-mode loop override (#845).
+     *
+     * Arsenal playback force-loops [0, patternLength] on the engine. Tracked
+     * SEPARATELY from the timeline region so leaving pattern mode restores
+     * timeline truth — otherwise a later timeline count-in clamps capture to
+     * a stale pattern range.
+     */
+    void setPatternLoopOverride(double startBeats, double endBeats, bool active) {
+        m_patternOverrideActive.store(active, std::memory_order_relaxed);
+        m_patternLoopStart.store(startBeats, std::memory_order_relaxed);
+        m_patternLoopEnd.store(endBeats, std::memory_order_relaxed);
+        recomputeEffectiveLoop();
+    }
+
+    /** @brief Clamp a candidate deferred-capture beat into the effective loop region. */
+    double reachableDeferredStart(double startBeat) const {
+        if (!m_loopEnabled.load(std::memory_order_relaxed)) {
+            return startBeat;
+        }
+        const double loopStart = m_loopStartBeats.load(std::memory_order_relaxed);
+        const double loopEnd = m_loopEndBeats.load(std::memory_order_relaxed);
+        if (!(loopEnd > loopStart)) {
+            return startBeat;
+        }
+        if (startBeat >= loopStart && startBeat < loopEnd) {
+            return startBeat;
+        }
+        return loopStart;
+    }
+
+    /**
+     * @brief Begin the count-in phase ahead of playback/recording.
+     *
+     * The canonical transport contract for count-in: pins the transport to the
+     * requested start position, defers recording capture (when armed) to the
+     * beat where playback will begin — so recorded material is aligned to the
+     * post-count-in position — and starts the engine's metronome count-in
+     * through the command sink. The app polls the engine for count-in
+     * completion and calls completeCountIn() when the metronome finishes.
+     * Count-in is a universal lead-in: it runs before playback whether or not
+     * a take is armed. When recording is armed, the pinned start also defers
+     * capture to the post-count-in beat.
+     * @param beats Number of metronome beats to count (>= 1).
+     * @param startSeconds Transport position playback (and capture) starts at.
+     * @return False when no count-in can start (already pending or rolling).
+     */
+    bool beginCountIn(uint32_t beats, double startSeconds) {
+        if (m_countInPending.load(std::memory_order_relaxed) || m_isPlaying.load(std::memory_order_relaxed)) {
+            return false;
+        }
+        const double clampedStart = std::max(0.0, startSeconds);
+        m_countInPending.store(true, std::memory_order_release);
+        setPlayStartPosition(clampedStart);
+        m_position.store(clampedStart, std::memory_order_relaxed);
+        // Clamp into the active loop region: a cue beyond the loop end would
+        // pin capture to a beat the engine wraps past forever (#845).
+        pinDeferredRecordingStartBeat(reachableDeferredStart(secondsToBeats(clampedStart)));
+        setDisplayPositionOverride(clampedStart);
+        if (m_commandSink) {
+            AudioQueueCommand cmd{};
+            cmd.type = AudioQueueCommandType::MetronomeCountInStart;
+            cmd.value1 = static_cast<float>(std::max<uint32_t>(1, beats));
+            m_commandSink(cmd);
+        }
+        return true;
+    }
+
+    /**
+     * @brief Cancel a pending count-in and drop its deferred capture alignment.
+     */
+    void cancelCountIn() {
+        if (m_commandSink) {
+            AudioQueueCommand cmd{};
+            cmd.type = AudioQueueCommandType::MetronomeCountInStop;
+            m_commandSink(cmd);
+        }
+        clearDeferredRecordingStartBeat();
+        clearDisplayPositionOverride();
+        clearNextCapturePlacementStartBeat();
+        m_countInPending.store(false, std::memory_order_release);
+    }
+
+    /**
+     * @brief Finish the count-in phase and start playback at the pinned
+     *        position. Called by the app once the engine's count-in metronome
+     *        has finished, so recording (when armed) begins exactly where the
+     *        count-in ended.
+     */
+    void completeCountIn() {
+        if (!m_countInPending.load(std::memory_order_relaxed)) {
+            return;
+        }
+        m_countInPending.store(false, std::memory_order_release);
+        clearDisplayPositionOverride();
+        clearNextCapturePlacementStartBeat();
+        if (!m_recordArmed.load(std::memory_order_relaxed) || !hasArmedTracks()) {
+            // No capture will follow this count-in (plain playback). Leaving a
+            // stale deferred start would misalign a later, non-count-in
+            // recording — capture would skip frames to the old count-in beat.
+            clearDeferredRecordingStartBeat();
+        } else {
+            // Re-clamp into the loop region at the moment playback starts: a
+            // cue beyond the loop end would leave capture waiting for a beat
+            // the engine wraps past forever (#845).
+            pinDeferredRecordingStartBeat(
+                reachableDeferredStart(m_deferredRecordingStartBeat.load(std::memory_order_relaxed)));
+        }
+        play();
+    }
+
+    /** @brief True while a count-in is pending (before playback has started). */
+    bool isCountInPending() const { return m_countInPending.load(std::memory_order_acquire); }
+
+    /** @brief Effective loop = pattern override when active, else timeline region. */
+    void recomputeEffectiveLoop() {
+        if (m_patternOverrideActive.load(std::memory_order_relaxed)) {
+            m_loopStartBeats.store(m_patternLoopStart.load(std::memory_order_relaxed),
+                                   std::memory_order_relaxed);
+            m_loopEndBeats.store(m_patternLoopEnd.load(std::memory_order_relaxed), std::memory_order_relaxed);
+            m_loopEnabled.store(true, std::memory_order_release);
+        } else {
+            m_loopStartBeats.store(m_timelineLoopStart.load(std::memory_order_relaxed),
+                                   std::memory_order_relaxed);
+            m_loopEndBeats.store(m_timelineLoopEnd.load(std::memory_order_relaxed), std::memory_order_relaxed);
+            m_loopEnabled.store(m_timelineLoopEnabled.load(std::memory_order_relaxed),
+                                std::memory_order_release);
+        }
+    }
+
+    /** @brief Convert a transport position in seconds to beats at the current tempo. */
+    double secondsToBeats(double seconds) const {
+        const double bpm = std::max(1.0, m_playlistModel.getBPM());
+        return std::max(0.0, seconds) * bpm / 60.0;
     }
 
     void clearDeferredRecordingStartBeat() {
@@ -1071,6 +1582,21 @@ public:
     }
 
     /**
+     * @brief Pause Arsenal/pattern playback: hard-cut voices while preserving
+     *        the playhead for resume.
+     *
+     * The engine keeps its own authoritative position via the #590
+     * preserve-sentinel — routing pause through stop() would trigger T-8's
+     * single-stop reset (land at 0) and break resume. The cue and m_position
+     * are deliberately untouched: playPatternInArsenal(-1) resumes from
+     * m_position, which the UI keeps synced to the engine during playback.
+     */
+    void pauseArsenalPlayback() {
+        pause();
+        m_patternPlaybackEngine.clearScheduledInstances();
+    }
+
+    /**
      * @brief Access the undo/redo command history.
      * @return Mutable command history instance.
      */
@@ -1087,7 +1613,8 @@ public:
      */
     void markModified() {
         m_modified.store(true, std::memory_order_relaxed);
-        if (m_onModified) m_onModified();
+        if (m_onModified)
+            m_onModified();
     }
     /**
      * @brief Override the project modified flag.
@@ -1104,6 +1631,14 @@ public:
      * Used by the application layer to forward dirty state to AutosaveManager.
      */
     void setOnModified(std::function<void()> callback) { m_onModified = std::move(callback); }
+    /**
+     * @brief Register a callback invoked once a recorded take has committed.
+     * Fires after the take lane, clip, and ownership transaction are final, on
+     * the same (control) thread the commit ran on. The application layer uses
+     * this to refresh view-only state such as track rows.
+     * @param callback Receives the lane id the take was committed onto.
+     */
+    void setOnTakeCommitted(std::function<void(PlaylistLaneID)> callback) { m_onTakeCommitted = std::move(callback); }
 
     using GraphDirtyReason = Aestra::Audio::GraphDirtyReason;
 
@@ -1120,31 +1655,23 @@ public:
     /**
      * @brief Check if a rebuild has been requested (non-consuming).
      */
-    bool hasPendingGraphRebuild() const {
-        return m_graphDirty.load(std::memory_order_acquire);
-    }
+    bool hasPendingGraphRebuild() const { return m_graphDirty.load(std::memory_order_acquire); }
 
     /**
      * @brief Get the request generation counter (non-consuming).
      */
-    uint64_t graphRebuildRequestGeneration() const {
-        return m_requestGeneration.load(std::memory_order_relaxed);
-    }
+    uint64_t graphRebuildRequestGeneration() const { return m_requestGeneration.load(std::memory_order_relaxed); }
 
     /**
      * @brief Get the last reason for a rebuild request (non-consuming).
      */
-    GraphDirtyReason lastGraphDirtyReason() const {
-        return m_lastReason.load(std::memory_order_relaxed);
-    }
+    GraphDirtyReason lastGraphDirtyReason() const { return m_lastReason.load(std::memory_order_relaxed); }
 
     /**
      * @brief Consume and clear pending rebuild request.
      * ONLY PlaybackGraphController should call this.
      */
-    bool consumePendingGraphRebuild() {
-        return m_graphDirty.exchange(false, std::memory_order_acq_rel);
-    }
+    bool consumePendingGraphRebuild() { return m_graphDirty.exchange(false, std::memory_order_acq_rel); }
 
     /**
      * @brief Push effect chain snapshots for all channels.
@@ -1235,6 +1762,23 @@ public:
     }
 
     /**
+     * @brief Clear all Tracks and reset the id counter (project-load reset).
+     *
+     * Loading a project must start from an empty track table: restoreTrack()
+     * rejects ids already present, so surviving default/previous tracks made
+     * every restored ownership entry collide — the loader's migration then
+     * re-created each track under a fresh id, doubling the table on every
+     * recovery load (found via 50× "Failed to restore track" on a 50-lane
+     * autosave, 2026-08-25). Lanes are cleared separately by the playlist;
+     * call this before restoring a file's tracks.
+     */
+    void clearAllTracks() {
+        m_tracks.clear();
+        m_nextTrackId = 1;
+        requestAudioGraphRebuild(GraphDirtyReason::TrackStructureChanged);
+    }
+
+    /**
      * @brief Access the transport clock used by timeline and pattern playback.
      * @return Mutable timeline clock.
      */
@@ -1308,6 +1852,15 @@ public:
     }
 
     /**
+     * @brief Pattern notes changed while playing (Arsenal grid / Piano Roll edits).
+     *
+     * Unlike preparePatternForArsenal() this is NOT a rewind: queued events for
+     * deleted steps drop out and additions enter at their exact frame, without
+     * re-firing notes that are currently sounding (#823).
+     */
+    void patternContentEdited() { m_patternPlaybackEngine.patternContentEdited(); }
+
+    /**
      * @brief Clear solo state across all mixer channels.
      */
     void clearAllSolos() {
@@ -1340,7 +1893,8 @@ private:
         const uint32_t inactive = 1u - m_activeRecordingCaptureSnapshot.load(std::memory_order_relaxed);
         auto& snap = m_recordingCaptureSnapshots[inactive];
         uint32_t count = 0;
-        for (const auto& [channelId, capture] : m_recordingCaptures) {
+        for (const auto& [captureTrackId, capture] : m_recordingCaptures) {
+            (void)captureTrackId;
             if (!capture) {
                 continue;
             }
@@ -1404,10 +1958,9 @@ private:
             Log::info("[TimelinePattern] pattern=" + std::to_string(instance.patternId.value) +
                       " clipStart=" + std::to_string(instance.startBeat) +
                       " sourceOffset=" + std::to_string(instance.sourceOffsetBeats) +
-                      " schedStart=" + std::to_string(instance.patternStartBeat()) + " " + routeSummary);
-            m_patternPlaybackEngine.schedulePatternInstance(instance.patternId, instance.patternStartBeat(),
-                                                            instanceId++, instance.sourceOffsetBeats,
-                                                            instance.durationBeats);
+                      " schedStart=" + std::to_string(instance.startBeat) + " " + routeSummary);
+            m_patternPlaybackEngine.schedulePatternInstance(instance.patternId, instance.startBeat, instanceId++,
+                                                            instance.sourceOffsetBeats, instance.durationBeats);
         }
     }
 
@@ -1427,8 +1980,12 @@ private:
         m_recordingCaptureAccepting.store(false, std::memory_order_release);
         m_recordingCaptures.clear();
         const size_t maxSamplesPerCapture = maxRecordingSamplesPerCapture();
-        for (const auto& channel : m_channels) {
-            if (!channel || !channel->isArmed()) {
+        for (const auto& [trackId, track] : m_tracks) {
+            if (!track.armed) {
+                continue;
+            }
+            auto* channel = getChannelById(track.channelId);
+            if (!channel) {
                 continue;
             }
             const int requestedInput = channel->getInputChannelIndex();
@@ -1444,7 +2001,8 @@ private:
             capture->totalCapturedFrames.store(0, std::memory_order_relaxed);
             capture->hasStarted.store(false, std::memory_order_relaxed);
             capture->inputIndex = requestedInput;
-            m_recordingCaptures[channel->getChannelId()] = std::move(capture);
+            capture->trackId = trackId;
+            m_recordingCaptures[trackId] = std::move(capture);
         }
         m_recordingSessionStartBeat = getCurrentTransportBeat();
         m_recordingSessionUsesPlacementOverride = m_hasNextCapturePlacementStartBeat.load(std::memory_order_relaxed);
@@ -1463,7 +2021,7 @@ private:
         m_recordingCaptureAccepting.store(true, std::memory_order_release);
         m_isCapturing.store(true, std::memory_order_relaxed);
         publishRecordingCaptureSnapshot();
-        Log::info("[TrackManager] Recording session started. Armed tracks: " + std::to_string(getArmedTrackCount()) +
+        Log::info("[TrackManager] Recording session started. Armed tracks: " + std::to_string(getTrackArmedCount()) +
                   ", input channels: " + std::to_string(m_inputChannelCount));
     }
 
@@ -1491,7 +2049,7 @@ private:
         m_recordingCaptureRouteCounts[1].store(0, std::memory_order_release);
         m_activeRecordingCaptureSnapshot.store(0, std::memory_order_release);
 
-        std::unordered_map<uint32_t, std::unique_ptr<RecordingCapture>> captures;
+        std::unordered_map<uint64_t, std::unique_ptr<RecordingCapture>> captures;
         double sessionStartBeat = 0.0;
         bool sessionUsesPlacementOverride = false;
         {
@@ -1510,22 +2068,33 @@ private:
         Log::info("[TrackManager] Recording session stopped. Captured tracks: " + std::to_string(captures.size()));
 
         for (const auto& [channelId, capture] : captures) {
+            (void)channelId;
             if (capture) {
-                commitRecordingTake(channelId, *capture, sessionStartBeat, sessionUsesPlacementOverride);
+                commitRecordingTake(capture->trackId, *capture, sessionStartBeat, sessionUsesPlacementOverride);
             }
         }
     }
 
-    void commitRecordingTake(uint32_t channelId, const RecordingCapture& capture, double fallbackStartBeat,
+    void commitRecordingTake(uint64_t trackId, const RecordingCapture& capture, double fallbackStartBeat,
                              bool forcePlacementStartBeat) {
+        auto* track = getTrack(trackId);
+        if (!track) {
+            Log::warning("[TrackManager] Could not resolve Track for recorded take: " + std::to_string(trackId));
+            return;
+        }
+        const uint32_t channelId = track->channelId;
         std::vector<float> capturedSamples = copyCaptureSamples(capture);
         if (capturedSamples.empty()) {
+            // Silent no-op here made "record produced nothing" undiagnosable
+            // (deferred-capture beat unreachable, #845). Say something.
+            Log::warning("[TrackManager] Recorded take on track " + std::to_string(trackId) +
+                         " captured zero samples — capture start was never reached during the take.");
             return;
         }
 
         if (!getChannelById(channelId)) {
             Log::warning("[TrackManager] Could not resolve mixer insert for recorded take " +
-                         std::to_string(channelId));
+                         std::to_string(channelId) + " (track " + std::to_string(trackId) + ")");
             return;
         }
 
@@ -1535,9 +2104,24 @@ private:
         const float conditionedPeak = analyzePeak(conditionedSamples);
 
         const double captureStartBeat = capture.startBeat.load(std::memory_order_acquire);
-        const double startBeat = forcePlacementStartBeat
-                                     ? fallbackStartBeat
-                                     : (captureStartBeat > 0.0 ? captureStartBeat : fallbackStartBeat);
+        double startBeat = forcePlacementStartBeat
+                               ? fallbackStartBeat
+                               : (captureStartBeat > 0.0 ? captureStartBeat : fallbackStartBeat);
+        // T-6: compensate device latency. The captured signal arrived late by
+        // the input latency and was performed against backing heard late by
+        // the output latency, so the take as placed sounds late by the sum.
+        // Shift placement earlier (samples intact); clamp at zero — a take
+        // starting at the very top can only keep a small residual lateness.
+        // Values are pulled live through the provider so buffer/device/rate
+        // reconfigures from any path are reflected at commit time.
+        const double bpm = std::max(1.0, m_playlistModel.getBPM());
+        double latencyInMs = 0.0, latencyOutMs = 0.0;
+        if (m_recordLatencyProvider) {
+            m_recordLatencyProvider(latencyInMs, latencyOutMs);
+        }
+        const double recordLatencyBeats = (std::max(0.0, latencyInMs) + std::max(0.0, latencyOutMs)) / 1000.0 *
+                                          bpm / 60.0;
+        startBeat = std::max(0.0, startBeat - recordLatencyBeats);
         const double durationBeats = framesToBeats(static_cast<double>(conditionedSamples.size()));
         if (durationBeats <= 0.0) {
             return;
@@ -1618,11 +2202,28 @@ private:
             return;
         }
 
+        // The take lane is owned by the recording Track (FD-14): the lane
+        // joins the track in the same undoable step as its creation, so undo
+        // detaches and removes it atomically.
+        auto attachLane = std::make_shared<AttachLaneToTrackCommand>(*this, trackId, laneId);
+        attachLane->execute();
+        auto* ownedLane = m_playlistModel.getLane(laneId);
+        if (!ownedLane || ownedLane->trackId != trackId) {
+            attachLane->undo();
+            addClip->undo();
+            createLane->undo();
+            m_patternManager.removePattern(patternId);
+            Log::error("[TrackManager] Failed to attach recorded take lane to track " + std::to_string(trackId));
+            return;
+        }
+
         auto transaction = std::make_shared<CommandTransaction>("Record Take");
         transaction->add(createLane);
         transaction->add(addClip);
+        transaction->add(attachLane);
         transaction->markExecuted();
         if (!m_commandHistory.pushExecuted(transaction)) {
+            attachLane->undo();
             addClip->undo();
             createLane->undo();
             m_patternManager.removePattern(patternId);
@@ -1636,8 +2237,108 @@ private:
                   std::to_string(channelId) + " at beat " + std::to_string(startBeat) + " with raw peak " +
                   std::to_string(rawPeak) + ", conditioned peak " + std::to_string(conditionedPeak) + ", clip gain " +
                   std::to_string(playbackGain));
+
+        if (m_onTakeCommitted) {
+            m_onTakeCommitted(laneId);
+        }
     }
 
+    /**
+     * @brief Remove recording files that no session can reference anymore.
+     *
+     * Recording lifecycle: captured audio is held in-memory until the take
+     * commits, at which point a WAV is written and a take (source → pattern →
+     * clip) lands on the armed track's lane. A WAV becomes a cleanup candidate
+     * only at session boundaries (project close/new/open, app exit), where the
+     * undo history is being discarded and a redo can no longer resurrect the
+     * take. A candidate is KEPT when:
+     *  - a live lane clip still references it (kept audio is ownable/audible), or
+     *  - keepCheck(path) returns true (the app says an on-disk project still
+     *    references it — a saved project owns its recording assets), or
+     *  - recording is still in progress (the WAV may be mid-write).
+     * Candidates are *.wav files directly under the recording root. Registered
+     * sources pointing at removed files are dropped so a later save never
+     * persists a dangling reference.
+     * @param keepCheck Optional external keep predicate (app-supplied project
+     *        reference check).
+     * @return std::nullopt when the call was refused as realtime misuse (the
+     *         audio thread must never touch the filesystem — callers should log
+     *         and treat it as "not attempted", distinct from a successful
+     *         cleanup that removed zero files). Otherwise the number of files
+     *         removed.
+     */
+public:
+    std::optional<size_t> cleanupOrphanedRecordings(const std::function<bool(const std::string&)>& keepCheck = {}) {
+        namespace fs = std::filesystem;
+        if (reportRealtimeMisuse("TrackManager::cleanupOrphanedRecordings")) {
+            return std::nullopt;
+        }
+        if (m_isCapturing.load(std::memory_order_relaxed)) {
+            return size_t{0};
+        }
+        const fs::path root = recordingRootDirectory();
+        std::error_code ec;
+        if (!fs::exists(root, ec) || !fs::is_directory(root, ec)) {
+            return size_t{0};
+        }
+
+        auto normalized = [](const std::string& p) { return fs::path(p).lexically_normal().generic_string(); };
+
+        std::unordered_set<std::string> keep;
+        const auto markKept = [&](const std::string& p) {
+            if (!p.empty()) {
+                keep.insert(normalized(p));
+            }
+        };
+
+        // Live model: every path a lane clip can reach through pattern → source.
+        for (const auto& laneId : m_playlistModel.getLaneIDs()) {
+            auto* lane = m_playlistModel.getLane(laneId);
+            if (!lane) {
+                continue;
+            }
+            for (const auto& clip : lane->clips) {
+                auto* pattern = m_patternManager.getPattern(clip.patternId);
+                if (!pattern || !pattern->isAudio()) {
+                    continue;
+                }
+                const auto& payload = std::get<AudioSlicePayload>(pattern->payload);
+                if (const auto* source = m_sourceManager.getSource(payload.audioSourceId)) {
+                    markKept(source->getFilePath());
+                }
+            }
+        }
+
+        size_t removed = 0;
+        for (const auto& entry : fs::directory_iterator(root, ec)) {
+            if (!entry.is_regular_file(ec) || entry.path().extension() != ".wav") {
+                continue;
+            }
+            const std::string path = entry.path().string();
+            if (keep.count(normalized(path)) > 0) {
+                continue;
+            }
+            if (keepCheck && keepCheck(path)) {
+                continue;
+            }
+            if (fs::remove(entry.path(), ec)) {
+                ++removed;
+                // Drop the registration so a later save never persists a
+                // dangling recording source.
+                if (const ClipSourceID sid = m_sourceManager.findSourceByPath(path); sid.isValid()) {
+                    m_sourceManager.removeSource(sid);
+                }
+            }
+        }
+
+        if (removed > 0) {
+            Log::info("[TrackManager] Recording cleanup removed " + std::to_string(removed) + " orphaned file(s) from " +
+                      root.string());
+        }
+        return removed;
+    }
+
+private:
     std::string buildRecordingTakePath(uint32_t channelId) const {
         namespace fs = std::filesystem;
         fs::path root = recordingRootDirectory();
@@ -1773,16 +2474,6 @@ private:
         }
     }
 
-    size_t getArmedTrackCount() const {
-        size_t count = 0;
-        for (const auto& channel : m_channels) {
-            if (channel && channel->isArmed()) {
-                ++count;
-            }
-        }
-        return count;
-    }
-
     size_t findChannelIndexById(uint32_t channelId) const {
         for (size_t i = 0; i < m_channels.size(); ++i) {
             if (m_channels[i] && m_channels[i]->getChannelId() == channelId) {
@@ -1838,6 +2529,8 @@ private:
     std::vector<std::unique_ptr<MixerChannel>> m_channels;
     std::unique_ptr<MixerChannel> m_masterChannel;
     uint32_t m_nextChannelId{1};
+    std::unordered_map<uint64_t, Track> m_tracks;
+    uint64_t m_nextTrackId{1};
     PlaylistModel m_playlistModel;
     PatternManager m_patternManager;
     SourceManager m_sourceManager;
@@ -1865,19 +2558,32 @@ private:
     std::atomic<bool> m_isPaused{false};
     std::atomic<bool> m_recordArmed{false};
     std::atomic<bool> m_isCapturing{false};
+    std::atomic<bool> m_countInPending{false};
     std::atomic<bool> m_transportPlayingConfirmed{false};
     std::atomic<bool> m_hasDeferredRecordingStart{false};
     std::atomic<double> m_deferredRecordingStartBeat{0.0};
+    // Effective loop region used by deferred-capture reachability (#845).
+    std::atomic<double> m_loopStartBeats{0.0};
+    std::atomic<double> m_loopEndBeats{0.0};
+    std::atomic<bool> m_loopEnabled{false};
+    // Timeline truth + pattern-mode override, resolved by recomputeEffectiveLoop().
+    std::atomic<double> m_timelineLoopStart{0.0};
+    std::atomic<double> m_timelineLoopEnd{0.0};
+    std::atomic<bool> m_timelineLoopEnabled{false};
+    std::atomic<bool> m_patternOverrideActive{false};
+    std::atomic<double> m_patternLoopStart{0.0};
+    std::atomic<double> m_patternLoopEnd{0.0};
     std::atomic<bool> m_metronomeEnabled{false};
     std::atomic<bool> m_patternMode{false};
     std::atomic<bool> m_userScrubbing{false};
     std::atomic<bool> m_modified{false};
     std::function<void()> m_onModified;
+    std::function<void(PlaylistLaneID)> m_onTakeCommitted;
     std::atomic<bool> m_graphDirty{true}; // Owned by TrackManager, consumed by PlaybackGraphController only
     std::atomic<uint64_t> m_requestGeneration{0};
     std::atomic<GraphDirtyReason> m_lastReason{GraphDirtyReason::TimelineChanged};
     mutable std::mutex m_recordingMutex;
-    std::unordered_map<uint32_t, std::unique_ptr<RecordingCapture>> m_recordingCaptures;
+    std::unordered_map<uint64_t, std::unique_ptr<RecordingCapture>> m_recordingCaptures;
     std::atomic<uint32_t> m_recordingWriters{0};
     std::atomic<bool> m_recordingCaptureAccepting{false};
     std::array<std::atomic<float>, 8> m_inputPeaks{};
@@ -1890,6 +2596,7 @@ private:
     std::array<std::atomic<uint32_t>, 2> m_recordingCaptureRouteCounts{};
     std::atomic<uint32_t> m_activeRecordingCaptureSnapshot{0};
     double m_maxRecordingSeconds{15.0};
+    std::function<void(double& inputMs, double& outputMs)> m_recordLatencyProvider;
     double m_recordingSessionStartBeat{0.0};
     bool m_recordingSessionUsesPlacementOverride{false};
     bool m_recordingNoArmLogged{false};

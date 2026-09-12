@@ -255,7 +255,10 @@ set(AESTRA_AUDIO_CORE_SOURCES
     src/Commands/RenderAudioClipCommand.cpp
     src/Commands/ImportAudioClipCommand.cpp
     src/Commands/AddClipCommand.cpp
+    src/Commands/AttachLaneToTrackCommand.cpp
     src/Commands/CreateLaneCommand.cpp
+    src/Commands/CreateTrackWithLaneCommand.cpp
+    src/Commands/DeleteLaneCommand.cpp
     src/Commands/AddNoteCommand.cpp
     src/Commands/RemoveNoteCommand.cpp
     src/Commands/MoveNoteCommand.cpp
@@ -383,6 +386,7 @@ set(AESTRA_AUDIO_CORE_HEADERS
     include/Commands/AddClipCommand.h
     include/Commands/AddChannelCommand.h
     include/Commands/CreateLaneCommand.h
+    include/Commands/CreateTrackWithLaneCommand.h
     include/Commands/DuplicateClipCommand.h
     include/Commands/MoveClipCommand.h
     include/Commands/RemoveClipCommand.h
@@ -392,6 +396,7 @@ set(AESTRA_AUDIO_CORE_HEADERS
     include/Commands/SetPanCommand.h
     include/Commands/SetMuteCommand.h
     include/Commands/SetSoloCommand.h
+    include/Commands/SetMonitoringCommand.h
     include/Commands/AddNoteCommand.h
     include/Commands/RemoveNoteCommand.h
     include/Commands/MoveNoteCommand.h

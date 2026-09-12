@@ -11,6 +11,8 @@
 #include "Commands/SetMuteCommand.h"
 #include "Commands/SetSoloCommand.h"
 #include "Commands/SetPanCommand.h"
+#include "Commands/SetTrimCommand.h"
+#include "Commands/SetMonitoringCommand.h"
 #include "TrackManager.h"
 #include "PluginManager.h"
 #include "Commands/PluginCommands.h"
@@ -67,9 +69,17 @@ UIMixerPanel::UIMixerPanel(std::shared_ptr<Aestra::MixerViewModel> viewModel,
     m_pluginDropdown->onPluginSelected = [this](const std::string& pluginId, const std::string&) {
         loadPluginToSelectedChannel(pluginId);
     };
-    m_pluginDropdown->onBrowseAllRequested = [this]() {
+    m_pluginDropdown->onBrowseAllRequested = [this](const std::string& searchQuery) {
         if (m_inspector) {
             m_inspector->setActiveTab(UIMixerInspector::Tab::Inserts);
+        }
+        if (onBrowseAllPlugins) {
+            onBrowseAllPlugins(searchQuery);
+        }
+    };
+    m_pluginDropdown->onRequestRefresh = [this]() {
+        if (onCatalogRefresh) {
+            onCatalogRefresh();
         }
     };
     addChild(m_pluginDropdown);
@@ -153,7 +163,7 @@ void UIMixerPanel::refreshChannels()
 
             if (std::abs(newGain - oldGain) > 0.0001f) {
                 m_trackManager->getCommandHistory().pushAndExecute(
-                    std::make_shared<Aestra::Audio::SetVolumeCommand>(*mixerChannel, newGain));
+                    std::make_shared<Aestra::Audio::SetVolumeCommand>(*m_trackManager, *mixerChannel, newGain));
                 Aestra::Log::info("[UIMixerPanel] Fader cmd: " + std::to_string(newDb) + " dB");
             }
         };
@@ -165,7 +175,7 @@ void UIMixerPanel::refreshChannels()
             if (!mixerChannel) return;
 
             m_trackManager->getCommandHistory().pushAndExecute(
-                std::make_shared<Aestra::Audio::SetMuteCommand>(*mixerChannel, muted));
+                std::make_shared<Aestra::Audio::SetMuteCommand>(*m_trackManager, *mixerChannel, muted));
         };
 
         // Wire solo to CommandHistory for undo/redo
@@ -175,7 +185,7 @@ void UIMixerPanel::refreshChannels()
             if (!mixerChannel) return;
 
             m_trackManager->getCommandHistory().pushAndExecute(
-                std::make_shared<Aestra::Audio::SetSoloCommand>(*mixerChannel, soloed));
+                std::make_shared<Aestra::Audio::SetSoloCommand>(*m_trackManager, *mixerChannel, soloed));
         };
 
         // Wire pan to CommandHistory for undo/redo
@@ -185,7 +195,29 @@ void UIMixerPanel::refreshChannels()
             if (!mixerChannel) return;
 
             m_trackManager->getCommandHistory().pushAndExecute(
-                std::make_shared<Aestra::Audio::SetPanCommand>(*mixerChannel, pan));
+                std::make_shared<Aestra::Audio::SetPanCommand>(*m_trackManager, *mixerChannel, pan));
+        };
+
+        // Wire trim to CommandHistory for undo/redo + serialization parity.
+        // The slot index comes from the strip's view model (same buffer the
+        // knob writes for the live RT value).
+        strip->onTrimChanged = [this, chId](float db, uint32_t slotIndex) {
+            if (!m_trackManager) return;
+            auto* mixerChannel = m_trackManager->getChannelById(chId);
+            if (!mixerChannel) return;
+
+            m_trackManager->getCommandHistory().pushAndExecute(
+                std::make_shared<Aestra::Audio::SetTrimCommand>(*m_trackManager, *mixerChannel, slotIndex, db));
+        };
+
+        // Wire input monitoring to CommandHistory for undo/redo + dirty parity
+        strip->onMonitorToggled = [this, chId](bool monitored) {
+            if (!m_trackManager) return;
+            auto* mixerChannel = m_trackManager->getChannelById(chId);
+            if (!mixerChannel) return;
+
+            m_trackManager->getCommandHistory().pushAndExecute(
+                std::make_shared<Aestra::Audio::SetMonitoringCommand>(*m_trackManager, *mixerChannel, monitored));
         };
 
         m_strips.push_back(strip);
@@ -765,10 +797,13 @@ void UIMixerPanel::showPluginDropdown(uint32_t channelId)
     }
     dropX = std::max(dropX, panelBounds.x);
 
+    // The mixer renders in absolute window coordinates end to end (strips and
+    // their children are laid out with the parent origin included), so the
+    // trigger rect needs no local→global conversion here.
     NUIRect anchor{dropX, fxBounds.y, fxBounds.width, fxBounds.height};
 
     m_pluginDropdown->bringToFront();
-    m_pluginDropdown->showAt(anchor, panelBounds.bottom());
+    m_pluginDropdown->showAt(anchor, panelBounds.bottom(), panelBounds.y);
 }
 
 void UIMixerPanel::loadPluginToSelectedChannel(const std::string& pluginId)
