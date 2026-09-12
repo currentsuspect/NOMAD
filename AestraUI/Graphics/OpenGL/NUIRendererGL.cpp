@@ -269,8 +269,28 @@ float sampleTextCoverage(vec2 uv) {
     return clamp(sharpened, 0.0, 1.0);
 }
 
+// The real sRGB transfer, not pow(2.2).
+//
+// GL_FRAMEBUFFER_SRGB encodes with the true sRGB curve on write, so the shader
+// has to decode with its exact inverse or the round trip is lossy. pow(2.2) is
+// close enough above the midpoint and badly wrong near black, because sRGB has
+// a LINEAR TOE below 0.04045 — c/12.92 — where a power curve plunges instead.
+//
+// Measured before this fix, authored greys arrived on screen crushed by roughly
+// 5x in luminance and collapsed into each other:
+//
+//     authored #08090d -> rendered (1,2,4)     should be (8,9,13)
+//     authored #0a0a0a -> rendered (3,3,3)     should be (10,10,10)
+//     authored #101010 -> rendered (8,8,8)     should be (16,16,16)
+//
+// That is why no controlled dark palette was possible: three tones authored six
+// levels apart landed two to five levels apart, bunched at the bottom. It reads
+// as "muddy" rather than as a bug, which is how it survived.
 vec3 srgbToLinear(vec3 c) {
-    return pow(max(c, vec3(0.0)), vec3(2.2));
+    c = max(c, vec3(0.0));
+    vec3 lo = c / 12.92;
+    vec3 hi = pow((c + 0.055) / 1.055, vec3(2.4));
+    return mix(lo, hi, step(vec3(0.04045), c));
 }
 
 void main() {
