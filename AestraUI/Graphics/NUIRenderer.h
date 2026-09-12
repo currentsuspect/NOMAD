@@ -228,7 +228,8 @@ public:
     
     /**
      * Calculate baseline-aligned Y position for vertically centered text.
-     * This accounts for the MSDF renderer's baseline coordinate system.
+     * drawText() places text on its baseline, so this converts a centred rect into
+     * the baseline the glyph atlas expects.
      * 
      * @param rect The rectangle to center text within
      * @param fontSize The font size
@@ -244,7 +245,8 @@ public:
     
     /**
      * Calculate baseline-aligned Y position for vertically centered text using measured size.
-     * This accounts for the MSDF renderer's top-left coordinate system.
+     * Returns a top-left Y rather than a baseline, for the call sites that measure
+     * first and position from the top edge.
      * 
      * @param rect The rectangle to center text within
      * @param fontSize The font size being used

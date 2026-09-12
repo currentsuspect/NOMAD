@@ -189,7 +189,9 @@ set(AESTRAUI_GRAPHICS_SOURCES
     Graphics/NUISVGCache.cpp
 )
 
-# Text rendering removed - using external MSDF text renderer
+# Text rendering lives in NUIRendererGL: a FreeType bitmap glyph atlas, sampled by
+# the inline shader's primitiveID == 4 branch. There is no separate text renderer
+# target, and there is no MSDF anywhere in the tree.
 
 # Create core library (without text rendering - that's OpenGL-specific)
 add_library(AestraUI_Core STATIC
@@ -240,7 +242,7 @@ target_include_directories(AestraUI_Core PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../Source/HUD
 )
 
-# FreeType dependency removed - handled by MSDF text renderer
+# FreeType is required: it is the only glyph rasteriser in the project.
 
 # =============================================================================
 # ThorVG — SVG rasterization engine (vendored)
@@ -309,10 +311,6 @@ if(AESTRAUI_BUILD_OPENGL)
         Graphics/OpenGL/NUIDirtyRegion.cpp
         Graphics/OpenGL/NUIRenderCache.h
         Graphics/OpenGL/NUIRenderCache.cpp
-        Graphics/NUITextRendererSDF.h
-        Graphics/NUITextRendererSDF.cpp
-        Graphics/GlassmorphismPass.h
-        Graphics/GlassmorphismPass.cpp
     )
     
     add_library(AestraUI_OpenGL STATIC

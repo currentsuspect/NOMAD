@@ -2,12 +2,10 @@
 #pragma once
 
 #include "../NUIRenderer.h"
-#include "../NUITextRendererSDF.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include "NUIDirtyRegion.h"
 #include "NUIRenderCache.h"
-#include "../GlassmorphismPass.h" // Added GlassmorphismPass
 #include <vector>
 #include <tuple>
 #include <cstdint>
@@ -164,16 +162,6 @@ public:
     // Query renderer state
     bool isScissorEnabled() const { return scissorEnabled_; }
 
-    // Glassmorphism API
-    void updateGlassBackground() {
-        // Capture screen 0 (default) or handle specific FBOs if needed
-        glassPass_.execute(0);
-    }
-    
-    GLuint getGlassTexture() const {
-        return glassPass_.getBlurredTexture();
-    }
-    
 private:
     // Vertex structure for batching
     struct Vertex {
@@ -185,7 +173,7 @@ private:
         float radius;       // Corner radius
         float blur;         // Blur amount
         float strokeWidth;  // Stroke width
-        float primitiveType; // Batching Primitive ID (0=Img, 1=Rect, 2=SDFText, 3=Stroke, 4=BitmapText, 6=FillCircle, 7=StrokeCircle)
+        float primitiveType; // Batching Primitive ID (0=Img, 1=Rect, 3=Stroke, 4=BitmapText, 5=SolidGeometry, 6=FillCircle, 7=StrokeCircle)
     };
     
     // Shader program
@@ -203,7 +191,6 @@ private:
         int32_t textTexelSizeLoc = -1;
         int32_t textSharpenLoc = -1;
         int32_t textGammaLoc = -1;
-        int32_t textBoldLoc = -1;
         int32_t textAlphaLiftLoc = -1;
         int32_t outputLinearLoc = -1;
     };
@@ -363,9 +350,6 @@ private:
     
     // Text rendering support
     std::string defaultFontPath_;
-    std::unique_ptr<NUITextRendererSDF> sdfRenderer_;
-    bool useSDFText_{false};
-    bool triedSDFInit_{false};
     
     // (FontData moved earlier in file for AtlasInfo reference)
 
@@ -457,9 +441,6 @@ private:
     // conversion so cached content is stored as-authored and converted exactly
     // once when composited to the sRGB screen (see beginOffscreen()).
     bool renderingToLinearTarget_ = false;
-
-    // Glassmorphism Pass
-    GlassmorphismPass glassPass_; 
 };
 
 } // namespace AestraUI

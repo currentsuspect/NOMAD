@@ -205,7 +205,6 @@ uniform bool uUseTexture;
 uniform vec2 uTextTexelSize;
 uniform float uTextSharpen;
 uniform float uTextGamma;
-uniform float uTextBold; // SDF edge-center shift; 0 = neutral, positive = bolder
 uniform float uTextAlphaLift; // exponent on text alpha; 1 = neutral, <1 lifts faded text
 uniform bool uOutputLinear;
 
@@ -260,18 +259,10 @@ void main() {
     vec4 color = vColor;
     int primitiveID = int(floor(vPrimitiveType + 0.5));
     
-    // Apply texture if enabled (Only for Image=0, SDFText=2, BitmapText=4)
-    if (uUseTexture && (primitiveID == 0 || primitiveID == 2 || primitiveID == 4)) {
+    // Apply texture if enabled (Only for Image=0, BitmapText=4)
+    if (uUseTexture && (primitiveID == 0 || primitiveID == 4)) {
         vec4 texColor = texture(uTexture, vTexCoord);
-        if (primitiveID == 2) {
-             // Standard SDF rendering (MSDF/SDF text)
-             float dist = texColor.r;
-             float ddist = fwidth(dist);
-             float edgeWidth = ddist * 0.7;
-             float center = 0.5 - smoothstep(0.1, 0.5, ddist) * 0.08 - uTextBold; 
-             float alpha = smoothstep(center - edgeWidth, center + edgeWidth, dist);
-             color.a = pow(color.a, uTextAlphaLift) * alpha;
-        } else if (primitiveID == 4) {
+        if (primitiveID == 4) {
                // Bitmap text — atlas stores coverage in alpha channel.
                float coverage = pow(sampleTextCoverage(vTexCoord), uTextGamma);
                color.a = pow(color.a, uTextAlphaLift) * coverage;
@@ -351,7 +342,6 @@ void main() {
 
 NUIRendererGL::NUIRendererGL() {
     renderCache_.setRenderer(this);
-    sdfRenderer_ = std::make_unique<NUITextRendererSDF>();
 }
 
 NUIRendererGL::~NUIRendererGL() {
@@ -377,13 +367,8 @@ bool NUIRendererGL::initialize(int width, int height) {
     createBuffers();
     updateProjectionMatrix();
 
-    // Initialize Glassmorphism Pass (Retina Blur)
-    if (!glassPass_.initialize(width, height)) {
-        AESTRA_LOG_WARNING("Glassmorphism Pass failed to init.");
-    }
-    
-    // Text rendering will be initialized with FreeType below
-    
+    // Text rendering is FreeType-only; initialized below.
+
     // Initialize FreeType
     fontInitialized_ = false;
     if (FT_Init_FreeType(&ftLibrary_) != 0) {
@@ -470,12 +455,7 @@ bool NUIRendererGL::initialize(int width, int height) {
         }
         
         if (!fontLoaded) {
-            AESTRA_LOG_WARNING("Could not load any font, using fallback");
-            useSDFText_ = false;
-        } else {
-            // Force bitmap text for now - SDF has glyph rendering issues
-            useSDFText_ = false;
-            AESTRA_LOG_DEBUG("Using bitmap text renderer");
+            AESTRA_LOG_WARNING("Could not load any font; text will fall back to width estimation");
         }
 
         // Load CJK fallback face (no atlas — glyphs added on demand)
@@ -509,10 +489,18 @@ bool NUIRendererGL::initialize(int width, int height) {
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE); // Ensure we don't write to depth buffer in 2D mode
     glDisable(GL_CULL_FACE);
-    // Leave framebuffer sRGB disabled; palette is authored in sRGB and shaders output in sRGB
-    
     // Prefer smoother edges when a multisampled default framebuffer is available.
     glEnable(GL_MULTISAMPLE);
+
+    // The palette is authored in sRGB, so the shader converts to linear on output
+    // (uOutputLinear) and relies on the driver re-encoding on write. That only
+    // happens when the default framebuffer is actually sRGB-capable.
+    //
+    // KNOWN DEFECT: this probe cannot tell. glEnable(GL_FRAMEBUFFER_SRGB) does not
+    // raise an error when there is no sRGB attachment to act on, so this reports
+    // true on Win32 — where no sRGB pixel format is ever requested — and the
+    // shader's pow(rgb, 2.2) is then never inverted. Replace with
+    // GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING once the Win32 pixel format lands.
     glEnable(GL_FRAMEBUFFER_SRGB);
     framebufferSRGBEnabled_ = (glGetError() == GL_NO_ERROR);
     
@@ -520,10 +508,6 @@ bool NUIRendererGL::initialize(int width, int height) {
 }
 
 void NUIRendererGL::shutdown() {
-    if (sdfRenderer_) {
-        sdfRenderer_->shutdown();
-    }
-    
     // Cleanup FreeType
     if (fontInitialized_) {
         // Clean up atlas texture
@@ -595,10 +579,6 @@ void NUIRendererGL::resize(int width, int height) {
     // to avoid sampling from stale textures after minimize/restore.
     renderCache_.clearAll();
     
-    // MSDF text renderer viewport will be updated externally
-    
-    glassPass_.resize(width, height);
-
     glViewport(0, 0, width, height);
 }
 
@@ -2072,16 +2052,11 @@ NUISize NUIRendererGL::measureText(const std::string& text, float fontSize) {
             result = {text.length() * fontSize * 0.6f, fontSize};
         }
     } else {
-        // Fallback: SDF measurement (if atlas text isn't available).
-        if (!useSDFText_ && !triedSDFInit_ && sdfRenderer_ && !defaultFontPath_.empty()) {
-            useSDFText_ = sdfRenderer_->initialize(defaultFontPath_, 64.0f);
-            triedSDFInit_ = true;
-        }
-        if (useSDFText_ && sdfRenderer_ && sdfRenderer_->isInitialized()) {
-            result = sdfRenderer_->measureText(text, fontSize);
-        } else {
-            result = {text.length() * fontSize * 0.6f, fontSize};
-        }
+        // No atlas yet: the caller is measuring before the font finished loading.
+        // A width estimate is the only honest answer here — it is wrong, but it
+        // is wrong in a bounded way and the measurement cache is keyed per size,
+        // so real metrics replace it as soon as the atlas exists.
+        result = {text.length() * fontSize * 0.6f, fontSize};
     }
     
     // Store in cache (with simple eviction if needed)
@@ -2567,11 +2542,9 @@ void NUIRendererGL::renderTextWithFont(const std::string& text, const NUIPoint& 
         currentTextureId_ = atlas.textureId;
     }
     
-    // Switch to pre-multiplied alpha blend mode for text rendering.
-    // This gives: result = text * coverage + bg * (1 - coverage)
-    // instead of the standard blend which gives: result = text * coverage^2 + bg * (1 - coverage)
-    glBlendFunc(GL_ONE, GL_SRC_ALPHA);
-    // Actually revert — pre-multiplied bleeds edges on dark backgrounds. Use standard.
+    // Straight (non-premultiplied) alpha, matching every other blend site. See the
+    // note above beginOffscreen() for why the alpha channel uses ONE rather than
+    // SRC_ALPHA.
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     
     // Pre-allocate vertex buffer space (4 vertices per glyph, 6 indices per glyph)
@@ -2861,7 +2834,6 @@ void NUIRendererGL::drawTexture(const NUIRect& bounds, const unsigned char* rgba
     glUniform2f(primitiveShader_.textTexelSizeLoc, 0.0f, 0.0f);
     glUniform1f(primitiveShader_.textSharpenLoc, 0.0f);
     glUniform1f(primitiveShader_.textGammaLoc, 1.0f);
-    glUniform1f(primitiveShader_.textBoldLoc, (1.0f - textContrast_) * 0.25f);
     glUniform1f(primitiveShader_.textAlphaLiftLoc, textContrast_ < 1.0f ? 0.35f : 1.0f);
 
     glActiveTexture(GL_TEXTURE0);
@@ -3175,7 +3147,6 @@ void NUIRendererGL::flush() {
     glUniform2f(primitiveShader_.textTexelSizeLoc, 0.0f, 0.0f);
     glUniform1f(primitiveShader_.textSharpenLoc, 0.0f);
     glUniform1f(primitiveShader_.textGammaLoc, 1.0f);
-    glUniform1f(primitiveShader_.textBoldLoc, (1.0f - textContrast_) * 0.25f);
     glUniform1f(primitiveShader_.textAlphaLiftLoc, textContrast_ < 1.0f ? 0.35f : 1.0f);
     // Note: opacity is already in vertex colors
     glUniform1i(primitiveShader_.primitiveTypeLoc, currentPrimitiveType_);
@@ -3299,7 +3270,6 @@ bool NUIRendererGL::loadShaders() {
     primitiveShader_.textTexelSizeLoc = glGetUniformLocation(primitiveShader_.id, "uTextTexelSize");
     primitiveShader_.textSharpenLoc = glGetUniformLocation(primitiveShader_.id, "uTextSharpen");
     primitiveShader_.textGammaLoc = glGetUniformLocation(primitiveShader_.id, "uTextGamma");
-    primitiveShader_.textBoldLoc = glGetUniformLocation(primitiveShader_.id, "uTextBold");
     primitiveShader_.textAlphaLiftLoc = glGetUniformLocation(primitiveShader_.id, "uTextAlphaLift");
     primitiveShader_.outputLinearLoc = glGetUniformLocation(primitiveShader_.id, "uOutputLinear");
 
