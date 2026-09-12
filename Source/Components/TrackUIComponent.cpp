@@ -148,16 +148,26 @@ struct WaveformInk {
 };
 
 WaveformInk deriveWaveformInk(const AestraUI::NUIColor& base) {
-    // Bold, near-solid waveform so it reads as a clear waveform shape (not faint
-    // texture) against the clip fill: a bright lift of the clip hue at high alpha,
-    // with the min/max envelope nearly as opaque as the RMS body. The lift amount
-    // is shared with clipBodyTone()'s counterpart so the contrast contract has one
-    // authority (see TrackColorPalette.h).
+    // Two layers that must read as two layers. The peak envelope is a translucent
+    // halo; the RMS body is the solid core inside it. That separation is the whole
+    // reason a waveform is legible at a glance — it shows transient reach and
+    // sustained level at the same time.
+    //
+    // Previously both were drawn at effectively one weight (env 0.90, rms 0.97, a
+    // 0.07 difference) so they merged into a single flat blob and the structure was
+    // lost. envTop and envBottom were also identical, which made the gradient call
+    // a flat fill paying for a gradient it never showed.
+    //
+    // The lift amount is shared with clipBodyTone()'s counterpart so the contrast
+    // contract has one authority (see TrackColorPalette.h).
     const AestraUI::NUIColor bright = AestraUI::liftWaveformInk(base);
     WaveformInk ink;
-    ink.rms = bright.withAlpha(0.97f);
-    ink.envTop = bright.withAlpha(0.90f);
-    ink.envBottom = bright.withAlpha(0.90f);
+    ink.rms = bright.withAlpha(0.95f);
+    // Envelope well below the body so peaks read as reach, not as more body. The
+    // slight top-to-bottom falloff gives the shape a light source instead of the
+    // flat slab a single alpha produces.
+    ink.envTop = bright.withAlpha(0.52f);
+    ink.envBottom = bright.withAlpha(0.38f);
     ink.centerLine = bright.withAlpha(0.22f);
     return ink;
 }
@@ -923,8 +933,12 @@ void TrackUIComponent::drawChannelWaveform(AestraUI::NUIRenderer& renderer, floa
         float normMax = std::max(-1.0f, std::min(1.0f, combinedMax(0)));
         float topY = centerY - normMax * halfDrawH;
         float bottomY = centerY - normMin * halfDrawH;
-        renderer.fillRect(AestraUI::NUIRect(x, topY, std::max(1.0f, w), std::max(1.0f, bottomY - topY)),
-                          envTopColor);
+        // Body weight, not envelope weight. This path draws ONE layer and returns —
+        // it never reaches the RMS overlay below — so the two-layer rationale that
+        // makes envTop translucent does not apply. Filling with envTopColor would
+        // render a very short clip at roughly half the opacity of an adjacent
+        // normal-width clip of the same audio.
+        renderer.fillRect(AestraUI::NUIRect(x, topY, std::max(1.0f, w), std::max(1.0f, bottomY - topY)), rmsColor);
         return;
     }
 
