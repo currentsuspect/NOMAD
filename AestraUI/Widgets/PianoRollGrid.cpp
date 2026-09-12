@@ -57,10 +57,13 @@ void PianoRollGrid::onRender(NUIRenderer& renderer) {
     }
 
     TimelineGridStyle gridStyle;
-    gridStyle.barLineAlpha = 0.02f;
-    gridStyle.beatLineAlpha = 0.005f;
-    gridStyle.subdivisionLineAlpha = 0.002f;
-    gridStyle.zebraAlpha = 0.006f;
+    // Gamma-space alphas (F3): converted from linear-era tuning, which inflated
+    // low-alpha light-on-dark roughly 6x before compositing was unified. Same
+    // rendered result, different number to express it.
+    gridStyle.barLineAlpha = 0.148f;         // was 0.02
+    gridStyle.beatLineAlpha = 0.057f;        // was 0.005
+    gridStyle.subdivisionLineAlpha = 0.023f; // was 0.002
+    gridStyle.zebraAlpha = 0.066f;           // was 0.006
     renderTimelineGrid(renderer, bounds, bounds.x, bounds.right(), scrollX_, pixelsPerBeat_, beatsPerBar_, gridInk,
                        gridStyle, getSnapSubdivisionBeats());
 

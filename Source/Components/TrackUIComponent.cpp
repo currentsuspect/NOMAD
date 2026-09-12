@@ -225,7 +225,7 @@ TrackUIComponent::TrackUIComponent(PlaylistLaneID laneId, std::shared_ptr<MixerC
         button->setPressedColor(AestraUI::NUIColor::transparent());
         button->setBorderEnabled(false);
         button->setGlowEnabled(false);
-        button->setTextColor(AestraUI::NUIColor::white().withAlpha(0.48f));
+        button->setTextColor(AestraUI::NUIColor::white().withAlpha(0.721f));
         button->setFontSize(11.0f);
         button->setCornerRadius(0.0f);
     };
@@ -545,7 +545,7 @@ void TrackUIComponent::updateUI() {
     const AestraUI::NUIColor inactiveBg = AestraUI::NUIColor::transparent();
     const AestraUI::NUIColor inactiveHover = themeManager.getColor("controlHover");
     const AestraUI::NUIColor inactiveText = themeManager.getColor("textSecondary");
-    const AestraUI::NUIColor activeText = themeManager.getColor("textPrimary").withAlpha(0.96f);
+    const AestraUI::NUIColor activeText = themeManager.getColor("textPrimary").withAlpha(0.982f);
     const auto configureStatusButton = [&](const auto& button, bool active,
                                            const AestraUI::NUIColor& statusColor) {
         if (!button) return;
@@ -587,9 +587,9 @@ void TrackUIComponent::updateUI() {
             // A 3-take track reads "≡ 3", not "≡ 4" (laneIds includes the
             // primary row itself, which is never "inside" the chevron).
             m_laneCountLabel->setText(std::to_string(track->laneIds.size() - 1));
-            m_laneCountLabel->setTextColor(themeManager.getColor("textSecondary").withAlpha(0.72f));
+            m_laneCountLabel->setTextColor(themeManager.getColor("textSecondary").withAlpha(0.864f));
             m_laneCountLabel->setVisible(true);
-            m_laneCountIcon->setColor(themeManager.getColor("textSecondary").withAlpha(0.72f));
+            m_laneCountIcon->setColor(themeManager.getColor("textSecondary").withAlpha(0.864f));
             m_laneCountIcon->setVisible(true);
         } else {
             m_laneCountLabel->setVisible(false);
@@ -605,7 +605,7 @@ void TrackUIComponent::updateTrackNameColors() {
     if (const auto* lane = m_trackManager->getPlaylistModel().getLane(m_laneId)) {
         (void)lane;
         auto& theme = AestraUI::NUIThemeManager::getInstance();
-        m_nameLabel->setTextColor(theme.getColor("textPrimary").withAlpha(m_selected ? 0.92f : 0.72f));
+        m_nameLabel->setTextColor(theme.getColor("textPrimary").withAlpha(m_selected ? 0.964f : 0.864f));
     }
 }
 
@@ -1211,7 +1211,7 @@ void TrackUIComponent::drawSampleClipHeader(AestraUI::NUIRenderer& renderer, con
         renderer.drawText(displayName,
                           AestraUI::NUIPoint(clipBounds.x + 6.0f + kHamburgerOffset, textY),
                           kClipLabelFontSize,
-                          themeManager.getCurrentTheme().textPrimary.withAlpha(clipSelected ? 0.95f : 0.85f));
+                          themeManager.getCurrentTheme().textPrimary.withAlpha(clipSelected ? 0.978f : 0.931f));
     }
 }
 

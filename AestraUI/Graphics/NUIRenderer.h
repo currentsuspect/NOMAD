@@ -123,8 +123,7 @@ public:
         };
 
         bool lcdSubpixel = false;      //!< FreeType rasterised through the LCD filter.
-        bool framebufferSRGB = false;  //!< GL_FRAMEBUFFER_SRGB believed enabled — see the probe's KNOWN DEFECT.
-        bool outputLinearActive = false; //!< Shader converts sRGB->linear on output right now.
+        bool framebufferSRGB = false;  //!< GL_FRAMEBUFFER_SRGB enabled. Expected false: compositing is gamma-space.
         float textContrast = 1.0f;     //!< The single input both uniforms below derive from.
         //!< The renderer multiplies caller alpha and never reshapes it. A backend
         //!< that reintroduces a lift, curve or floor on text alpha MUST report false
