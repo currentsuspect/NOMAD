@@ -763,10 +763,20 @@ inline float curveDbToY(float db, float dbRange, const NUIRect& inner) {
 //
 // The curve is a function of x (one y per x, x strictly increasing), so only y needs
 // clipping and each crossing is a simple linear interpolation.
-std::vector<std::vector<NUIPoint>> clipCurveToBand(const std::vector<NUIPoint>& pts, const NUIRect& inner) {
-    std::vector<std::vector<NUIPoint>> runs;
+// Each visible run is drawn the moment it closes, so no vector-of-vectors is ever
+// built and `scratch` is the only buffer involved. `scratch` is owned by the caller
+// and reused across frames.
+//
+// That ownership is the point, not a style preference. This runs once for the
+// composite curve and again for every enabled band — up to 24 — on every repaint of
+// an open editor, so returning fresh containers meant roughly 120 KB of allocate and
+// free per frame on a build whose whole promise is low-resource hardware (FD-06).
+// TrackUIComponent already solves the identical problem with m_waveformTopPts /
+// m_waveformBottomPts; this is that pattern, not a new one.
+void drawClippedCurve(NUIRenderer& renderer, const std::vector<NUIPoint>& pts, const NUIRect& inner, float thickness,
+                      const NUIColor& color, std::vector<NUIPoint>& scratch) {
     if (pts.size() < 2)
-        return runs;
+        return;
 
     const float top = inner.y;
     const float bottom = inner.bottom();
@@ -779,44 +789,39 @@ std::vector<std::vector<NUIPoint>> clipCurveToBand(const std::vector<NUIPoint>& 
         const float t = std::clamp((edgeY - a.y) / dy, 0.0f, 1.0f);
         return NUIPoint{a.x + (b.x - a.x) * t, edgeY};
     };
+    // Emit the run accumulated so far and reset for the next one. Capacity is kept,
+    // which is what makes the reuse worth anything.
+    const auto emit = [&]() {
+        if (scratch.size() > 1)
+            renderer.drawPolyline(scratch.data(), static_cast<int>(scratch.size()), thickness, color);
+        scratch.clear();
+    };
 
-    std::vector<NUIPoint> run;
+    scratch.clear();
     for (size_t i = 0; i + 1 < pts.size(); ++i) {
         const NUIPoint& a = pts[i];
         const NUIPoint& b = pts[i + 1];
         const bool aIn = inside(a);
         const bool bIn = inside(b);
 
-        if (aIn && run.empty())
-            run.push_back(a);
+        if (aIn && scratch.empty())
+            scratch.push_back(a);
 
         if (aIn && bIn) {
-            run.push_back(b);
+            scratch.push_back(b);
         } else if (aIn && !bIn) {
-            run.push_back(crossing(a, b, b.y < top ? top : bottom));
-            if (run.size() > 1)
-                runs.push_back(run);
-            run.clear();
+            scratch.push_back(crossing(a, b, b.y < top ? top : bottom));
+            emit();
         } else if (!aIn && bIn) {
-            run.clear();
-            run.push_back(crossing(a, b, a.y < top ? top : bottom));
-            run.push_back(b);
+            scratch.clear();
+            scratch.push_back(crossing(a, b, a.y < top ? top : bottom));
+            scratch.push_back(b);
         }
         // Both outside: if the segment spans the band it would need two crossings, but
         // that cannot happen for a sampled response curve at this resolution — the
         // sample step is far finer than the plot height.
     }
-    if (run.size() > 1)
-        runs.push_back(run);
-    return runs;
-}
-
-void drawClippedCurve(NUIRenderer& renderer, const std::vector<NUIPoint>& pts, const NUIRect& inner, float thickness,
-                      const NUIColor& color) {
-    for (const auto& run : clipCurveToBand(pts, inner)) {
-        if (run.size() > 1)
-            renderer.drawPolyline(run.data(), static_cast<int>(run.size()), thickness, color);
-    }
+    emit();
 }
 
 std::vector<NUIPoint> smoothCurve(const std::vector<NUIPoint>& pts, int subdivisions) {
@@ -2320,7 +2325,7 @@ void AestraEQEditor::drawBandResponseCurves(NUIRenderer& renderer, const NUIRect
         // neighbours.
         const float alpha = soloed ? 0.90f : (selected || hovered ? 0.62f : 0.26f);
         drawClippedCurve(renderer, pts, inner, soloed ? 1.9f : (selected || hovered ? 1.5f : 1.0f),
-                         c.withAlpha(alpha));
+                         c.withAlpha(alpha), m_curveClipScratch);
     }
 }
 
@@ -2663,17 +2668,20 @@ void AestraEQEditor::drawResponseCurve(NUIRenderer& renderer, const NUIRect& bou
     // hollow is worth more than ending neatly.
     if (maxAbsResponse > 0.02f) {
         const float zeroY = inner.bottom() - 0.5f * inner.height;
-        std::vector<NUIPoint> fillTop, fillBottom;
-        fillTop.reserve(smooth.size());
-        fillBottom.reserve(smooth.size());
+        // clear() keeps capacity, so these settle after the first frame and stop
+        // allocating entirely.
+        m_curveFillTop.clear();
+        m_curveFillBottom.clear();
+        m_curveFillTop.reserve(smooth.size());
+        m_curveFillBottom.reserve(smooth.size());
         for (const auto& p : smooth) {
             const float cy = std::clamp(p.y, inner.y, inner.bottom());
-            fillTop.push_back({p.x, std::min(cy, zeroY)});
-            fillBottom.push_back({p.x, std::max(cy, zeroY)});
+            m_curveFillTop.push_back({p.x, std::min(cy, zeroY)});
+            m_curveFillBottom.push_back({p.x, std::max(cy, zeroY)});
         }
-        if (fillTop.size() > 1) {
-            renderer.fillWaveform(fillTop.data(), fillBottom.data(), static_cast<int>(fillTop.size()),
-                                  curveCol.withAlpha(0.16f));
+        if (m_curveFillTop.size() > 1) {
+            renderer.fillWaveform(m_curveFillTop.data(), m_curveFillBottom.data(),
+                                  static_cast<int>(m_curveFillTop.size()), curveCol.withAlpha(0.16f));
         }
     }
 
@@ -2689,7 +2697,7 @@ void AestraEQEditor::drawResponseCurve(NUIRenderer& renderer, const NUIRect& bou
     // MSAA is 4x and is requested at context creation, so a single stroke already has
     // properly antialiased edges. Nothing else is needed to make it look smooth.
     constexpr float kCurveStrokeWidth = 1.7f;
-    drawClippedCurve(renderer, smooth, inner, kCurveStrokeWidth, curveCol);
+    drawClippedCurve(renderer, smooth, inner, kCurveStrokeWidth, curveCol, m_curveClipScratch);
     if (m_bands.empty()) {
         const NUIRect emptyTitle{inner.x, inner.center().y - 20.0f, inner.width, 18.0f};
         const NUIRect emptyHint{inner.x, inner.center().y + 2.0f, inner.width, 16.0f};

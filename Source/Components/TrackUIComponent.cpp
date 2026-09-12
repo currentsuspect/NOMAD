@@ -933,8 +933,12 @@ void TrackUIComponent::drawChannelWaveform(AestraUI::NUIRenderer& renderer, floa
         float normMax = std::max(-1.0f, std::min(1.0f, combinedMax(0)));
         float topY = centerY - normMax * halfDrawH;
         float bottomY = centerY - normMin * halfDrawH;
-        renderer.fillRect(AestraUI::NUIRect(x, topY, std::max(1.0f, w), std::max(1.0f, bottomY - topY)),
-                          envTopColor);
+        // Body weight, not envelope weight. This path draws ONE layer and returns —
+        // it never reaches the RMS overlay below — so the two-layer rationale that
+        // makes envTop translucent does not apply. Filling with envTopColor would
+        // render a very short clip at roughly half the opacity of an adjacent
+        // normal-width clip of the same audio.
+        renderer.fillRect(AestraUI::NUIRect(x, topY, std::max(1.0f, w), std::max(1.0f, bottomY - topY)), rmsColor);
         return;
     }
 
