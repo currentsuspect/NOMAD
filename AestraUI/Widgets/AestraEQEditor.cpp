@@ -816,10 +816,18 @@ void drawClippedCurve(NUIRenderer& renderer, const std::vector<NUIPoint>& pts, c
             scratch.clear();
             scratch.push_back(crossing(a, b, a.y < top ? top : bottom));
             scratch.push_back(b);
+        } else if ((a.y < top && b.y > bottom) || (a.y > bottom && b.y < top)) {
+            // Both outside, on opposite sides: the segment traverses the whole band and
+            // has two crossings. Reachable on the composite curve, where a high-Q boost
+            // adjacent to a high-Q cut can swing more than a plot height in one sample
+            // step; without this the curve silently breaks where it should read as a
+            // near-vertical edge. Emitted as its own run — scratch is always empty here,
+            // because reaching this branch means the previous segment ended outside.
+            scratch.push_back(crossing(a, b, a.y < top ? top : bottom));
+            scratch.push_back(crossing(a, b, b.y < top ? top : bottom));
+            emit();
         }
-        // Both outside: if the segment spans the band it would need two crossings, but
-        // that cannot happen for a sampled response curve at this resolution — the
-        // sample step is far finer than the plot height.
+        // Both outside on the same side: no intersection with the band, nothing to draw.
     }
     emit();
 }
