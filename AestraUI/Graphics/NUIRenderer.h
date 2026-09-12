@@ -104,6 +104,14 @@ public:
      *
      * Reporting only. Nothing here changes rendering, and a backend that has no
      * text pipeline to describe returns false rather than inventing values.
+     *
+     * NOT A STABLE SURFACE. These headers are installed, but this struct
+     * describes the internals of whatever the text pipeline happens to be, so
+     * its fields change whenever those internals do — alphaLift became
+     * alphaPreserved the moment the lift was removed, and that is the intended
+     * behaviour rather than a break to be versioned around. Anything consuming
+     * it recompiles against the current header. The libraries are static, so
+     * there is no runtime ABI boundary to cross.
      */
     struct TextDiagnostics {
         struct Tier {

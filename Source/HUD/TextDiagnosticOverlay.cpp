@@ -175,8 +175,12 @@ void TextDiagnosticOverlay::renderAlphaRamp(NUIRenderer& renderer, const NUIRend
     // So the right column is drawn under textContrast_ = 0.88. Before the fix it
     // rendered visibly heavier than the left at every step below 1.0; the two
     // columns matching is the proof, and it holds on either theme.
-    renderer.drawText("at live contrast", NUIPoint(x + 190.0f, y), kLabelSize, kLabel);
-    renderer.drawText("at 0.88 (light)", NUIPoint(x + 300.0f, y), kLabelSize, kLabel);
+    // Offsets must match the sample draws below exactly — 48 / 190 / 410. A
+    // column heading over the wrong column is worse in a diagnostic than no
+    // heading at all: it produces a confident misattribution, which is the one
+    // failure this panel exists to prevent.
+    renderer.drawText("at live contrast", NUIPoint(x + 48.0f, y), kLabelSize, kLabel);
+    renderer.drawText("at 0.88 (light)", NUIPoint(x + 190.0f, y), kLabelSize, kLabel);
     renderer.drawText("was", NUIPoint(x + 410.0f, y), kLabelSize, kLabel);
     y += LINE;
 
