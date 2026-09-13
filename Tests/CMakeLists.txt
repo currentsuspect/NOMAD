@@ -2842,3 +2842,17 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraAudio/RecordingLatencyCompensationT
     add_test(NAME RecordingLatencyCompensationTest COMMAND RecordingLatencyCompensationTest)
     set_tests_properties(RecordingLatencyCompensationTest PROPERTIES LABELS "audio;recording;regression;contract:audio")
 endif()
+
+# V8-X2b Step 0: the renderer transform stack composes as one affine map, and
+# geometry and clipping consume that same map.
+#
+# Deliberately links nothing. NUITransformStack.h is dependency-free, so this
+# test builds in every configuration — including AESTRA_CI=ON, where
+# AESTRA_ENABLE_UI=OFF means AestraUI_Core does not exist and every test guarded
+# on that target is skipped with a status message (FD-19's silent-skip pattern).
+# A transform test written against the renderer could not fail this build.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/AestraUI/NUITransformCompositionTest.cpp")
+    add_executable(NUITransformCompositionTest AestraUI/NUITransformCompositionTest.cpp)
+    add_test(NAME NUITransformCompositionTest COMMAND NUITransformCompositionTest)
+    set_tests_properties(NUITransformCompositionTest PROPERTIES LABELS "ui;rendering;regression;contract:application")
+endif()

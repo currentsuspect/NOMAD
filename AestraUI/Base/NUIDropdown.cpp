@@ -483,7 +483,7 @@ void NUIDropdown::renderDropdownListInternal(NUIRenderer& renderer) {
     const int displayedRows = getDisplayedRowCount();
 
     renderer.setOpacity(1.0f);
-    renderer.pushTransform(0, 0, 0, 1.0f);
+    renderer.pushTransform(0, 0, 1.0f);
 
     if (!itemWidthCacheValid_) {
         itemTextWidthCache_.clear();

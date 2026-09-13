@@ -2,6 +2,7 @@
 #pragma once
 
 #include "../NUIRenderer.h"
+#include "../NUITransformStack.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include "NUIDirtyRegion.h"
@@ -55,7 +56,7 @@ public:
     // State Management
     // ========================================================================
     
-    void pushTransform(float tx, float ty, float rotation = 0.0f, float scale = 1.0f) override;
+    void pushTransform(float tx, float ty, float scale = 1.0f) override;
     void popTransform() override;
     void setClipRect(const NUIRect& rect) override;
     void clearClipRect() override;
@@ -195,13 +196,7 @@ private:
     };
     
     // Transform stack
-    struct Transform {
-        float tx = 0.0f;
-        float ty = 0.0f;
-        float rotation = 0.0f;
-        float scale = 1.0f;
-    };
-    
+
     // Initialize OpenGL resources
     bool initializeGL();
     bool loadShaders();
@@ -315,7 +310,7 @@ private:
     std::vector<uint32_t> indices_;
     
     // Transform stack
-    std::vector<Transform> transformStack_;
+    std::vector<NUITransform2D> transformStack_;
     
     // Textures
     struct TextureData { uint32_t glId = 0; int width = 0; int height = 0; };
