@@ -755,13 +755,22 @@ void AudioVisualizer::renderCompactMeter(NUIRenderer& renderer) {
     float leftPeakOverlay = leftPeakSmoothed_.load();
     float rightPeakOverlay = rightPeakSmoothed_.load();
     
-    // Left channel meter (very slim) - CYAN
+    // BOTH CHANNELS SHARE ONE COLOUR, AND IT ENCODES LEVEL — NOT CHANNEL INDEX.
+    //
+    // These used to be primaryColor_ (cyan) and secondaryColor_ (accentMagenta,
+    // which was byte-identical to `error`). So the right channel's SAFE zone was
+    // painted in the danger colour and sat there permanently, at silence
+    // included. Red has one job in this UI and it is not "this is the right
+    // one". renderLevelBar already shifts the fill toward meterWarn and
+    // meterCrit as the level crosses -12 and -3 dBFS; feeding it the same base
+    // for both channels is what lets that reading mean something.
+    const NUIColor meterInk = theme.meterSafe;
+
     NUIRect leftMeter(bounds.x + padding, bounds.y + padding, meterWidth, meterHeight);
-    renderLevelBar(renderer, leftMeter, leftRMSSmooth, leftPeakOverlay, primaryColor_);
-    
-    // Right channel meter (very slim) - MAGENTA
+    renderLevelBar(renderer, leftMeter, leftRMSSmooth, leftPeakOverlay, meterInk);
+
     NUIRect rightMeter(bounds.x + padding + meterWidth + gap, bounds.y + padding, meterWidth, meterHeight);
-    renderLevelBar(renderer, rightMeter, rightRMSSmooth, rightPeakOverlay, secondaryColor_);
+    renderLevelBar(renderer, rightMeter, rightRMSSmooth, rightPeakOverlay, meterInk);
 
     // Clip flash at the top of each meter
     if (leftClipIndicator_ > 0.02f) {
