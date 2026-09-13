@@ -1479,18 +1479,24 @@ void FileBrowser::onRender(NUIRenderer& renderer) {
     updateContentViews();
 
     // FBO Caching Logic
+    //
+    // The uncached branch draws the static content and FALLS THROUGH. It used
+    // to `return`, and everything below this point — the hover overlays, the
+    // children, the search icon and the search action icons — therefore never
+    // ran without the cache. The widget cache is disabled on Linux (V8-C2), so
+    // on the development platform that trailing block had never executed once:
+    // the "missing" search icon was drawing correctly into a branch nobody
+    // reached.
+    //
+    // TrackManagerUIRender carries the same fix and states the rule: the cache
+    // is a performance optimisation, so losing it must cost frame rate, never
+    // content. This is that rule applied to the second consumer.
     auto* renderCache = renderer.getRenderCache();
-    if (!renderCache || !renderCache->isEnabled()) {
-        // Fallback: Immediate render
-        renderStaticContent(renderer, bounds);
-        renderHoverOverlays(renderer);
-        // Clip children to prevent search bar spillover during resize
-        renderer.setClipRect(bounds);
-        renderChildren(renderer);
-        renderer.clearClipRect();
-        return;
-    }
+    const bool cacheUsable = (renderCache != nullptr && renderCache->isEnabled());
 
+    if (!cacheUsable) {
+        renderStaticContent(renderer, bounds);
+    } else {
     // Cache size matches the component bounds
     AestraUI::NUISize cacheSize(static_cast<int>(bounds.width), static_cast<int>(bounds.height));
 
@@ -1528,9 +1534,10 @@ void FileBrowser::onRender(NUIRenderer& renderer) {
     } else {
         renderStaticContent(renderer, bounds);
     }
+    }  // end cached branch — everything below runs either way
 
-    // Hover washes render every frame on top of the cached content — this is
-    // what lets hover changes skip cache rebuilds entirely.
+    // Hover washes render every frame on top of the content — this is what
+    // lets hover changes skip cache rebuilds entirely.
     renderHoverOverlays(renderer);
 
     // Render interactive children (Search Input, Popup Menus) ON TOP of the cache

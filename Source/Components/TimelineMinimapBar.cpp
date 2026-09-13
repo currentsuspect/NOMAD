@@ -183,8 +183,11 @@ void TimelineMinimapBar::cacheThemeColors_()
     // Match the ruler's recessed material so the band remains continuous in
     // every theme.
     colors_.glassFill = theme.getColor("recessedPanel");
-    colors_.glassBorder = NUIColor(0.18f, 0.19f, 0.22f, 1.0f);
-    colors_.cornerSeparator = NUIColor(0.18f, 0.19f, 0.22f, 1.0f);
+    // These were literal RGB, so the minimap sat outside the palette entirely —
+    // it could not follow a theme change and had no relationship to any other
+    // chrome. Structural edges are borders; the view handles are a text tier.
+    colors_.glassBorder = theme.getColor("borderSubtle");
+    colors_.cornerSeparator = theme.getColor("borderSubtle");
 
     colors_.audioTint = theme.getColor("accentAmber");
     colors_.midiTint = theme.getColor("accentCyan");
@@ -194,8 +197,11 @@ void TimelineMinimapBar::cacheThemeColors_()
     // The viewport is navigation chrome, not a loop or selection. Keep it
     // neutral; semantic purple is reserved for actual musical ranges.
     colors_.viewFill = NUIColor::transparent();
-    colors_.viewOutline = NUIColor(0.31f, 0.33f, 0.37f, 1.0f);
-    colors_.viewHandle = NUIColor(0.62f, 0.64f, 0.68f, 0.92f);
+    colors_.viewOutline = theme.getColor("borderStrong");
+    // Was (0.62,0.64,0.68) — near-white grab handles on a near-black shell, the
+    // brightest chrome on screen and answering to nothing. textSecondary puts
+    // them at the same weight as a label, which is what they are.
+    colors_.viewHandle = theme.getColor("textSecondary");
     // Range semantics live in the ruler/canvas. Repeating selection or loop in
     // this navigation band made three unrelated concepts share one shape.
     colors_.selectionFill = NUIColor::transparent();

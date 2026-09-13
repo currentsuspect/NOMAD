@@ -837,10 +837,14 @@ NUIThemeProperties NUIThemePresets::createAestraDark() {
     // ========================================================================
 
     // --- Surface Hierarchy ---
-    theme.backgroundPrimary   = NUIColor::fromHex(0x0a0a0a);  // Deeper void for timeline backdrop
-    theme.backgroundSecondary = NUIColor::fromHex(0x111111);
-    theme.surfaceTertiary     = NUIColor::fromHex(0x191919);  // More contrast from background for controls
-    theme.surfaceRaised       = NUIColor::fromHex(0x212121);  // Slightly brighter for raised elements
+    // Neutrals carry a slight blue-violet bias toward the brand accent, so the
+    // greys read as chosen rather than inherited. The ladder is even in
+    // contrast steps (~1.05, 1.08, 1.09) so raised surfaces separate without
+    // needing borders to do it.
+    theme.backgroundPrimary   = NUIColor::fromHex(0x0a0a0c);  // Deepest — timeline bed
+    theme.backgroundSecondary = NUIColor::fromHex(0x111114);  // Panels
+    theme.surfaceTertiary     = NUIColor::fromHex(0x19191d);  // Controls
+    theme.surfaceRaised       = NUIColor::fromHex(0x212126);  // Raised / hovered
 
     // Legacy aliases
     theme.background    = theme.backgroundPrimary;
@@ -856,24 +860,48 @@ NUIThemeProperties NUIThemePresets::createAestraDark() {
     theme.secondary        = NUIColor::fromHex(0x9257ff);
     theme.secondaryVariant = theme.primary;
 
-    theme.accentCyan       = NUIColor::fromHex(0x00e5cc);
-    theme.accentMagenta    = NUIColor::fromHex(0xe85454);
-    theme.accentLime       = NUIColor::fromHex(0x3dbb6e);
+    // accentCyan was fully saturated (S=100) — the hottest thing on screen and
+    // unrelated to anything else in the palette. accentMagenta was byte-identical
+    // to `error`, so any widget using it as a neutral accent was painting in the
+    // danger colour; the master meter's right channel did exactly that.
+    theme.accentCyan       = NUIColor::fromHex(0x3ab6a6);  // S 100 -> 52
+    theme.accentMagenta    = NUIColor::fromHex(0xc86cd0);  // actually magenta now
+    theme.accentLime       = NUIColor::fromHex(0x41af78);
     theme.accentPrimary    = theme.primary;
     theme.accentSecondary  = theme.secondary;
 
     // --- Functional Colors ---
-    theme.success = NUIColor::fromHex(0x3dbb6e);
-    theme.warning = NUIColor::fromHex(0xe8a838);
-    theme.error   = NUIColor::fromHex(0xe85454);
+    // State colours keep their conventional hues, with saturation brought into
+    // the same range as the rest of the palette. `error` stays the hottest
+    // value in the theme on purpose — it is the one colour that must outrank
+    // everything else when it appears.
+    theme.success = NUIColor::fromHex(0x41af78);
+    theme.warning = NUIColor::fromHex(0xd99f3a);
+    theme.error   = NUIColor::fromHex(0xe05252);
     theme.info    = theme.secondary;
 
     // --- Text ---
-    theme.textPrimary   = NUIColor::fromHex(0xffffff, 0.90f);
-    theme.textSecondary = NUIColor::fromHex(0xffffff, 0.50f);
-    theme.textMuted     = NUIColor::fromHex(0xffffff, 0.38f);
-    theme.textDisabled  = NUIColor::fromHex(0xffffff, 0.25f);
-    theme.textLink      = theme.secondary;                                 // cyan for links
+    // SEMANTIC TEXT TIERS ARE COLOURS, NOT ALPHA.
+    //
+    // These were white at 0.90/0.50/0.38/0.25 — same RGB, different alpha.
+    // NUIColor::withAlpha replaces alpha, it does not multiply it, so a call
+    // site that reasonably writes textSecondary.withAlpha(0.72) does not land
+    // at some intermediate value between 0.50 and 0.72 — it lands at exactly
+    // 0.72, identical to what textPrimary.withAlpha(0.72) would produce. Since
+    // every tier shared the same RGB, a shared call-site alpha erased the tier
+    // distinction outright rather than merely weakening it. Encoding as alpha
+    // is also theme-dependent — the same alpha reads as one weight on a dark
+    // ground and another on a light one, so no single tier definition could
+    // serve both.
+    //
+    // As opaque values the tier means the same thing wherever it is drawn, and
+    // alpha goes back to meaning transparency. Each is chosen for a measured
+    // contrast against backgroundPrimary, not picked by eye:
+    theme.textPrimary   = NUIColor::fromHex(0xdfdfec);  // 15.0:1  — titles, values, names
+    theme.textSecondary = NUIColor::fromHex(0x9999a2);  //  7.0:1  — labels, supporting copy
+    theme.textMuted     = NUIColor::fromHex(0x78787f);  //  4.5:1  — metadata, at the WCAG floor
+    theme.textDisabled  = NUIColor::fromHex(0x4e4e52);  //  2.4:1  — deliberately below it
+    theme.textLink      = theme.secondary;  // violet — the brand accent, not cyan
     theme.textCritical  = theme.error;
     theme.textOnPrimary = NUIColor::white();
     theme.textOnSecondary = NUIColor::white();
