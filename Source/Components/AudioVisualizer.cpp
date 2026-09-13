@@ -793,59 +793,120 @@ void AudioVisualizer::renderCompactWaveform(NUIRenderer& renderer) {
     NUIRect bounds = getBounds();
     if (bounds.isEmpty()) return;
 
+    // FILLED ENVELOPE + RMS BODY — the same grammar the timeline clips use.
+    //
+    // This used to be a 1.5 px drawPolyline trace of the raw sample stream: an
+    // oscilloscope line, not a waveform. Three things made it read as a
+    // mathematical squiggle rather than as audio.
+    //
+    //   It drew every sample as a point, so the shape carried no sense of
+    //   body — loud and quiet passages differ in a line's excursion only.
+    //   Here each column is reduced to its min/max envelope with the RMS
+    //   filled inside it, so energy has area and peaks read as reach.
+    //
+    //   Its colour was lerp(primary, secondary, sin(t)) — animating between
+    //   two near-complementary hues, which spends most of its time at the
+    //   desaturated midpoint. Measured on screen: (121,135,125), a grey-green
+    //   belonging to no part of the palette. One colour now, from the theme.
+    //
+    //   Its auto-gain was clamped 1x..8x against the window maximum, so the
+    //   trace always filled the height and loudness was unreadable by
+    //   construction. Fixed display gain now, shared with the clip renderer,
+    //   so quiet is short and loud is tall.
     const float centerY = bounds.y + bounds.height * 0.5f;
-    renderer.drawLine(NUIPoint(bounds.x, centerY),
-                      NUIPoint(bounds.x + bounds.width, centerY),
-                      1.0f, gridColor_.withAlpha(0.25f));
+    const float halfH = bounds.height * 0.42f;
 
     std::lock_guard<std::mutex> lock(audioDataMutex_);
     if (displayBufferSize_ < 2) return;
 
-    std::vector<NUIPoint> points;
-    points.reserve(displayBufferSize_);
+    const auto& theme = NUIThemeManager::getInstance().getCurrentTheme();
+    const NUIColor ink = theme.meterSafe;
 
-    // Auto-gain so the mini scope "goes bonkers" with loud content.
-    float maxAbs = 0.0001f;
-    for (size_t i = 0; i < displayBufferSize_; ++i) {
-        const size_t idx = (currentSample_ + i) % displayBufferSize_;
-        const float s = (displayBuffer_[idx * 2] + displayBuffer_[idx * 2 + 1]) * 0.5f;
-        // A misbehaving source can hand us Inf/NaN; neither may reach the polyline.
-        if (std::isfinite(s)) maxAbs = std::max(maxAbs, std::abs(s));
+    renderer.drawLine(NUIPoint(bounds.x, centerY), NUIPoint(bounds.x + bounds.width, centerY),
+                      1.0f, ink.withAlpha(0.22f));
+
+    // One column per pixel: any finer is invisible, any coarser loses transients.
+    const int columns = std::max(2, static_cast<int>(bounds.width));
+    const size_t perColumn = std::max<size_t>(1, displayBufferSize_ / static_cast<size_t>(columns));
+
+    scopeTopPts_.clear();
+    scopeBottomPts_.clear();
+    scopeRmsVals_.clear();
+    scopeTopPts_.reserve(columns);
+    scopeBottomPts_.reserve(columns);
+    scopeRmsVals_.reserve(columns);
+
+    // FIXED display gain, and fixed is the load-bearing word. The old auto-gain
+    // renormalised to the window maximum every frame, so the trace always
+    // filled the height and loudness could not be read at all. A constant
+    // mapping keeps quiet short and loud tall.
+    //
+    // Higher than the clips' 1.45 because this widget is ~35 px tall and the
+    // clips are ~40: at 1.45 typical programme material (-18..-12 dBFS) drew a
+    // 5 px band. 2.2 puts full height at about -7 dBFS, so mixed content uses
+    // most of the box and anything hotter flattens against the top — which is
+    // the right failure, because the two meters beside it carry absolute level
+    // and this does not.
+    constexpr float kWaveDisplayGain = 2.2f;
+
+    bool anySignal = false;
+    for (int c = 0; c < columns; ++c) {
+        const size_t begin = static_cast<size_t>(c) * perColumn;
+        float mn = 0.0f, mx = 0.0f, sumSq = 0.0f;
+        size_t n = 0;
+        for (size_t k = 0; k < perColumn; ++k) {
+            const size_t idx = (currentSample_ + begin + k) % displayBufferSize_;
+            const float raw = (displayBuffer_[idx * 2] + displayBuffer_[idx * 2 + 1]) * 0.5f;
+            // A misbehaving source can hand us Inf/NaN; neither may reach the fill.
+            if (!std::isfinite(raw)) continue;
+            mn = std::min(mn, raw);
+            mx = std::max(mx, raw);
+            sumSq += raw * raw;
+            ++n;
+        }
+        const float rms = (n > 0) ? std::sqrt(sumSq / static_cast<float>(n)) : 0.0f;
+        if (mx - mn > 1e-4f) anySignal = true;
+
+        const float normMin = std::clamp(mn * kWaveDisplayGain, -1.0f, 1.0f);
+        const float normMax = std::clamp(mx * kWaveDisplayGain, -1.0f, 1.0f);
+        float topY = centerY - normMax * halfH;
+        float bottomY = centerY - normMin * halfH;
+        // Quiet-but-present audio keeps a hairline; true silence stays flat.
+        if (bottomY - topY > 0.0f && bottomY - topY < 1.0f) {
+            const float mid = (topY + bottomY) * 0.5f;
+            topY = mid - 0.5f;
+            bottomY = mid + 0.5f;
+        }
+        const float px = bounds.x + (static_cast<float>(c) + 0.5f) *
+                                        (bounds.width / static_cast<float>(columns));
+        scopeTopPts_.emplace_back(px, topY);
+        scopeBottomPts_.emplace_back(px, bottomY);
+        scopeRmsVals_.push_back(std::clamp(rms * kWaveDisplayGain, 0.0f, 1.0f));
     }
-    if (maxAbs <= 0.00011f) {
+
+    if (!anySignal) {
         renderer.drawTextCentered("SCOPE", bounds, 9.0f, textColor_.withAlpha(0.30f));
         return;
     }
-    const float autoGain = std::clamp(0.9f / maxAbs, 1.0f, 8.0f);
 
-    const float halfH = bounds.height * 0.45f;
-    for (size_t i = 0; i < displayBufferSize_; ++i) {
-        const size_t idx = (currentSample_ + i) % displayBufferSize_;
-        const float raw = (displayBuffer_[idx * 2] + displayBuffer_[idx * 2 + 1]) * 0.5f;
-        const float s = std::isfinite(raw) ? raw * autoGain : 0.0f;
-        const float x = bounds.x + (static_cast<float>(i) * bounds.width) /
-                                      static_cast<float>(displayBufferSize_ - 1);
-        const float y = centerY - s * halfH;
-        points.emplace_back(x, y);
+    // Envelope well below the body, with a top-to-bottom falloff, so peaks read
+    // as reach rather than as more body.
+    renderer.fillWaveformGradient(scopeTopPts_.data(), scopeBottomPts_.data(),
+                                  static_cast<int>(scopeTopPts_.size()),
+                                  ink.withAlpha(0.52f), ink.withAlpha(0.38f));
+
+    // RMS body, clamped inside the envelope: a symmetric +/-rms can otherwise
+    // poke past an asymmetric signal's true min/max edge.
+    for (size_t i = 0; i < scopeTopPts_.size(); ++i) {
+        const float rms = scopeRmsVals_[i];
+        const float rmsTop = std::max(scopeTopPts_[i].y, centerY - rms * halfH);
+        float rmsBottom = std::min(scopeBottomPts_[i].y, centerY + rms * halfH);
+        if (rmsBottom < rmsTop) rmsBottom = rmsTop;
+        scopeTopPts_[i].y = rmsTop;
+        scopeBottomPts_[i].y = rmsBottom;
     }
-
-    const float t = 0.5f + 0.5f * std::sin(animationTime_ * 1.4f);
-    NUIColor waveColor = NUIColor::lerp(primaryColor_, secondaryColor_, t).withAlpha(0.9f);
-
-    const float energy = (leftRMSSmoothed_.load() + rightRMSSmoothed_.load()) * 0.5f;
-    const float glow = std::clamp(energy * 2.5f, 0.0f, 1.0f);
-    if (glow > 0.05f) {
-        const float radius = 6.0f;
-        NUIRect inner(bounds.x + radius,
-                      bounds.y + radius,
-                      bounds.width - radius * 2.0f,
-                      bounds.height - radius * 2.0f);
-        if (inner.width > 1.0f && inner.height > 1.0f) {
-            renderer.drawGlow(inner, radius, glow, waveColor);
-        }
-    }
-
-    renderer.drawPolyline(points.data(), static_cast<int>(points.size()), 1.5f, waveColor);
+    renderer.fillWaveform(scopeTopPts_.data(), scopeBottomPts_.data(),
+                          static_cast<int>(scopeTopPts_.size()), ink.withAlpha(0.95f));
 }
 
 void AudioVisualizer::renderArrangementWaveform(NUIRenderer& renderer) {
