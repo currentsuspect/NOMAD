@@ -60,6 +60,38 @@ constexpr float kTextGammaTiny  = 0.74f;  // x-small / small atlases
 constexpr float kTextGammaLarge = 0.93f;  // medium / regular atlases
 constexpr float kTextSharpenTiny  = 0.20f;
 constexpr float kTextSharpenLarge = 0.28f;
+// ATLAS TIER CONTRACT
+//
+// A tier's atlas must be baked at or above the largest font size it serves.
+// Below that it MAGNIFIES its own glyphs — blurring exactly the text the tier
+// exists to sharpen — and, because the aggressive gamma/sharpen treatment is
+// keyed to "this tier is heavily supersampled", it then thickens the blur.
+//
+// F5 was this: Small baked at 16 px served up to 17 px while being treated as
+// the most supersampled tier in the set. The static_asserts below make that
+// state unrepresentable rather than merely wrong.
+constexpr float kTierMaxXSmall = 11.25f;
+constexpr float kTierMaxSmall  = 17.0f;
+constexpr float kTierMaxMedium = 20.5f;
+
+constexpr int kAtlasSizeXSmall  = 20;
+constexpr int kAtlasSizeSmall   = 18;  // was 16: below its own 17 px ceiling
+constexpr int kAtlasSizeMedium  = 22;
+constexpr int kAtlasSizeRegular = 40;
+
+static_assert(kAtlasSizeXSmall >= kTierMaxXSmall, "XSmall atlas magnifies its own range");
+static_assert(kAtlasSizeSmall  >= kTierMaxSmall,  "Small atlas magnifies its own range");
+static_assert(kAtlasSizeMedium >= kTierMaxMedium, "Medium atlas magnifies its own range");
+
+// Whether a tier is supersampled enough to need the softening compensation.
+// Derived from the ratio rather than named tiers: the old code listed XSmall
+// and Small by texture id, so Small kept the heavy treatment long after its
+// ratio stopped justifying it. A ratio cannot fall out of step with itself.
+constexpr float kHeavySupersampleRatio = 1.5f;
+inline bool isHeavilySupersampled(int atlasSize, float maxServed) {
+    return maxServed > 0.0f && static_cast<float>(atlasSize) / maxServed >= kHeavySupersampleRatio;
+}
+
 inline float resolveTextGamma(bool tinyAtlas, float textContrast) {
     return (tinyAtlas ? kTextGammaTiny : kTextGammaLarge) * textContrast;
 }
@@ -1291,9 +1323,9 @@ float NUIRendererGL::getDPIScale() {
 NUIRendererGL::AtlasInfo NUIRendererGL::selectAtlas(float fontSize) const {
     AtlasInfo info;
     
-    const bool useXSmallAtlas = (fontSize <= 11.25f);
-    const bool useSmallAtlas = (!useXSmallAtlas && fontSize <= 17.0f);
-    const bool useMediumAtlas = (!useXSmallAtlas && !useSmallAtlas && fontSize <= 20.5f);
+    const bool useXSmallAtlas = (fontSize <= kTierMaxXSmall);
+    const bool useSmallAtlas = (!useXSmallAtlas && fontSize <= kTierMaxSmall);
+    const bool useMediumAtlas = (!useXSmallAtlas && !useSmallAtlas && fontSize <= kTierMaxMedium);
     
     if (useXSmallAtlas && fontAtlasTextureIdXSmall_ != 0 && atlasFontSizeXSmall_ > 0) {
         info.textureId = fontAtlasTextureIdXSmall_;
@@ -1346,11 +1378,11 @@ bool NUIRendererGL::getTextDiagnostics(TextDiagnostics& out) const {
     out.fontPath = defaultFontPath_.c_str();
 
     // Order matches selectAtlas()'s branch order, smallest served size first.
-    const struct { const char* name; int size; float maxFont; bool tiny; } kTiers[] = {
-        {"XSmall",  atlasFontSizeXSmall_, 11.25f, true},
-        {"Small",   atlasFontSizeSmall_,  17.0f,  true},
-        {"Medium",  atlasFontSizeMedium_, 20.5f,  false},
-        {"Regular", static_cast<int>(atlasFontSize_), 0.0f, false},
+    const struct { const char* name; int size; float maxFont; } kTiers[] = {
+        {"XSmall",  atlasFontSizeXSmall_, kTierMaxXSmall},
+        {"Small",   atlasFontSizeSmall_,  kTierMaxSmall},
+        {"Medium",  atlasFontSizeMedium_, kTierMaxMedium},
+        {"Regular", static_cast<int>(atlasFontSize_), 0.0f},
     };
 
     out.tierCount = 0;
@@ -1359,8 +1391,9 @@ bool NUIRendererGL::getTextDiagnostics(TextDiagnostics& out) const {
         tier.name = t.name;
         tier.atlasSize = t.size;
         tier.maxFontSize = t.maxFont;
-        tier.gamma = resolveTextGamma(t.tiny, textContrast_);
-        tier.sharpen = resolveTextSharpen(t.tiny);
+        const bool tiny = isHeavilySupersampled(t.size, t.maxFont);
+        tier.gamma = resolveTextGamma(tiny, textContrast_);
+        tier.sharpen = resolveTextSharpen(tiny);
     }
     return true;
 }
@@ -2401,7 +2434,7 @@ charSet.push_back(0x23F9); // ⏹ Stop
 
     // Large atlas (36px) for headings and larger controls without oversoft downsampling.
     {
-        const int ATLAS_FONT_SIZE = 40;
+        const int ATLAS_FONT_SIZE = kAtlasSizeRegular;
         atlasFontSize_ = ATLAS_FONT_SIZE;
         if (!buildAtlas(ATLAS_FONT_SIZE,
                         fontAtlasTextureId_,
@@ -2418,7 +2451,7 @@ charSet.push_back(0x23F9); // ⏹ Stop
 
     // Medium atlas (20px) for the common 15-18 px UI copy.
     {
-        const int ATLAS_FONT_SIZE_MEDIUM = 22;
+        const int ATLAS_FONT_SIZE_MEDIUM = kAtlasSizeMedium;
         atlasFontSizeMedium_ = ATLAS_FONT_SIZE_MEDIUM;
         (void)buildAtlas(ATLAS_FONT_SIZE_MEDIUM,
                          fontAtlasTextureIdMedium_,
@@ -2433,7 +2466,7 @@ charSet.push_back(0x23F9); // ⏹ Stop
 
     // Small atlas tuned for dense UI labels around 10-12 px.
     {
-        const int ATLAS_FONT_SIZE_SMALL = 16;
+        const int ATLAS_FONT_SIZE_SMALL = kAtlasSizeSmall;
         atlasFontSizeSmall_ = ATLAS_FONT_SIZE_SMALL;
         (void)buildAtlas(ATLAS_FONT_SIZE_SMALL,
                          fontAtlasTextureIdSmall_,
@@ -2448,7 +2481,7 @@ charSet.push_back(0x23F9); // ⏹ Stop
 
     // Extra-small atlas for the densest 10-11 px copy.
     {
-        const int ATLAS_FONT_SIZE_XSMALL = 20;
+        const int ATLAS_FONT_SIZE_XSMALL = kAtlasSizeXSmall;
         atlasFontSizeXSmall_ = ATLAS_FONT_SIZE_XSMALL;
         (void)buildAtlas(ATLAS_FONT_SIZE_XSMALL,
                          fontAtlasTextureIdXSmall_,
@@ -3246,8 +3279,19 @@ void NUIRendererGL::flush() {
             // coverage lift (gamma < 1 thickens strokes uniformly); the unsharp
             // mask stays gentle because a strong one undershoots and erodes thin
             // features — the 'e' crossbar thins to a 'c' and edges go ragged.
-            const bool tinyAtlas = (currentTextureId_ == fontAtlasTextureIdXSmall_
-                                    || currentTextureId_ == fontAtlasTextureIdSmall_);
+            // Derived from this tier's actual supersampling ratio, not from a
+            // list of tier names. The old test named XSmall and Small, so Small
+            // kept the heavy compensation long after its ratio (16/17, i.e.
+            // magnification) stopped justifying it — that mis-classification
+            // was half of F5.
+            const bool tinyAtlas =
+                (currentTextureId_ == fontAtlasTextureIdXSmall_
+                     ? isHeavilySupersampled(atlasFontSizeXSmall_, kTierMaxXSmall)
+                 : currentTextureId_ == fontAtlasTextureIdSmall_
+                     ? isHeavilySupersampled(atlasFontSizeSmall_, kTierMaxSmall)
+                 : currentTextureId_ == fontAtlasTextureIdMedium_
+                     ? isHeavilySupersampled(atlasFontSizeMedium_, kTierMaxMedium)
+                     : false);
             glUniform1f(primitiveShader_.textSharpenLoc, resolveTextSharpen(tinyAtlas));
             glUniform1f(primitiveShader_.textGammaLoc, resolveTextGamma(tinyAtlas, textContrast_));
         }
