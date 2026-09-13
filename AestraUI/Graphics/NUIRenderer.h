@@ -72,9 +72,19 @@ public:
     // ========================================================================
     
     /**
-     * Push a transform matrix onto the stack.
+     * Push a transform level onto the stack.
+     *
+     * Maps the pushed level's children into the current space as
+     * `p_current = scale * p_child + (tx, ty)`, so a translation pushed inside a
+     * scaled level is scaled by it.
+     *
+     * There is no rotation parameter. One was accepted and stored here for years
+     * and never applied by any backend — the composition ended with a bare
+     * `// Apply rotation` comment. It is removed rather than implemented because
+     * no caller ever passed a non-zero value, and an ignored parameter reads as
+     * a supported feature.
      */
-    virtual void pushTransform(float tx, float ty, float rotation = 0.0f, float scale = 1.0f) = 0;
+    virtual void pushTransform(float tx, float ty, float scale = 1.0f) = 0;
     
     /**
      * Pop the transform matrix from the stack.

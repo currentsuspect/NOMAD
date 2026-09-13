@@ -719,11 +719,10 @@ void NUIRendererGL::clear(const NUIColor& color) {
 // State Management
 // ============================================================================
 
-void NUIRendererGL::pushTransform(float tx, float ty, float rotation, float scale) {
-    Transform t;
+void NUIRendererGL::pushTransform(float tx, float ty, float scale) {
+    NUITransform2D t;
     t.tx = tx;
     t.ty = ty;
-    t.rotation = rotation;
     t.scale = scale;
     transformStack_.push_back(t);
 }
@@ -745,23 +744,14 @@ void NUIRendererGL::setClipRect(const NUIRect& rect) {
     float y1 = rect.y;
     float x2 = rect.right();
     float y2 = rect.bottom();
-    
-    // Apply transform stack manually
+
+    // The same composition applyTransform() uses. This block used to walk the
+    // stack itself, scaling before translating while applyTransform() translated
+    // before scaling — so the scissor rectangle and the geometry it was meant to
+    // clip disagreed for every scale != 1. Both now go through one function, so
+    // they cannot drift apart again.
     if (!transformStack_.empty()) {
-        struct Transform { float tx, ty, rot, scale; };
-        for (const auto& t : transformStack_) {
-            // Apply scale
-            x1 *= t.scale;
-            y1 *= t.scale;
-            x2 *= t.scale;
-            y2 *= t.scale;
-            
-            // Apply translation
-            x1 += t.tx;
-            y1 += t.ty;
-            x2 += t.tx;
-            y2 += t.ty;
-        }
+        composeTransformStack(transformStack_).applyToRect(x1, y1, x2, y2);
     }
     
     // Normalize if scale was negative (unlikely but safe)
@@ -3524,14 +3514,11 @@ void NUIRendererGL::applyTransform(float& x, float& y) {
     if (transformStack_.empty()) {
         return;
     }
-    
-    for (const auto& t : transformStack_) {
-        x += t.tx;
-        y += t.ty;
-        x *= t.scale;
-        y *= t.scale;
-        // Apply rotation
-    }
+
+    // One composition, shared with setClipRect(). These used to be two separate
+    // walks of the same stack in opposite operation orders, so clipped geometry
+    // and its clip rectangle landed in different places for any scale != 1.
+    composeTransformStack(transformStack_).applyToPoint(x, y);
 }
 
 void NUIRendererGL::updateProjectionMatrix() {
