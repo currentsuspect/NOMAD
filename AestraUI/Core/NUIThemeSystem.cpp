@@ -883,12 +883,16 @@ NUIThemeProperties NUIThemePresets::createAestraDark() {
     // --- Text ---
     // SEMANTIC TEXT TIERS ARE COLOURS, NOT ALPHA.
     //
-    // These were white at 0.90/0.50/0.38/0.25. Encoding the tier as alpha has
-    // two costs. It compounds: a call site that reasonably writes
-    // textSecondary.withAlpha(0.72) lands at 3.25:1, below the WCAG floor,
-    // without anyone choosing that. And it is theme-dependent — the same alpha
-    // reads as one weight on a dark ground and another on a light one, so no
-    // single tier definition could serve both.
+    // These were white at 0.90/0.50/0.38/0.25 — same RGB, different alpha.
+    // NUIColor::withAlpha replaces alpha, it does not multiply it, so a call
+    // site that reasonably writes textSecondary.withAlpha(0.72) does not land
+    // at some intermediate value between 0.50 and 0.72 — it lands at exactly
+    // 0.72, identical to what textPrimary.withAlpha(0.72) would produce. Since
+    // every tier shared the same RGB, a shared call-site alpha erased the tier
+    // distinction outright rather than merely weakening it. Encoding as alpha
+    // is also theme-dependent — the same alpha reads as one weight on a dark
+    // ground and another on a light one, so no single tier definition could
+    // serve both.
     //
     // As opaque values the tier means the same thing wherever it is drawn, and
     // alpha goes back to meaning transparency. Each is chosen for a measured

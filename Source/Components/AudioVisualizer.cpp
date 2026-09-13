@@ -856,13 +856,22 @@ void AudioVisualizer::renderCompactWaveform(NUIRenderer& renderer) {
         size_t n = 0;
         for (size_t k = 0; k < perColumn; ++k) {
             const size_t idx = (currentSample_ + begin + k) % displayBufferSize_;
-            const float raw = (displayBuffer_[idx * 2] + displayBuffer_[idx * 2 + 1]) * 0.5f;
-            // A misbehaving source can hand us Inf/NaN; neither may reach the fill.
-            if (!std::isfinite(raw)) continue;
-            mn = std::min(mn, raw);
-            mx = std::max(mx, raw);
-            sumSq += raw * raw;
-            ++n;
+            // Left and right are folded into the envelope independently, not
+            // averaged. AestraContent drives this widget as CompactWaveform with
+            // setShowStereo(true) — averaging L+R collapses to zero for any
+            // equal-and-opposite anti-phase content, which reads as silence
+            // ("SCOPE" placeholder below) even though real audio is present.
+            // For mono input, where both channels already carry the same
+            // sample, folding both is a no-op: n and sumSq double together, so
+            // the RMS ratio and the min/max envelope are unchanged.
+            for (const float sample : {displayBuffer_[idx * 2], displayBuffer_[idx * 2 + 1]}) {
+                // A misbehaving source can hand us Inf/NaN; neither may reach the fill.
+                if (!std::isfinite(sample)) continue;
+                mn = std::min(mn, sample);
+                mx = std::max(mx, sample);
+                sumSq += sample * sample;
+                ++n;
+            }
         }
         const float rms = (n > 0) ? std::sqrt(sumSq / static_cast<float>(n)) : 0.0f;
         if (mx - mn > 1e-4f) anySignal = true;
